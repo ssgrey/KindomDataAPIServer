@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>启动程序</title>
+</head>
+<body>
+    <!-- 方法1：直接链接（最简单） -->
+    <a href='kingdomapi://'>点击启动程序</a>
+      
+    <!-- 方法2：带输入框的版本 -->
+    <div style="margin-top:20px;">
+        <input id="param1" placeholder="参数1" value="user123">
+        <button onclick="launchWithParams()">自定义启动</button>
+    </div>
+    
+    <script>
+        function launchWithParams() {
+            const p1 = document.getElementById('param1').value;
+            window.location.href = `kingdomapi://${p1}`;
+        }
+    </script>
+</body>
+</html>
