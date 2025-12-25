@@ -1,6 +1,0 @@
-Windows Registry Editor Version 5.00
-[HKEY_CLASSES_ROOT\kingdomapi]
-"URL Protocol"=""
-
-[HKEY_CLASSES_ROOT\kingdomapi\shell\open\command]
-@="\"D:\\DownLoad\\KindomFile\\CommercialSDK_2025_19.0.00090.0-shixin\\CommercialSDK_2025_19.0.00090.0\\SampleProjects\\KindomDataAPIServer\\bin\\Debug\\KindomDataAPIServer.exe\" \"%1\""
