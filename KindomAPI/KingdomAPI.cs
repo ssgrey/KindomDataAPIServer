@@ -54,16 +54,21 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
-        public bool LoginOn(string loginName)
+        public bool LoginOn(string loginName,string dbuserName, string dbpassword)
         {
             try
             {
                 if (project == null)
                 {
-                    project = Utils.CreateProject(ProjectPath);
+                    project = new Project(ProjectPath);
                 }
                 CurrentLoginName = loginName;
+
+                project.DBUserName = dbuserName;
+                project.SetPassword(dbpassword);
+
                 project.LogOn(CurrentLoginName);
+
                 return true;
             }
             catch (Exception ex)

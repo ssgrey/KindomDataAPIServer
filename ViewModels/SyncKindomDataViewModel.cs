@@ -91,6 +91,37 @@ namespace KindomDataAPIServer.ViewModels
         }
 
 
+        private string _DBUserName;
+        public string DBUserName
+        {
+            get
+            {
+                return _DBUserName;
+            }
+            set
+            {
+
+                SetProperty(ref _DBUserName, value, nameof(DBUserName));
+
+            }
+        }
+
+
+        private string _DBPassword;
+        public string DBPassword
+        {
+            get
+            {
+                return _DBPassword;
+            }
+            set
+            {
+
+                SetProperty(ref _DBPassword, value, nameof(DBPassword));
+
+            }
+        }
+
         private List<string> _Authors;
         public List<string> Authors
         {
@@ -144,7 +175,8 @@ namespace KindomDataAPIServer.ViewModels
             if (!string.IsNullOrEmpty(LoginName))
             {
                 ProgressValue = 0;
-                bool res = KingdomAPI.Instance.LoginOn(LoginName);
+                KindomData = new ProjectResponse();
+                bool res = KingdomAPI.Instance.LoginOn(LoginName,DBUserName,DBPassword);
                 if (!res)
                 {
                     DXMessageBox.Show("Login failed, please try again！");
@@ -183,7 +215,12 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                DXMessageBox.Show("Kindom data loading failed：" + ex.Message);
+                string res = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    res += ex.InnerException.Message;
+                }
+                DXMessageBox.Show("Kindom data loading failed：" + res);
                 return;
             }
             finally
