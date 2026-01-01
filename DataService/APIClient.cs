@@ -108,7 +108,8 @@ namespace KindomDataAPIServer.DataService
                 }
                 else
                 {
-                    throw new HttpRequestException($"HTTP请求失败: {response.StatusCode}");
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent}");
                 }
             }
             catch (Exception ex)

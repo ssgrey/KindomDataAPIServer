@@ -270,14 +270,27 @@ namespace KindomDataAPIServer.KindomAPI
                     x => true,
                     false).ToList();
 
-                var formationNames = context.Get(new FormationName(),
+                var formationNames = context.Get(new FormationTopName(),
                      x => new CheckNameExport
                      {
                          Name = x.Name,
                      },
                      x => true,
                      false).ToList();
+
+                var formationTopNames = context.Get(new FormationTopName(),
+     x => new 
+     {
+         data = x,
+     },
+     x => true,
+     false).ToList();
+
+
                 formationNames = formationNames.Where(o=>!string.IsNullOrEmpty(o.Name)).ToList();
+
+
+
                 return new ProjectResponse
                 {
                     ProjectPath = this.ProjectPath,

@@ -32,6 +32,11 @@ namespace KindomDataAPIServer.Views
         public SyncKindomDataView(string[] args)
         {
             InitializeComponent();
+            Ini(args);
+        }
+
+        private void Ini(string[] args)
+        {
             ViewModel = new SyncKindomDataViewModel();
             this.DataContext = ViewModel;
             LogManagerService.Instance.TextBox = logger;
@@ -40,7 +45,6 @@ namespace KindomDataAPIServer.Views
             {
                 if (args != null && args.Length > 0)
                 {
-
                     string decodedArgs = System.Uri.UnescapeDataString(args[0]);
                     string joinedArgs = string.Join(" ", args);
 
@@ -53,7 +57,7 @@ namespace KindomDataAPIServer.Views
                 }
                 else
                 {
-                    string decodedArgs = File.ReadAllText("123.txt");
+                    string decodedArgs = File.ReadAllText("tempArgs.txt");
                     string joinedArgs = string.Join(" ", args);
                     var apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
