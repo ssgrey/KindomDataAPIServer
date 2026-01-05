@@ -63,8 +63,14 @@ namespace KindomDataAPIServer.KindomAPI
                     project = new Project(ProjectPath);
                 }
                 CurrentLoginName = loginName;
-
-                project.DBUserName = dbuserName;
+                if(string.IsNullOrWhiteSpace(dbuserName))
+                {
+                    project.DBUserName = "";
+                }
+                else
+                {
+                    project.DBUserName = dbuserName;
+                }
                 project.SetPassword(dbpassword);
 
                 project.LogOn(CurrentLoginName);
@@ -284,17 +290,40 @@ namespace KindomDataAPIServer.KindomAPI
                      false).ToList();
 
                 var formationTopNames = context.Get(new FormationTopName(),
-     x => new 
-     {
-         data = x,
-     },
-     x => true,
-     false).ToList();
+                 x => new 
+                 {
+                     data = x,
+                 },
+                 x => true,
+                 false).ToList();
 
 
                 formationNames = formationNames.Where(o=>!string.IsNullOrEmpty(o.Name)).ToList();
 
+                var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
+                 x => new
+                 {
+                     data = x,
+                 },
+                 x => true,
+                 false).ToList();
 
+                var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
+                         x => new
+                         {
+                             data = x,
+                         },
+                         x => true,
+                         false).ToList();
+
+               var res =  boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
+                var ProductionEntity = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                         x => new
+                         {
+                             data = x,
+                         },
+                         x =>  x.BoreholeId == res.BoreholeId,
+                         false).ToList();
 
                 return new ProjectResponse
                 {
