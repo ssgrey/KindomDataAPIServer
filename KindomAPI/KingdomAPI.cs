@@ -46,7 +46,7 @@ namespace KindomDataAPIServer.KindomAPI
                 {
                     project.Dispose();
                 }
-                project = Utils.CreateProject(ProjectPath);
+                project = new Project(ProjectPath);
             }
             catch (Exception ex)
             {
@@ -54,27 +54,108 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
-        public bool LoginOn(string loginName,string dbuserName, string dbpassword)
+
+        private void ListAvailableLogons(string dbUser, string dbPassword)
+        {
+            Console.WriteLine("Login name not specified.");
+            try
+            {
+                    if (!string.IsNullOrWhiteSpace(dbUser))
+                    {
+                        project.DBUserName = dbUser;
+                    }
+                    if (!string.IsNullOrWhiteSpace(dbPassword))
+                    {
+                        project.SetPassword(dbPassword);
+                    }
+
+                    var logons = project.AuthorizedLogOnAuthorNames ?? Enumerable.Empty<string>();
+                    var logonList = logons.Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
+
+                    if (logonList.Count == 0)
+                    {
+                        Console.WriteLine("No authorized logon names found for the project.");
+                        return;
+                    }
+
+                    Console.WriteLine("Available logon names:");
+                    foreach (var logon in logonList)
+                    {
+                        Console.WriteLine($"  {logon}");
+                    }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to read authorized logon names: {ex.Message}");
+            }
+        }
+
+        public List<string> LoginDB(string dbUser, string dbPassword)
         {
             try
             {
                 if (project == null)
                 {
-                    project = new Project(ProjectPath);
+                    LogManagerService.Instance.Log($"please select project path first!");
+                    return null;
                 }
-                CurrentLoginName = loginName;
-                if(string.IsNullOrWhiteSpace(dbuserName))
+                if (!string.IsNullOrWhiteSpace(dbUser))
                 {
-                    project.DBUserName = "";
+                    project.DBUserName = dbUser;
                 }
                 else
                 {
-                    project.DBUserName = dbuserName;
+                    project.DBUserName = "";
                 }
-                project.SetPassword(dbpassword);
+                if (!string.IsNullOrWhiteSpace(dbPassword))
+                {
+                    project.SetPassword(dbPassword);
+                }
+                else
+                {
+                    project.SetPassword("");
+                }
 
+                var logons = project.AuthorizedLogOnAuthorNames ?? Enumerable.Empty<string>();
+                var logonList = logons.Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
+
+
+               // CurrentLoginName = loginName;
+                //if(string.IsNullOrWhiteSpace(dbuserName))
+                //{
+                //    project.DBUserName = "";
+                //}
+                //else
+                //{
+                //    project.DBUserName = dbuserName;
+                //}
+                //project.SetPassword(dbpassword);
+
+                //project.LogOn(CurrentLoginName);
+
+                return logonList;
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"LoginDB failed: {ex.Message}");
+            }
+            return null;
+        }
+
+
+        public bool LoadByUser(string loginName)
+        {
+            try
+            {
+                if (project == null)
+                {
+                    LogManagerService.Instance.Log($"please select project path first!");
+                    return false;
+                }
+
+                CurrentLoginName = loginName;
                 project.LogOn(CurrentLoginName);
-
                 return true;
             }
             catch (Exception ex)
@@ -300,30 +381,30 @@ namespace KindomDataAPIServer.KindomAPI
 
                 formationNames = formationNames.Where(o=>!string.IsNullOrEmpty(o.Name)).ToList();
 
-                var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
-                 x => new
-                 {
-                     data = x,
-                 },
-                 x => true,
-                 false).ToList();
+               // var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
+               //  x => new
+               //  {
+               //      data = x,
+               //  },
+               //  x => true,
+               //  false).ToList();
 
-                var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
-                         x => new
-                         {
-                             data = x,
-                         },
-                         x => true,
-                         false).ToList();
+               // var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
+               //          x => new
+               //          {
+               //              data = x,
+               //          },
+               //          x => true,
+               //          false).ToList();
 
-               var res =  boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
-                var ProductionEntity = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-                         x => new
-                         {
-                             data = x,
-                         },
-                         x =>  x.BoreholeId == res.BoreholeId,
-                         false).ToList();
+               //var res =  boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
+               // var ProductionEntity = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+               //          x => new
+               //          {
+               //              data = x,
+               //          },
+               //          x =>  x.BoreholeId == res.BoreholeId,
+               //          false).ToList();
 
                 return new ProjectResponse
                 {

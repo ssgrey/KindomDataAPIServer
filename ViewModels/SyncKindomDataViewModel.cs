@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.UI.WebControls;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -60,8 +61,6 @@ namespace KindomDataAPIServer.ViewModels
                         ProgressValue = 0;
 
                         KingdomAPI.Instance.SetProjectPath(_ProjectPath);
-                        Authors = KingdomAPI.Instance.GetProjectAuthors();
-                        LoginName = Authors.FirstOrDefault();
                     }
                     catch (Exception ex)
                     {
@@ -172,19 +171,46 @@ namespace KindomDataAPIServer.ViewModels
 
         public DelegateCommand LoginCommand => new DelegateCommand(() =>
         {
+            if (!string.IsNullOrEmpty(ProjectPath))
+            {
+                ProgressValue = 0;
+                KindomData = new ProjectResponse();
+                Authors = new List<string>();
+                LoginName = "";
+
+                var res = KingdomAPI.Instance.LoginDB(DBUserName, DBPassword);
+
+                if (res!=null)
+                {
+                    Authors = res;
+                    LoginName = Authors.FirstOrDefault();
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"LoginDB failed！");
+                }
+            }
+            else
+            {
+                DXMessageBox.Show("The projectpath cannot be empty！");
+            }
+        });
+
+        public DelegateCommand LoadCommand => new DelegateCommand(() =>
+        {
             if (!string.IsNullOrEmpty(LoginName))
             {
                 ProgressValue = 0;
                 KindomData = new ProjectResponse();
-                bool res = KingdomAPI.Instance.LoginOn(LoginName,DBUserName,DBPassword);
+                bool res = KingdomAPI.Instance.LoadByUser(LoginName);
                 if (!res)
                 {
-                    DXMessageBox.Show("Login failed, please try again！");
+                    DXMessageBox.Show("load failed, please try again！");
                 }
                 else
                 {
                     LoadKingdomData();
-                }
+                }                     
             }
             else
             {
@@ -192,6 +218,7 @@ namespace KindomDataAPIServer.ViewModels
             }
         });
 
+        
         private ProjectResponse _KindomData;
         public ProjectResponse KindomData
         {

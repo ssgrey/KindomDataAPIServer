@@ -33,11 +33,6 @@
                         <Label Content="Project Path" Width="80"></Label>
                         <dxe:ButtonEdit  Text="{Binding ProjectPath}" IsReadOnly="True" Width="180" Height="24" DefaultButtonClick="{DXEvent 'BrowseProjectPath()'}" ></dxe:ButtonEdit>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" >
-                        <Label Content="User" Width="80"></Label>
-                        <dxe:ComboBoxEdit Width="180" Height="23"  EditValue="{Binding LoginName,UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding Authors}"  IsTextEditable="False"></dxe:ComboBoxEdit>
-                        <dx:SimpleButton Content="Login" Height="23" Command="{Binding LoginCommand}"  Margin="5,0,0,0"></dx:SimpleButton>
-                    </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Top" >
                         <Label Content="DB Username" Width="80"></Label>
                         <dxe:TextEdit  Text="{Binding DBUserName,UpdateSourceTrigger=PropertyChanged}" NullText="can be empty"  Width="180" Height="24" ></dxe:TextEdit>
@@ -45,7 +40,14 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Top" >
                         <Label Content="DB Password" Width="80"></Label>
                         <dxe:PasswordBoxEdit  Text="{Binding DBPassword,UpdateSourceTrigger=PropertyChanged}" NullText="can be empty"  Width="180" Height="24" ></dxe:PasswordBoxEdit>
+                        <dx:SimpleButton Content="Login" Height="23"  Width="55" Command="{Binding LoginCommand}"  Margin="5,0,0,0"></dx:SimpleButton>
                     </StackPanel>
+                    <StackPanel Orientation="Horizontal" >
+                        <Label Content="User" Width="80"></Label>
+                        <dxe:ComboBoxEdit Width="180" Height="23"  EditValue="{Binding LoginName,UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding Authors}"  IsTextEditable="False"></dxe:ComboBoxEdit>
+                        <dx:SimpleButton Content="Load" Height="23" Width="55" Command="{Binding LoadCommand}"  Margin="5,0,0,0"></dx:SimpleButton>
+                    </StackPanel>
+
                 </StackPanel>
                 <Grid Grid.Row="1" x:Name="dataGrid" DataContext="{Binding KindomData}">
                     <Grid.ColumnDefinitions>
