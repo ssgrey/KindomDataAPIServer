@@ -110,12 +110,11 @@ namespace KindomDataAPIServer.DataService
                 {
                     var streamContent = new StreamContent(stream);
                     var stringContent = new StringContent(flag);
-                    //formData.Add(streamContent, "proto_creation_data", "data.pbf");
                     formData.Add(streamContent, "File", "data.pbf");
                     formData.Add(stringContent, "overwrite_flag");
                     var httpResult = await _apiClient.Client.PostAsync(url, formData);
                     var responseContent = await httpResult.Content.ReadAsStringAsync();
-
+                    LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
                     if (httpResult.IsSuccessStatusCode)
                     {
                         var result = JsonHelper.ConvertFrom<WellOperationResult>(responseContent);
@@ -130,7 +129,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"批量创建井段信息失败: {ex.Message}");
+                LogManagerService.Instance.Log($"batch_create_well_formation: {ex.Message}");
                 throw ex;
             }
         }
@@ -150,7 +149,7 @@ namespace KindomDataAPIServer.DataService
                     formData.Add(stringContent, "overwrite_flag");
                     var httpResult = await _apiClient.Client.PostAsync(url, formData);
                     var responseContent = await httpResult.Content.ReadAsStringAsync();
-
+                    LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
                     if (httpResult.IsSuccessStatusCode)
                     {
                         var result = JsonHelper.ConvertFrom<WellOperationResult>(responseContent);
@@ -165,7 +164,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"批量创建井段信息失败: {ex.Message}");
+                LogManagerService.Instance.Log($"batch_create_well_log: {ex.Message}");
                 throw ex;
             }
         }
@@ -183,6 +182,7 @@ namespace KindomDataAPIServer.DataService
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var httpResult = await _apiClient.Client.PostAsync(url, content);
+                LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
                 if (httpResult.IsSuccessStatusCode)
                 {
                     Stream stream = await httpResult.Content.ReadAsStreamAsync();

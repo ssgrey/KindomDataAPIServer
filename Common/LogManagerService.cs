@@ -20,7 +20,10 @@ namespace KindomDataAPIServer.Common
 
         public static LogManagerService Instance => _instance.Value;
 
-
+        /// <summary>
+        /// 调试模式
+        /// </summary>
+        public bool IsDebugMode { get; set; } = true;
         public System.Windows.Controls.RichTextBox TextBox { get; set; }
         public void Log(string message)
         {
@@ -43,6 +46,13 @@ namespace KindomDataAPIServer.Common
             {
                 // 可根据需要处理异常
             }
+        }
+
+
+        public void LogDebug(string message)
+        {
+            if(IsDebugMode)
+                 Log(message);
         }
 
         /// <summary>

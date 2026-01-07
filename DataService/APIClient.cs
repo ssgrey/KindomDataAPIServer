@@ -57,6 +57,7 @@ namespace KindomDataAPIServer.DataService
 
                 var url = BuildUrl(endpoint, parameters);
                 var response = await Client.GetAsync(url);
+                LogManagerService.Instance.LogDebug(url + "    " + response.StatusCode);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -96,6 +97,7 @@ namespace KindomDataAPIServer.DataService
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var response = await Client.PostAsync(url, content);
+                LogManagerService.Instance.LogDebug(url + "    " + response.StatusCode);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -116,44 +118,6 @@ namespace KindomDataAPIServer.DataService
             {
                 OnRequestFailed($"POST {endpoint} - 失败: {ex.Message}");
                 throw ex;
-            }
-        }
-
-
-        public async Task<TResponse> PutAsync<TRequest, TResponse>(string endpoint, TRequest data)
-        {
-            try
-            {
-                OnRequestStarted($"PUT {endpoint}");
-
-                var url = BuildUrl(endpoint);
-                var json = JsonHelper.ToJson(data);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var response = await Client.PutAsync(url, content);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    var result = JsonHelper.ConvertFrom<ResponseModel<TResponse>>(responseContent);
-                    if (result.Success)
-                    {
-                        OnRequestCompleted($"PUT {endpoint} - 成功");
-                        return result.Data;
-                    }
-                    else
-                    {
-                        throw new ApiException(result.Message, result.Code);
-                    }
-                }
-                else
-                {
-                    throw new HttpRequestException($"HTTP请求失败: {response.StatusCode}");
-                }
-            }
-            catch (Exception ex)
-            {
-                OnRequestFailed($"PUT {endpoint} - 失败: {ex.Message}");
-                throw;
             }
         }
 
@@ -215,7 +179,7 @@ namespace KindomDataAPIServer.DataService
                 var queryString = string.Join("&", parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
                 url += $"?{queryString}";
             }
-
+            LogManagerService.Instance.LogDebug(url);
             return url;
         }
 
