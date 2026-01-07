@@ -33,7 +33,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"获取所有井数据失败: {ex.Message}");
+                LogManagerService.Instance.Log($"获取所有井数据失败: {ex.Message + ex.StackTrace}");
                 throw;
             }
         }
@@ -46,7 +46,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"获取所有井数据失败: {ex.Message}");
+                LogManagerService.Instance.Log($"获取所有井数据失败: {ex.Message + ex.StackTrace}");
                 throw;
             }
         }
@@ -59,7 +59,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"批量创建井头信息失败: {ex.Message}");
+                LogManagerService.Instance.Log($"批量创建井头信息失败: {ex.Message + ex.StackTrace}");
                 throw;
             }
 
@@ -76,7 +76,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"batch_create_well_header failed: {ex.Message}");
+                LogManagerService.Instance.Log($"batch_create_well_header failed: {ex.Message + ex.StackTrace}");
                 throw;
             }
 
@@ -92,7 +92,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"get_dataset_list failed: {ex.Message}");
+                LogManagerService.Instance.Log($"get_dataset_list failed: {ex.Message + ex.StackTrace}");
                 throw;
             }
 
@@ -129,7 +129,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"batch_create_well_formation: {ex.Message}");
+                LogManagerService.Instance.Log($"batch_create_well_formation: {ex.Message + ex.StackTrace}");
                 throw ex;
             }
         }
@@ -164,7 +164,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"batch_create_well_log: {ex.Message}");
+                LogManagerService.Instance.Log($"batch_create_well_log: {ex.Message + ex.StackTrace}");
                 throw ex;
             }
         }
@@ -198,7 +198,7 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"get_all_meta_objects_by_objecttype_in_protobuf filed: {ex.Message}");
+                LogManagerService.Instance.Log($"get_all_meta_objects_by_objecttype_in_protobuf filed: {ex.Message + ex.StackTrace}");
                 throw;
             }
         }

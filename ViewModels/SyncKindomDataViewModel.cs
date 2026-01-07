@@ -36,11 +36,14 @@ namespace KindomDataAPIServer.ViewModels
         }
 
         public ICommand SyncCommand { get; set; }
+        public ICommand LoadSyncCommand { get; set; }
         public SyncKindomDataViewModel()
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
+            LoadSyncCommand = new DevExpress.Mvvm.AsyncCommand(LoadSyncCommandAction);
         }
+
 
         #region Properties
         private string _ProjectPath;
@@ -218,7 +221,15 @@ namespace KindomDataAPIServer.ViewModels
             }
         });
 
-        
+        private async Task LoadSyncCommandAction()
+        {
+
+            await Task.Run(() =>
+            {
+
+            });
+        }
+
         private ProjectResponse _KindomData;
         public ProjectResponse KindomData
         {
@@ -482,7 +493,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                DXMessageBox.Show("Data synchronize failed：" + ex.Message);
+                DXMessageBox.Show("Data synchronize failed：" + ex.Message + ex.Message);
                 return;
             }
             finally

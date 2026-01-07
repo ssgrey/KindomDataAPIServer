@@ -48,7 +48,7 @@ namespace KindomDataAPIServer.Views
                     string decodedArgs = System.Uri.UnescapeDataString(args[0]);
                     string joinedArgs = string.Join(" ", args);
 
-                    //LogManagerService.Instance.Log("Web args:" +  decodedArgs);
+                    LogManagerService.Instance.LogDebug("Web args:" +  decodedArgs);
 
                     var apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
