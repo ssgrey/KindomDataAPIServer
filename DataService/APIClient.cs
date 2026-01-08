@@ -19,8 +19,12 @@ namespace KindomDataAPIServer.DataService
 
         public ApiClient()
         {
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+            };
             // 初始化HttpClient
-            Client = new HttpClient();
+            Client = new HttpClient(handler);
             Client.DefaultRequestHeaders.Accept.Clear();
             Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 

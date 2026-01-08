@@ -53,7 +53,14 @@ namespace KindomDataAPIServer.Views
                     var apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
                     client.SetHeaders(apiData.Token, apiData.Tetproj);
-                    client.SetBaseUrl($"http://{apiData.Ip}:{apiData.Port}/tet/");
+                    if (apiData.Port.Contains("30015"))
+                    {
+                        client.SetBaseUrl($"http://{apiData.Ip}:{apiData.Port}/tet/");
+                    }
+                    else
+                    {
+                        client.SetBaseUrl($"https://{apiData.Ip}/tet/");
+                    }
                 }
                 else
                 {
@@ -62,7 +69,14 @@ namespace KindomDataAPIServer.Views
                     var apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
                     client.SetHeaders(apiData.Token, apiData.Tetproj);
-                    client.SetBaseUrl($"http://{apiData.Ip}:{apiData.Port}/tet/");
+                    if (apiData.Port.Contains("30015"))
+                    {
+                        client.SetBaseUrl($"http://{apiData.Ip}:{apiData.Port}/tet/");
+                    }
+                    else
+                    {
+                        client.SetBaseUrl($"https://{apiData.Ip}:{apiData.Port}/tet/");
+                    }
                 }
             }
             catch (Exception ex)

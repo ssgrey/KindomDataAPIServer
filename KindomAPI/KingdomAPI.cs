@@ -380,32 +380,32 @@ namespace KindomDataAPIServer.KindomAPI
 
 
                 formationNames = formationNames.Where(o=>!string.IsNullOrEmpty(o.Name)).ToList();
+                #if DEBUG
+                    // var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
+                    //  x => new
+                    //  {
+                    //      data = x,
+                    //  },
+                    //  x => true,
+                    //  false).ToList();
 
-               // var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
-               //  x => new
-               //  {
-               //      data = x,
-               //  },
-               //  x => true,
-               //  false).ToList();
+                    // var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
+                    //          x => new
+                    //          {
+                    //              data = x,
+                    //          },
+                    //          x => true,
+                    //          false).ToList();
 
-               // var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
-               //          x => new
-               //          {
-               //              data = x,
-               //          },
-               //          x => true,
-               //          false).ToList();
-
-               //var res =  boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
-               // var ProductionEntity = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-               //          x => new
-               //          {
-               //              data = x,
-               //          },
-               //          x =>  x.BoreholeId == res.BoreholeId,
-               //          false).ToList();
-
+                    //var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
+                    //var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                    //         x => new
+                    //         {
+                    //             data = x,
+                    //         },
+                    //         x => x.BoreholeId == res.BoreholeId,
+                    //         false).ToList();
+                #endif
                 return new ProjectResponse
                 {
                     ProjectPath = this.ProjectPath,

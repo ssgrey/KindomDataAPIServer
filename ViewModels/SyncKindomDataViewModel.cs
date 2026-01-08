@@ -223,10 +223,11 @@ namespace KindomDataAPIServer.ViewModels
 
         private async Task LoadSyncCommandAction()
         {
-
+            IsEnable = false;
             await Task.Run(() =>
             {
 
+                IsEnable = true;
             });
         }
 
@@ -268,105 +269,6 @@ namespace KindomDataAPIServer.ViewModels
         }
 
         PbViewMetaObjectList WellIDandNameList = null;
-
-
-
-
-        public void CommandAction()
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                IsEnable = false;
-            });
-            try
-            {
-                LogManagerService.Instance.Log($"Kindom wellHeader start synchronize.");
-
-                WellDataRequest wellDataRequest = new WellDataRequest();
-                wellDataRequest.Items = new List<WellItemRequest>();
-                KindomData.Wells.ForEach(well =>
-                {
-                    if (well.IsChecked == true)
-                    {
-                        WellItemRequest item = new WellItemRequest()
-                        {
-                            WellName = well.Uwi,
-                            Alias = well.WellName + "-" + well.BoreholeName,
-                            WellNumber = well.WellNumber,
-                            WellType = 0,
-                            WellTrajectoryType = 0,
-                            Country = well.Country,
-                            Region = well.Region,
-                            Districts = well.Districts,
-                            WellheadX = well.SurfaceX,
-                            WellheadY = well.SurfaceY,
-                            WellboreBottomX = well.BottomX,
-                            WellboreBottomY = well.BottomY,
-                            Longitude = well.Longitude,
-                            Latitude = well.Latitude,
-
-                        };
-                        wellDataRequest.Items.Add(item);
-                    }
-
-                });
-                var tsk = Task.Run(() => wellDataService.batch_create_well_header(wellDataRequest));
-                tsk.Wait();
-                if (tsk.Result !=null)
-                {
-
-                }
-                LogManagerService.Instance.Log($"WellHeader({wellDataRequest.Items.Count}) synchronize over！");
-
-                var tsk2 = Task.Run(() => wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" }));
-                tsk2.Wait();
-                if (tsk2.Result != null)
-                {
-                    WellIDandNameList = tsk2.Result;                  
-                }
-
-                PbWellFormationList pbWellFormationList = KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList);
-
-                var tsk3 = Task.Run(() => wellDataService.batch_create_well_formation(pbWellFormationList));
-                tsk3.Wait();
-
-                if (tsk3.Result != null)
-                {
-                }
-                LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
-
-
-                PbWellLogCreateList wellLogs = KingdomAPI.Instance.GetWellLogs(KindomData,"", WellIDandNameList);
-
-                if (wellLogs.LogList.Count > 0)
-                {
-                    var tsk4 = Task.Run(() => wellDataService.batch_create_well_log(wellLogs));
-                    tsk4.Wait();
-
-                    if (tsk4.Result != null)
-                    {
-                    }
-                    LogManagerService.Instance.Log($"WellFormation({wellLogs.LogList.Count}) synchronize over！");
-                }
-                else
-                {
-                    LogManagerService.Instance.Log($"WellLog Count is 0 ！");
-                }
-
-            }
-            catch (Exception ex)
-            {
-                DXMessageBox.Show("Data synchronization failed：" + ex.Message);
-                return;
-            }
-            finally
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    IsEnable = true;
-                });
-            }
-        }
 
         public async Task SyncCommandAction()
         {
@@ -493,7 +395,8 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                DXMessageBox.Show("Data synchronize failed：" + ex.Message + ex.Message);
+                LogManagerService.Instance.Log(ex.Message + ex.StackTrace);
+                DXMessageBox.Show("Data synchronize failed：" + ex.Message);
                 return;
             }
             finally
