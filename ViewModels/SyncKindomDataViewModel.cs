@@ -203,17 +203,25 @@ namespace KindomDataAPIServer.ViewModels
         {
             if (!string.IsNullOrEmpty(LoginName))
             {
-                ProgressValue = 0;
-                KindomData = new ProjectResponse();
-                bool res = KingdomAPI.Instance.LoadByUser(LoginName);
-                if (!res)
+                Task.Run(() =>
                 {
-                    DXMessageBox.Show("load failed, please try again！");
-                }
-                else
-                {
-                    LoadKingdomData();
-                }                     
+                    IsEnable = false;
+                    ProgressValue = 0;
+                    KindomData = new ProjectResponse();
+                    bool res = KingdomAPI.Instance.LoadByUser(LoginName);
+                    if (!res)
+                    {
+                        Application.Current.Dispatcher.Invoke(new Action(() => {
+                            DXMessageBox.Show("load failed, please try again！");
+                        }));
+                    }
+                    else
+                    {
+                        LoadKingdomData();
+                    }
+                    IsEnable = true;
+                });
+                 
             }
             else
             {
@@ -223,12 +231,32 @@ namespace KindomDataAPIServer.ViewModels
 
         private async Task LoadSyncCommandAction()
         {
-            IsEnable = false;
-            await Task.Run(() =>
+            if (!string.IsNullOrEmpty(LoginName))
             {
+                IsEnable = false;
+                await Task.Run(() =>
+                {
+                    ProgressValue = 0;
+                    KindomData = new ProjectResponse();
+                    bool res = KingdomAPI.Instance.LoadByUser(LoginName);
+                    if (!res)
+                    {
+                        Application.Current.Dispatcher.Invoke(new Action(() => {
+                            DXMessageBox.Show("load failed, please try again！");
+                        }));
+                    }
+                    else
+                    {
+                        LoadKingdomData();
+                    }
 
-                IsEnable = true;
-            });
+                    IsEnable = true;
+                });
+            }
+            else
+            {
+                DXMessageBox.Show("The username cannot be empty！");
+            }
         }
 
         private ProjectResponse _KindomData;
@@ -259,7 +287,10 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     res += ex.InnerException.Message;
                 }
-                DXMessageBox.Show("Kindom data loading failed：" + res);
+                LogManagerService.Instance.Log(res + ex.StackTrace);
+                Application.Current.Dispatcher.Invoke(new Action(() => {
+                    DXMessageBox.Show("Kindom data loading failed：" + res);
+                }));
                 return;
             }
             finally
