@@ -79,23 +79,23 @@
     <Reference Include="DevExpress.Xpf.Printing.v21.2, Version=21.2.3.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="DevExpress.Xpf.Ribbon.v21.2, Version=21.2.3.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="CodeProject.Settings">
-      <HintPath>..\..\Assemblies\CodeProject.Settings.dll</HintPath>
+      <HintPath>packages\KindomDLL\CodeProject.Settings.dll</HintPath>
     </Reference>
     <Reference Include="DevExpress.Xpf.Themes.Office2019Colorful.v21.2, Version=21.2.3.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="Google.Protobuf, Version=3.33.2.0, Culture=neutral, PublicKeyToken=a7d26565bac4d604, processorArchitecture=MSIL">
       <HintPath>packages\Google.Protobuf.3.33.2\lib\net45\Google.Protobuf.dll</HintPath>
     </Reference>
     <Reference Include="IHS.Kingdom.Licensing">
-      <HintPath>..\..\Assemblies\IHS.Kingdom.Licensing.dll</HintPath>
+      <HintPath>packages\KindomDLL\IHS.Kingdom.Licensing.dll</HintPath>
     </Reference>
     <Reference Include="IHS.Kingdom.POCO">
-      <HintPath>..\..\Assemblies\IHS.Kingdom.POCO.dll</HintPath>
+      <HintPath>packages\KindomDLL\IHS.Kingdom.POCO.dll</HintPath>
     </Reference>
     <Reference Include="IHS.Kingdom.WellQuery">
-      <HintPath>..\..\Assemblies\IHS.Kingdom.WellQuery.dll</HintPath>
+      <HintPath>packages\KindomDLL\IHS.Kingdom.WellQuery.dll</HintPath>
     </Reference>
     <Reference Include="IHS.KingdomProjectInfo">
-      <HintPath>..\..\Assemblies\IHS.KingdomProjectInfo.dll</HintPath>
+      <HintPath>packages\KindomDLL\IHS.KingdomProjectInfo.dll</HintPath>
     </Reference>
     <Reference Include="log4net, Version=3.2.0.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
       <HintPath>packages\log4net.3.2.0\lib\net462\log4net.dll</HintPath>
@@ -125,43 +125,43 @@
       <HintPath>packages\Owin.1.0\lib\net40\Owin.dll</HintPath>
     </Reference>
     <Reference Include="Smt">
-      <HintPath>..\..\Assemblies\Smt.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Basics">
-      <HintPath>..\..\Assemblies\Smt.Basics.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Basics.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Bulk">
-      <HintPath>..\..\Assemblies\Smt.Bulk.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Bulk.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Data">
-      <HintPath>..\..\Assemblies\Smt.Data.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Data.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Entities">
-      <HintPath>..\..\Assemblies\Smt.Entities.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Entities.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Entities.Data">
-      <HintPath>..\..\Assemblies\Smt.Entities.Data.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Entities.Data.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Entities.Files">
-      <HintPath>..\..\Assemblies\Smt.Entities.Files.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Entities.Files.dll</HintPath>
     </Reference>
     <Reference Include="Smt.IO">
-      <HintPath>..\..\Assemblies\Smt.IO.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.IO.dll</HintPath>
     </Reference>
     <Reference Include="Smt.IO.Brick">
-      <HintPath>..\..\Assemblies\Smt.IO.Brick.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.IO.Brick.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Projection">
-      <HintPath>..\..\Assemblies\Smt.Projection.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Projection.dll</HintPath>
     </Reference>
     <Reference Include="Smt.SDK">
-      <HintPath>..\..\Assemblies\Smt.SDK.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.SDK.dll</HintPath>
     </Reference>
     <Reference Include="Smt.Segy">
-      <HintPath>..\..\Assemblies\Smt.Segy.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.Segy.dll</HintPath>
     </Reference>
     <Reference Include="Smt.ServiceModel">
-      <HintPath>..\..\Assemblies\Smt.ServiceModel.dll</HintPath>
+      <HintPath>packages\KindomDLL\Smt.ServiceModel.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
