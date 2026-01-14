@@ -271,116 +271,120 @@ namespace KindomDataAPIServer.KindomAPI
 
         public ProjectResponse GetProjectData()
         {
-            var mapUnit = project.MapUnit.ToString();
-            var verticalUnit = project.VerticalUnit.ToString();
-            using (var context = project.GetKingdom())
+            try
             {
-                var boreholes = context.Get(new Borehole(), b => new
+                var mapUnit = project.MapUnit.ToString();
+                var verticalUnit = project.VerticalUnit.ToString();
+                using (var context = project.GetKingdom())
                 {
-                    BoreholeId = b.Id,
-                    BoreholeName = b.Name,
-                    Uwi = b.Uwi,
-                    WellId = b.Well.Id,
-                    WellName = b.Well.Name,
-                    WellNumber = b.Well.WellNumber,
-                    SurfaceX = b.Well.SurfaceLocX,
-                    SurfaceY = b.Well.SurfaceLocY,
-                    Latitude = b.Well.Latitude,
-                    Longitude = b.Well.Longitude,
-                    Country = b.Well.Country.Name,
-                    State = b.Well.State.Name,
-                    County = b.Well.County.Name,
-                   
-                },
-                    _ => true,
-                    false).ToList();
-
-                var boreholeIds = boreholes.Select(b => b.BoreholeId).ToList();
-
-                var digitalLogs = context.Get(new LogData(),
-                    x => new
+                    var boreholes = context.Get(new Borehole(), b => new
                     {
-                        LogData = x,
-                        LogCurveName = x.LogCurveName,
-                    },
-                    x => boreholeIds.Contains(x.BoreholeId),
-                    false).ToList();
+                        BoreholeId = b.Id,
+                        BoreholeName = b.Name,
+                        Uwi = b.Uwi,
+                        WellId = b.Well.Id,
+                        WellName = b.Well.Name,
+                        WellNumber = b.Well.WellNumber,
+                        SurfaceX = b.Well.SurfaceLocX,
+                        SurfaceY = b.Well.SurfaceLocY,
+                        Latitude = b.Well.Latitude,
+                        Longitude = b.Well.Longitude,
+                        Country = b.Well.Country.Name,
+                        State = b.Well.State.Name,
+                        County = b.Well.County.Name,
 
-                var formations = context.Get(new FormationTopPick(),
+                    },
+                        _ => true,
+                        false).ToList();
+
+                    var boreholeIds = boreholes.Select(b => b.BoreholeId).ToList();
+
+                    var digitalLogs = context.Get(new LogData(),
                         x => new
                         {
-                            FormationTop = x,
-                            FormationTopName = x.FormationTopName
+                            LogData = x,
+                            LogCurveName = x.LogCurveName,
                         },
                         x => boreholeIds.Contains(x.BoreholeId),
                         false).ToList();
 
+                    var formations = context.Get(new FormationTopPick(),
+                            x => new
+                            {
+                                FormationTop = x,
+                                FormationTopName = x.FormationTopName
+                            },
+                            x => boreholeIds.Contains(x.BoreholeId),
+                            false).ToList();
 
-                var wells = new List<WellExport>();
-                foreach (var bh in boreholes)
-                {
-                    var logs = digitalLogs.Where(l => l.LogData.BoreholeId == bh.BoreholeId)
-                        .Select(l => new DigitalLogExport
+
+                    var wells = new List<WellExport>();
+                    foreach (var bh in boreholes)
+                    {
+                        var logs = digitalLogs.Where(l => l.LogData.BoreholeId == bh.BoreholeId)
+                            .Select(l => new DigitalLogExport
+                            {
+                                Id = l.LogData.Id,
+                                Name = l.LogCurveName.Name,
+                                NameId = l.LogCurveName.Id,
+                                SampleRate = l.LogData.DepthSampleRate,
+                                StartDepth = l.LogData.StartDepth,
+                                Count = l.LogData.ValuesCount,
+
+                            }).ToList();
+
+                        wells.Add(new WellExport
                         {
-                            Id = l.LogData.Id,
-                            Name = l.LogCurveName.Name,
-                            NameId = l.LogCurveName.Id,
-                            SampleRate = l.LogData.DepthSampleRate,
-                            StartDepth = l.LogData.StartDepth,
-                            Count = l.LogData.ValuesCount,
-
-                        }).ToList();
-
-                    wells.Add(new WellExport
-                    {
-                        BoreholeId = bh.BoreholeId,
-                        BoreholeName = bh.BoreholeName,
-                        WellId = bh.WellId,
-                        WellName = bh.WellName,
-                        Uwi = bh.Uwi,
-                        WellNumber = bh.WellNumber,
-                        SurfaceX = bh.SurfaceX.HasValue ? bh.SurfaceX.Value : 0,
-                        SurfaceY = bh.SurfaceY.HasValue ? bh.SurfaceY.Value : 0,
-                        Latitude = bh.Latitude.HasValue ? bh.Latitude.Value : 0,
-                        Longitude = bh.Longitude.HasValue ? bh.Longitude.Value : 0,
-                        Country = bh.Country,
-                        Region = bh.State,
-                        Districts = bh.County,
-                        MapUnit = mapUnit,
-                        VerticalUnit = verticalUnit,
-                        DigitalLogs = logs
-                    });
-                }
+                            BoreholeId = bh.BoreholeId,
+                            BoreholeName = bh.BoreholeName,
+                            WellId = bh.WellId,
+                            WellName = bh.WellName,
+                            Uwi = bh.Uwi,
+                            WellNumber = bh.WellNumber,
+                            SurfaceX = bh.SurfaceX.HasValue ? bh.SurfaceX.Value : 0,
+                            SurfaceY = bh.SurfaceY.HasValue ? bh.SurfaceY.Value : 0,
+                            Latitude = bh.Latitude.HasValue ? bh.Latitude.Value : 0,
+                            Longitude = bh.Longitude.HasValue ? bh.Longitude.Value : 0,
+                            Country = bh.Country,
+                            Region = bh.State,
+                            Districts = bh.County,
+                            MapUnit = mapUnit,
+                            VerticalUnit = verticalUnit,
+                            DigitalLogs = logs
+                        });
+                    }
 
 
 
-                var logNames = context.Get(new LogCurveName(),
-                    x => new CheckNameExport
-                    {
-                        Name = x.Name,
-                    },
-                    x => true,
-                    false).ToList();
+                    var logNames = context.Get(new LogCurveName(),
+                        x => new CheckNameExport
+                        {
+                            Name = x.Name,
+                        },
+                        x => true,
+                        false).ToList();
 
-                var formationNames = context.Get(new FormationTopName(),
-                     x => new CheckNameExport
-                     {
-                         Name = x.Name,
-                     },
-                     x => true,
-                     false).ToList();
-
-                var formationTopNames = context.Get(new FormationTopName(),
-                 x => new 
-                 {
-                     data = x,
-                 },
-                 x => true,
-                 false).ToList();
+                    var formationNames = context.Get(new FormationTopName(),
+                         x => new CheckNameExport
+                         {
+                             Name = x.Name,
+                         },
+                         x => true,
+                         false).ToList();
 
 
-                formationNames = formationNames.Where(o=>!string.IsNullOrEmpty(o.Name)).ToList();
-                #if DEBUG
+
+
+                    formationNames = formationNames.Where(o => !string.IsNullOrEmpty(o.Name)).ToList();
+#if DEBUG
+
+                    //var formationTopNames = context.Get(new FormationTopName(),
+                    // x => new 
+                    // {
+                    //     data = x,
+                    // },
+                    // x => true,
+                    // false).ToList();
                     // var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
                     //  x => new
                     //  {
@@ -397,25 +401,84 @@ namespace KindomDataAPIServer.KindomAPI
                     //          x => true,
                     //          false).ToList();
 
-                    //var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
-                    //var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-                    //         x => new
-                    //         {
-                    //             data = x,
-                    //         },
-                    //         x => x.BoreholeId == res.BoreholeId,
-                    //         false).ToList();
+                    var res = boreholes.FirstOrDefault(o => o.Uwi == "05123159960000");
+                    var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                             x => new
+                             {
+                                 data = x,
+                             },
+                             x => x.BoreholeId == res.BoreholeId,
+                             false).ToList();
+                    var TestProduction = context.Get(new Smt.Entities.TestProduction(),
+                         x => new
+                         {
+                             data = x,
+                         },
+                          x => x.BoreholeId == res.BoreholeId,
+                         false).ToList();
+
+
+                    var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
+                         x => new
+                         {
+                             data = x,
+                         },
+                          x => x.BoreholeId == res.BoreholeId,
+                         false).ToList();
+                                    var TestProduction3 = context.Get(new Smt.Entities.TestProductionPerforation(),
+                          x => new
+                          {
+                              data = x,
+                          },
+                           x => true,
+                          false).ToList();
+
+                                    var TestProduction4 = context.Get(new Smt.Entities.ProductionEntity(),
+                    x => new
+                    {
+                        data = x,
+                    },
+                    x => true,
+                    false).ToList();
+
+                                    var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
+                    x => new
+                    {
+                        data = x,
+                    },
+                    x => true,
+                    false).ToList();
+
+                                    var TestProduction6 = context.Get(new Smt.Entities.ProductionCumulativeTotal(),
+                    x => new
+                    {
+                        data = x,
+                    },
+                    x => true,
+                    false).ToList();
                 #endif
-                return new ProjectResponse
-                {
-                    ProjectPath = this.ProjectPath,
-                    MapUnit = mapUnit,
-                    VerticalUnit = verticalUnit,
-                    Wells = wells,
-                    FormationNames = formationNames,
-                    LogNames = logNames
-                };
+                    return new ProjectResponse
+                    {
+                        ProjectPath = this.ProjectPath,
+                        MapUnit = mapUnit,
+                        VerticalUnit = verticalUnit,
+                        Wells = wells,
+                        FormationNames = formationNames,
+                        LogNames = logNames
+                    };
+                }
+
             }
+            catch (Exception ex)
+            {
+                string res = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    res += ex.InnerException.Message;
+                }
+                LogManagerService.Instance.Log(res + ex.StackTrace);
+            }
+            return null;
         }
 
 

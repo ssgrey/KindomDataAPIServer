@@ -13,7 +13,6 @@ namespace KindomDataAPIServer.DataService
 
         Task<T> GetAsync<T>(string endpoint, Dictionary<string, string> parameters = null);
         Task<TResponse> PostAsync<TRequest, TResponse>(string endpoint, TRequest data);
-        //Task<TResponse> PutAsync<TRequest, TResponse>(string endpoint, TRequest data);
 
         // 事件
         event EventHandler<string> RequestStarted;

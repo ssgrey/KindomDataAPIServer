@@ -36,12 +36,10 @@ namespace KindomDataAPIServer.ViewModels
         }
 
         public ICommand SyncCommand { get; set; }
-        public ICommand LoadSyncCommand { get; set; }
         public SyncKindomDataViewModel()
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
-            LoadSyncCommand = new DevExpress.Mvvm.AsyncCommand(LoadSyncCommandAction);
         }
 
 
@@ -229,36 +227,6 @@ namespace KindomDataAPIServer.ViewModels
             }
         });
 
-        private async Task LoadSyncCommandAction()
-        {
-            if (!string.IsNullOrEmpty(LoginName))
-            {
-                IsEnable = false;
-                await Task.Run(() =>
-                {
-                    ProgressValue = 0;
-                    KindomData = new ProjectResponse();
-                    bool res = KingdomAPI.Instance.LoadByUser(LoginName);
-                    if (!res)
-                    {
-                        Application.Current.Dispatcher.Invoke(new Action(() => {
-                            DXMessageBox.Show("load failed, please try again！");
-                        }));
-                    }
-                    else
-                    {
-                        LoadKingdomData();
-                    }
-
-                    IsEnable = true;
-                });
-            }
-            else
-            {
-                DXMessageBox.Show("The username cannot be empty！");
-            }
-        }
-
         private ProjectResponse _KindomData;
         public ProjectResponse KindomData
         {
@@ -278,19 +246,20 @@ namespace KindomDataAPIServer.ViewModels
             {
                 IsEnable = false;
                 KindomData = KingdomAPI.Instance.GetProjectData();
-                LogManagerService.Instance.Log( $"Project {ProjectPath} Kindom data loading successful！");
+                if (KindomData == null)
+                {
+                    Application.Current.Dispatcher.Invoke(new Action(() => {
+                        DXMessageBox.Show("Kindom data loading failed！");
+                    }));
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"Project {ProjectPath} Kindom data loading successful！");
+                }
             }
             catch (Exception ex)
             {
-                string res = ex.Message;
-                if (ex.InnerException != null)
-                {
-                    res += ex.InnerException.Message;
-                }
-                LogManagerService.Instance.Log(res + ex.StackTrace);
-                Application.Current.Dispatcher.Invoke(new Action(() => {
-                    DXMessageBox.Show("Kindom data loading failed：" + res);
-                }));
+                LogManagerService.Instance.Log(ex.Message);
                 return;
             }
             finally
@@ -304,7 +273,6 @@ namespace KindomDataAPIServer.ViewModels
         public async Task SyncCommandAction()
         {
              IsEnable = false;
-
             try
             {
                 LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
@@ -356,7 +324,6 @@ namespace KindomDataAPIServer.ViewModels
 
                 WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
 
-                //LogManagerService.Instance.Log($"WellFormation start synchronize！");
 
                 PbWellFormationList pbWellFormationList = KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList);
 
@@ -370,7 +337,10 @@ namespace KindomDataAPIServer.ViewModels
 
                 string resdataSetID = "";
                 var datasetInfos = await wellDataService.get_dataset_list();
-                if (datasetInfos != null&& datasetInfos.Count>= 0)
+
+                LogManagerService.Instance.Log($"datasetInfos1");
+
+                if (datasetInfos != null&& datasetInfos.Count> 0)
                 {
                     resdataSetID = datasetInfos[0].Id;
                 }
@@ -379,7 +349,15 @@ namespace KindomDataAPIServer.ViewModels
                     resdataSetID = await wellDataService.create_well_log_set("KindomDataset");
                 }
 
-              
+                if(string.IsNullOrWhiteSpace(resdataSetID))
+                {
+                    LogManagerService.Instance.Log($"create_well_log_set ID is null");
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"resdataSetID: {resdataSetID}");
+                }
+
                 LogManagerService.Instance.Log($"WellLogs start synchronize！");
 
                 PbWellLogCreateList AllwellLogs = KingdomAPI.Instance.GetWellLogs(KindomData, resdataSetID, WellIDandNameList);
@@ -432,8 +410,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             finally
             {
-
-                    IsEnable = true;
+                 IsEnable = true;
             }
         }
     }
