@@ -166,6 +166,21 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private Visibility _LoginGridVisiable = Visibility.Visible;
+        public Visibility LoginGridVisiable
+        {
+            get
+            {
+                return _LoginGridVisiable;
+            }
+            set
+            {
+
+                SetProperty(ref _LoginGridVisiable, value, nameof(LoginGridVisiable));
+
+            }
+        }
+        
         #endregion
 
 
@@ -185,9 +200,11 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     Authors = res;
                     LoginName = Authors.FirstOrDefault();
+                    LoginGridVisiable = Visibility.Collapsed;
                 }
                 else
                 {
+                    DXMessageBox.Show("Login failed！ Please check log！");
                     LogManagerService.Instance.Log($"LoginDB failed！");
                 }
             }

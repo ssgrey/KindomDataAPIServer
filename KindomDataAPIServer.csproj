@@ -246,6 +246,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="ViewModels\SyncKindomDataViewModel.cs" />
+    <Compile Include="Views\OpenProjectView.xaml.cs">
+      <DependentUpon>OpenProjectView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\SyncKindomDataView.xaml.cs">
       <DependentUpon>SyncKindomDataView.xaml</DependentUpon>
     </Compile>
@@ -265,6 +268,10 @@
       <DependentUpon>MainServerView.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="Views\OpenProjectView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\SyncKindomDataView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

@@ -85,6 +85,14 @@ namespace KindomDataAPIServer.Views
             }
         }
 
+
+        private void Open_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
+        {
+            OpenProjectView openProjectView = new OpenProjectView(ViewModel);
+            openProjectView.Owner = this;
+            openProjectView.ShowDialog();
+        }
+
         private void Logger_Clean(object sender, RoutedEventArgs e)
         {
             logger.Document.Blocks.Clear();
@@ -102,5 +110,7 @@ namespace KindomDataAPIServer.Views
         {
             KingdomAPI.Instance.Close();
         }
+
+
     }
 }

@@ -17,13 +17,13 @@
             <RowDefinition Height="80"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <GroupBox Header="Kindom Data" Margin="2" IsEnabled="{Binding IsEnable}">
+        <Grid Margin="2" IsEnabled="{Binding IsEnable}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <StackPanel Orientation="Vertical" Margin="0,0,0,0" Height="Auto" HorizontalAlignment="Left">
+                <!--<StackPanel Orientation="Vertical" Margin="0,0,0,0" Height="Auto" HorizontalAlignment="Left">
                     <StackPanel.Resources>
                         <Style TargetType="StackPanel">
                             <Setter Property="Height" Value="30"></Setter>
@@ -48,7 +48,17 @@
                         <dx:SimpleButton Content="Load" Height="23" Width="55" Command="{Binding LoadCommand}"  Margin="5,0,0,0"></dx:SimpleButton>
                     </StackPanel>
 
-                </StackPanel>
+                </StackPanel>-->
+                <dxb:BarContainerControl>
+                    <dxb:MainMenuControl AllowCustomizationMenu="False">
+                        <dxb:BarSubItem Content="Peoject" >
+                            <dxb:BarButtonItem Content="Open" ItemClick="Open_Click" />
+                        </dxb:BarSubItem>
+                        <dxb:BarSubItem Content="Setting" >
+                        </dxb:BarSubItem>
+                    </dxb:MainMenuControl>
+    
+                </dxb:BarContainerControl>
                 <Grid Grid.Row="1" x:Name="dataGrid" DataContext="{Binding KindomData}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2*"/>
@@ -158,7 +168,7 @@
                     </GroupBox>
                 </Grid>
             </Grid>
-        </GroupBox>
+        </Grid>
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
