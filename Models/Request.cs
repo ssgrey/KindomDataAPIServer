@@ -315,4 +315,39 @@ namespace KindomDataAPIServer.Models
     {
         public List<WellOilTestData> Items { get; set; } = new List<WellOilTestData>();
     }
+
+
+     public class CreatePayzoneRequest
+    {
+        public int DatasetType { get; set; }
+        public string DatasetName { get; set; }
+        public List<SymbolMappingDto> SymbolMapping { get; set; } = new List<SymbolMappingDto>();
+        public bool IncludeItemResults { get; set; }
+        public List<DatasetItemDto> Items { get; set; } = new List<DatasetItemDto>();
+    }
+
+    public class SymbolMappingDto
+    {
+        public int Color { get; set; }
+        public string ConclusionName { get; set; }
+        public string SymbolLibraryCode { get; set; }
+    }
+
+    public class DatasetItemDto
+    {
+        public List<MetaInfo> MetaInfoList { get; set; } = new List<MetaInfo>();
+        public int WellId { get; set; }
+        public List<ConclusionDto> ConclusionList { get; set; } = new List<ConclusionDto>();
+    }
+
+
+
+    public class ConclusionDto
+    {
+        public decimal Top { get; set; }
+        public decimal Bottom { get; set; }
+        public string ConclusionName { get; set; }
+        public int Color { get; set; }
+        public string SymbolLibraryCode { get; set; }
+    }
 }

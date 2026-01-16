@@ -58,7 +58,7 @@ namespace KindomDataAPIServer.Common
             if (type != null)
             {
                 //string abbr = IsFt ? "mcf" : "m3";
-                string abbr = IsFt ? "scf" : "m3";
+                string abbr = IsFt ? "ft3" : "m3";
                 var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
                 if (info != null)
                 {

@@ -149,6 +149,20 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
+        public async Task<WellOperationResult> batch_create_well_payzone_with_meta_infos(CreatePayzoneRequest wellDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<CreatePayzoneRequest, WellOperationResult>("dp/api/welldata/batch_create_well_payzone_with_meta_infos", wellDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_payzone_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+        
+
         public async Task<string> create_well_log_set(string datasetName)
         {
             try
