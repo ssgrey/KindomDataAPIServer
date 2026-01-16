@@ -18,6 +18,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
+using UnitType = KindomDataAPIServer.Models.UnitType;
 
 namespace KindomDataAPIServer.ViewModels
 {
@@ -40,7 +41,19 @@ namespace KindomDataAPIServer.ViewModels
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
+
+            _ = LoadUnits();
         }
+
+        private async Task LoadUnits()
+        {
+            var res7 = await wellDataService.get_sys_unit();
+            if (res7 != null)
+            {
+                Utils.UnitTypes = res7;
+            }
+        }
+
 
 
         #region Properties
@@ -292,6 +305,7 @@ namespace KindomDataAPIServer.ViewModels
              IsEnable = false;
             try
             {
+
                 LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
                 ProgressValue = 0;
 
@@ -544,43 +558,46 @@ namespace KindomDataAPIServer.ViewModels
 
                 LogManagerService.Instance.Log($"WellLogs start synchronize！");
 
-                PbWellLogCreateList AllwellLogs = KingdomAPI.Instance.GetWellLogs(KindomData, resdataSetID, WellIDandNameList);
+                //PbWellLogCreateList AllwellLogs = KingdomAPI.Instance.GetWellLogs(KindomData, resdataSetID, WellIDandNameList);
 
-                if (AllwellLogs.LogList.Count > 0)
-                {
-                    int allCount = AllwellLogs.LogList.Count;
-                    List<PbWellLogCreateList> tempList = new List<PbWellLogCreateList>();
-                    PbWellLogCreateList createList = null;
-                    for (int i = 0; i < allCount; i++)
-                    {
-                        if (i % 3 == 0)
-                        {
-                            createList = new PbWellLogCreateList();
-                            tempList.Add(createList);
-                            createList.LogList.Add(AllwellLogs.LogList[i]);
-                        }
-                        else
-                        {
-                           createList.LogList.Add(AllwellLogs.LogList[i]);
-                        }
-                    }
-                    for (int i = 0; i < tempList.Count; i++)
-                    {
-                        var res4 = await wellDataService.batch_create_well_log(tempList[i]);
-                        if (res4 != null)
-                        {
-                        }
+                //if (AllwellLogs.LogList.Count > 0)
+                //{
+                //    int allCount = AllwellLogs.LogList.Count;
+                //    List<PbWellLogCreateList> tempList = new List<PbWellLogCreateList>();
+                //    PbWellLogCreateList createList = null;
+                //    for (int i = 0; i < allCount; i++)
+                //    {
+                //        if (i % 3 == 0)
+                //        {
+                //            createList = new PbWellLogCreateList();
+                //            tempList.Add(createList);
+                //            createList.LogList.Add(AllwellLogs.LogList[i]);
+                //        }
+                //        else
+                //        {
+                //           createList.LogList.Add(AllwellLogs.LogList[i]);
+                //        }
+                //    }
+                //    for (int i = 0; i < tempList.Count; i++)
+                //    {
+                //        var res4 = await wellDataService.batch_create_well_log(tempList[i]);
+                //        if (res4 != null)
+                //        {
+                //        }
                         
-                        LogManagerService.Instance.Log($"welllog synchronize ({(i + 1) * 3}/{AllwellLogs.LogList.Count})");
-                        ProgressValue = 60+ ((i + 1) * 3 *20)/AllwellLogs.LogList.Count;
-                    }
+                //        LogManagerService.Instance.Log($"welllog synchronize ({(i + 1) * 3}/{AllwellLogs.LogList.Count})");
+                //        ProgressValue = 60+ ((i + 1) * 3 *20)/AllwellLogs.LogList.Count;
+                //    }
 
-                    LogManagerService.Instance.Log($"welllog synchronize ({AllwellLogs.LogList.Count}/{AllwellLogs.LogList.Count}) synchronize over！");
-                }
-                else
-                {
-                    LogManagerService.Instance.Log($"WellLog Count is 0");
-                }
+                //    LogManagerService.Instance.Log($"welllog synchronize ({AllwellLogs.LogList.Count}/{AllwellLogs.LogList.Count}) synchronize over！");
+                //}
+                //else
+                //{
+                //    LogManagerService.Instance.Log($"WellLog Count is 0");
+                //}
+
+                await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, resdataSetID, WellIDandNameList);
+                ProgressValue = 80;
                 #endregion
 
 

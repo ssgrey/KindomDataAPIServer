@@ -3,6 +3,7 @@ using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Grid.Hierarchy;
 using Google.Protobuf;
 using KindomDataAPIServer.Common;
+using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.Models;
 using Smt;
 using Smt.Entities;
@@ -57,42 +58,6 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
-
-        private void ListAvailableLogons(string dbUser, string dbPassword)
-        {
-            Console.WriteLine("Login name not specified.");
-            try
-            {
-                    if (!string.IsNullOrWhiteSpace(dbUser))
-                    {
-                        project.DBUserName = dbUser;
-                    }
-                    if (!string.IsNullOrWhiteSpace(dbPassword))
-                    {
-                        project.SetPassword(dbPassword);
-                    }
-
-                    var logons = project.AuthorizedLogOnAuthorNames ?? Enumerable.Empty<string>();
-                    var logonList = logons.Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
-
-                    if (logonList.Count == 0)
-                    {
-                        Console.WriteLine("No authorized logon names found for the project.");
-                        return;
-                    }
-
-                    Console.WriteLine("Available logon names:");
-                    foreach (var logon in logonList)
-                    {
-                        Console.WriteLine($"  {logon}");
-                    }
-                
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to read authorized logon names: {ex.Message}");
-            }
-        }
 
         public List<string> LoginDB(string dbUser, string dbPassword)
         {
@@ -736,7 +701,7 @@ namespace KindomDataAPIServer.KindomAPI
             allBoreholeIds.Add(tempBoreholeIds);
             for (int i = 0; i < BoreholeIds.Count; i++)
             {
-                if (tempBoreholeIds.Count <= 100)
+                if (tempBoreholeIds.Count < 10)
                 {
                     tempBoreholeIds.Add(BoreholeIds[i]);
                 }
@@ -751,10 +716,11 @@ namespace KindomDataAPIServer.KindomAPI
             PbWellLogCreateList logList = new PbWellLogCreateList();
          
             List<LogData> digitalLogExports = new List<LogData>();
-            using (var context = project.GetKingdom())
-            {
 
-                foreach (var tempids in allBoreholeIds)
+
+            foreach (var tempids in allBoreholeIds)
+            {
+                using (var context = project.GetKingdom())
                 {
                     var formations = context.Get(new LogData(),
                         x => new
@@ -769,6 +735,70 @@ namespace KindomDataAPIServer.KindomAPI
                         x => tempids.Contains(x.BoreholeId),
                         false).ToList();
                     var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());
+                    foreach (var item in dicts)
+                    {
+                        long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
+                        if (wellWebID == -1)
+                            continue;
+
+                        foreach (var formItem in item.Value)
+                        {
+                            if (formItem.LogData != null)
+                            {
+                                if (!checkNames.Contains(formItem.LogCurveName.Name))
+                                    continue;
+                                Console.WriteLine("count" + formItem.LogData.ValuesCount);
+                                var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o);
+                                PbWellLogCreateParams logObj = new PbWellLogCreateParams
+                                {
+                                    WellId = wellWebID,
+                                    SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
+                                    StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
+                                    CurveName = formItem.LogCurveName.Name,
+                                    DataSetId = dataSetId,
+                                };
+                                logObj.Samples.AddRange(dataArray);
+
+                                logList.LogList.Add(logObj);
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            return logList;
+        }
+
+        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, string resdataSetID, PbViewMetaObjectList WellIDandNameList)
+        {
+            var wellDataService = ServiceLocator.GetService<IDataWellService>();
+
+            long dataSetId = long.Parse(resdataSetID);
+            List<WellExport> Wells = KingDomData.Wells;
+            var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+            List<LogData> digitalLogExports = new List<LogData>();
+
+            int index = 1;
+            foreach (var borID in BoreholeIds)
+            {
+                using (var context = project.GetKingdom())
+                {
+                    PbWellLogCreateList logList = new PbWellLogCreateList();
+
+                    var formations = context.Get(new LogData(),
+                        x => new
+                        {
+                            LogData = x,
+                            LogCurveName = x.LogCurveName,
+                            borehole = x.Borehole,
+                            boreholeId = x.BoreholeId,
+                            wellUWI = x.Borehole.Uwi,
+                        },
+                        x => x.BoreholeId == borID,
+                        false).ToList();
+                    var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//只有一个key  暂时的
                     foreach (var item in dicts)
                     {
                         long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
@@ -796,11 +826,19 @@ namespace KindomDataAPIServer.KindomAPI
                             }
                         }
                     }
-                }
 
+                    var res4 = await wellDataService.batch_create_well_log(logList);
+                    if (res4 != null)
+                    {
+
+                    }
+
+                    LogManagerService.Instance.Log($"welllog synchronize ({index}/{BoreholeIds.Count})");
+                }
+                index++;
             }
 
-            return logList;
+           
         }
 
         public List<WellDailyProductionData> GetWellProductionData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
@@ -901,7 +939,7 @@ namespace KindomDataAPIServer.KindomAPI
                             string duanName = "";
                             if (formItem.data.StartDepth.HasValue && formItem.data.EndDepth.HasValue)
                             {
-                                duanName = formItem.data.StartDepth.Value.ToString() + "-" + formItem.data.EndDepth.Value.ToString();
+                                duanName = formItem.data.StartDepth.Value.ToString("G") + "-" + formItem.data.EndDepth.Value.ToString("G");
                             }
 
                             if (formItem.data.GasVolume.HasValue)
@@ -911,7 +949,7 @@ namespace KindomDataAPIServer.KindomAPI
                                     WellId = wellWebID.ToString(),
                                     WellName = well?.WellName,
                                     Interval = duanName,
-                                    Wpr = formItem.data.GasVolume.Value,
+                                    Wpr = formItem.data.GasVolume.Value,                                  
                                 };
                                 if (formItem.data.WaterVolume.HasValue)
                                 {

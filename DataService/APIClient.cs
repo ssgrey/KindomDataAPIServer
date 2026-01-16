@@ -99,7 +99,6 @@ namespace KindomDataAPIServer.DataService
                 var url = BuildUrl(endpoint);
                 var json = JsonHelper.ToJson(data);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-
                 var response = await Client.PostAsync(url, content);
                 LogManagerService.Instance.LogDebug(url + "    " + response.StatusCode);
 
@@ -122,6 +121,37 @@ namespace KindomDataAPIServer.DataService
             {
                 OnRequestFailed($"POST {endpoint} - 失败: {ex.Message}");
                 throw ex;
+            }
+        }
+
+
+        public async Task<TResponse> PostAsync<TResponse>(string endpoint)
+        {
+            try
+            {
+                OnRequestStarted($"POST {endpoint}");
+
+                var url = BuildUrl(endpoint);
+                var content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
+                var response = await Client.PostAsync(url, content);
+                LogManagerService.Instance.LogDebug(url + "    " + response.StatusCode);
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var result = JsonHelper.ConvertFrom<TResponse>(responseContent);
+                    OnRequestCompleted($"POST {endpoint} - 成功");
+                    return result;
+                }
+                else
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent}");
+                }
+            }
+            catch (Exception ex)
+            {
+                OnRequestFailed($"POST {endpoint} - 失败: {ex.Message}");
+                throw;
             }
         }
 

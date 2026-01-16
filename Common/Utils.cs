@@ -14,6 +14,24 @@ namespace KindomDataAPIServer.Common
 {
     public class Utils
     {
+        public static List<UnitType> UnitTypes = new List<UnitType>();
+
+        public static MeasureUnit GetDepthUnit(bool IsFt)
+        {
+            MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 4 };
+            var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 4);
+            if (type != null)
+            {
+                string abbr = IsFt ? "ft" : "m";
+                var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
+                if (info != null)
+                {
+                    measureUnit.UnitId = info.Id;
+                    measureUnit.Unit = info.Abbr;
+                }
+            }
+            return measureUnit;
+        }
 
         public static Project CreateProject(string path)
         {

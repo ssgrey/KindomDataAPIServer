@@ -37,10 +37,7 @@ namespace KindomDataAPIServer.Views
 
         private void Ini(string[] args)
         {
-            ViewModel = new SyncKindomDataViewModel();
-            this.DataContext = ViewModel;
             LogManagerService.Instance.TextBox = logger;
-
             try
             {
                 if (args != null && args.Length > 0)
@@ -83,6 +80,9 @@ namespace KindomDataAPIServer.Views
             {
                 LogManagerService.Instance.Log(ex.Message);
             }
+
+            ViewModel = new SyncKindomDataViewModel();
+            this.DataContext = ViewModel;
         }
 
 

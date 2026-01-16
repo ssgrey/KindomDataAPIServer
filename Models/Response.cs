@@ -137,4 +137,41 @@ namespace KindomDataAPIServer.Models
         /// </summary>
         public DateTime UpdateTime { get; set; }
     }
+
+
+    public class UnitInfo
+    {
+        /// <summary>
+        /// 单位ID
+        /// </summary>
+        public int Id { get; set; }
+
+        /// <summary>
+        /// 单位缩写
+        /// </summary>
+        public string Abbr { get; set; }
+
+        /// <summary>
+        /// 单位全称
+        /// </summary>
+        public string LongName { get; set; }
+    }
+
+    public class UnitType
+    {
+        /// <summary>
+        /// 单位类型ID
+        /// </summary>
+        public int UnitTypeID { get; set; }
+
+        /// <summary>
+        /// 单位类型名称
+        /// </summary>
+        public string UnitTypeName { get; set; }
+
+        /// <summary>
+        /// 单位信息列表
+        /// </summary>
+        public List<UnitInfo> UnitInfoList { get; set; } = new List<UnitInfo>();
+    }
 }

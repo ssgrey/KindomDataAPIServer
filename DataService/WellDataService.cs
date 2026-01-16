@@ -47,7 +47,34 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"获取所有井数据失败: {ex.Message + ex.StackTrace}");
-                throw;
+                throw ex;
+            }
+        }
+
+        public async Task<List<UnitType>> get_sys_unit()
+        {
+            try
+            {
+                return await _apiClient.PostAsync<List<UnitType>>("dp/api/well_log/get_sys_unit");
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"get_sys_unit: {ex.Message + ex.StackTrace}");
+                throw ex;
+            }
+        }
+
+
+        public async Task<List<UnitType>> get_sys_unit_by_measureid(List<int> typeIDs)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<List<int>, List<UnitType>>("dp/api/well_log/get_sys_unit_by_measureid", typeIDs);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"get_sys_unit: {ex.Message + ex.StackTrace}");
+                throw ex;
             }
         }
 
@@ -64,6 +91,8 @@ namespace KindomDataAPIServer.DataService
             }
 
         }
+
+
 
         public async Task<WellOperationResult> batch_create_well_trajectory_with_meta_infos(WellTrajRequest welltrajDataRequest)
         {
