@@ -16,7 +16,7 @@ namespace KindomDataAPIServer.Common
     {
         public static List<UnitType> UnitTypes = new List<UnitType>();
 
-        public static MeasureUnit GetDepthUnit(bool IsFt)
+        public static MeasureUnit GetDepthOrXYUnit(bool IsFt)
         {
             MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 4 };
             var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 4);

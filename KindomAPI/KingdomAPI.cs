@@ -40,6 +40,59 @@ namespace KindomDataAPIServer.KindomAPI
 
         private string CurrentLoginName { get; set; } = "";
 
+
+
+        public MeasureUnit DepthUnit
+        {
+            get 
+            {
+                var depthUnit = Utils.GetDepthOrXYUnit(IsDepthFeet);
+                return depthUnit;
+            }
+        }
+
+        public MeasureUnit XYUnit
+        {
+            get
+            {
+                var depthUnit = Utils.GetDepthOrXYUnit(IsXYFeet);
+                return depthUnit;
+            }
+        }
+
+        private bool IsDepthFeet
+        {
+            get
+            {
+                if (project != null)
+                {
+                    if (project.VerticalUnit == DistanceUnit.Feet)
+                    {
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+        }
+
+        private bool IsXYFeet
+        {
+            get
+            {
+                if (project != null)
+                {
+                    if (project.MapUnit == DistanceUnit.Feet)
+                    {
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+        }
+
+
         public void SetProjectPath(string projectPath)
         {
             try
@@ -634,6 +687,35 @@ namespace KindomDataAPIServer.KindomAPI
             List<WellExport> Wells = KingDomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
 
+            List<MetaInfo> MetaInfoList = new List<MetaInfo>();
+            MetaInfo metaInfo = new MetaInfo();
+            metaInfo.DisplayName = "测深";
+            metaInfo.PropertyName = "coordList.md";
+            metaInfo.UnitId = DepthUnit.UnitId;
+            metaInfo.MeasureId = DepthUnit.MeasureID;
+            MetaInfoList.Add(metaInfo);
+            MetaInfo metaInfo2 = new MetaInfo();
+            metaInfo2.DisplayName = "垂深";
+            metaInfo2.PropertyName = "coordList.tvd";
+            metaInfo2.UnitId = DepthUnit.UnitId;
+            metaInfo2.MeasureId = DepthUnit.MeasureID;
+            MetaInfoList.Add(metaInfo2);
+
+            MetaInfo metaInfo3 = new MetaInfo();
+            metaInfo3.DisplayName = "dx";
+            metaInfo3.PropertyName = "coordList.dx";
+            metaInfo3.UnitId = XYUnit.UnitId;
+            metaInfo3.MeasureId = XYUnit.MeasureID;
+            MetaInfoList.Add(metaInfo3);
+
+
+            MetaInfo metaInfo4 = new MetaInfo();
+            metaInfo4.DisplayName = "dy";
+            metaInfo4.PropertyName = "coordList.dy";
+            metaInfo4.UnitId = XYUnit.UnitId;
+            metaInfo4.MeasureId = XYUnit.MeasureID;
+            MetaInfoList.Add(metaInfo4);
+
             using (var context = project.GetKingdom())
             {
                 var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
@@ -659,6 +741,7 @@ namespace KindomDataAPIServer.KindomAPI
                         if (formItem.data != null)
                         {
                             WellTrajData wellTrajData = new WellTrajData();
+                            wellTrajData.MetaInfoList = MetaInfoList;
                             wellTrajData.WellId = wellWebID;
                             for (int i = 0; i < formItem.data.MD.Count; i++)
                             {
