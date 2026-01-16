@@ -65,6 +65,61 @@ namespace KindomDataAPIServer.DataService
 
         }
 
+        public async Task<WellOperationResult> batch_create_well_trajectory_with_meta_infos(WellTrajRequest welltrajDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<WellTrajRequest, WellOperationResult>("dp/api/welldata/batch_create_well_trajectory_with_meta_infos", welltrajDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_trajectory_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+
+        }
+
+
+        public async Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<WellProductionDataRequest, WellOperationResult>("dp/api/welldata/batch_create_well_production_with_meta_infos", wellDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_production_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+
+        public async Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<WellOilTestDataRequset, WellOperationResult>("dp/api/welldata/batch_create_well_oil_test_with_meta_infos", wellDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_oil_test_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+
+
+        public async Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<WellGasTestRequest, WellOperationResult>("dp/api/welldata/batch_create_well_gas_pressure_test_with_meta_infos", wellDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_gas_pressure_test_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+
         public async Task<string> create_well_log_set(string datasetName)
         {
             try

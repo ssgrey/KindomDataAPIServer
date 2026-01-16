@@ -61,6 +61,7 @@ namespace KindomDataAPIServer.Models
         /// </summary>
         [JsonProperty("message")]
         public string Message { get; set; }
+        public int errorCode { get; set; }
     }
 
     public class OperationSummary
@@ -76,6 +77,8 @@ namespace KindomDataAPIServer.Models
         /// </summary>
         [JsonProperty("updated")]
         public int Updated { get; set; }
+
+        public int failed { get; set; }
 
         /// <summary>
         /// 忽略的数量

@@ -330,7 +330,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 SampleRate = l.LogData.DepthSampleRate,
                                 StartDepth = l.LogData.StartDepth,
                                 Count = l.LogData.ValuesCount,
-
+                               
                             }).ToList();
 
                         wells.Add(new WellExport
@@ -401,7 +401,9 @@ namespace KindomDataAPIServer.KindomAPI
                     //          x => true,
                     //          false).ToList();
 
-                    var res = boreholes.FirstOrDefault(o => o.Uwi == "05123159960000");
+                    var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
+
+                    var res2 = digitalLogs.FirstOrDefault(o => o.LogData.BoreholeId == res.BoreholeId);
                     var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
                              x => new
                              {
@@ -409,14 +411,33 @@ namespace KindomDataAPIServer.KindomAPI
                              },
                              x => x.BoreholeId == res.BoreholeId,
                              false).ToList();
-                    var TestProduction = context.Get(new Smt.Entities.TestProduction(),
+                    var IntervalRecord = context.Get(new Smt.Entities.IntervalRecord(),
                          x => new
                          {
                              data = x,
+                             intervalName = x.IntervalName,
+                             texts = x.IntervalTextValues
                          },
                           x => x.BoreholeId == res.BoreholeId,
                          false).ToList();
 
+                    var IntervalAttribute = context.Get(new Smt.Entities.IntervalTextValue(),
+     x => new
+     {
+         data = x,
+         intervalAttr = x.IntervalAttribute,
+         id = x.IntervalRecordId
+     },
+      x => true,
+     false).ToList();
+
+                    var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
+     x => new
+     {
+         data = x,
+     },
+      x => true,
+     false).ToList();
 
                     var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
                          x => new
@@ -441,7 +462,7 @@ namespace KindomDataAPIServer.KindomAPI
                     x => true,
                     false).ToList();
 
-                                    var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
+                     var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
                     x => new
                     {
                         data = x,
@@ -449,7 +470,7 @@ namespace KindomDataAPIServer.KindomAPI
                     x => true,
                     false).ToList();
 
-                                    var TestProduction6 = context.Get(new Smt.Entities.ProductionCumulativeTotal(),
+                    var survey = context.Get(new Smt.Entities.IntervalRecord(),
                     x => new
                     {
                         data = x,
@@ -647,7 +668,7 @@ namespace KindomDataAPIServer.KindomAPI
 
         public PbWellLogCreateList GetWellLogs(ProjectResponse KingDomData,string resdataSetID, PbViewMetaObjectList WellIDandNameList)
         {
-            long dataSetId = long.Parse( resdataSetID);
+            long dataSetId = long.Parse(resdataSetID);
             List<WellExport> Wells = KingDomData.Wells;
             var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
