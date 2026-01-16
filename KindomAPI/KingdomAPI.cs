@@ -41,24 +41,8 @@ namespace KindomDataAPIServer.KindomAPI
         private string CurrentLoginName { get; set; } = "";
 
 
+        #region Unit
 
-        public MeasureUnit DepthUnit
-        {
-            get 
-            {
-                var depthUnit = Utils.GetDepthOrXYUnit(IsDepthFeet);
-                return depthUnit;
-            }
-        }
-
-        public MeasureUnit XYUnit
-        {
-            get
-            {
-                var depthUnit = Utils.GetDepthOrXYUnit(IsXYFeet);
-                return depthUnit;
-            }
-        }
 
         private bool IsDepthFeet
         {
@@ -92,6 +76,42 @@ namespace KindomDataAPIServer.KindomAPI
 
         }
 
+        public MeasureUnit DepthUnit
+        {
+            get
+            {
+                var depthUnit = Utils.GetDepthOrXYUnit(IsDepthFeet);
+                return depthUnit;
+            }
+        }
+
+        public MeasureUnit XYUnit
+        {
+            get
+            {
+                var depthUnit = Utils.GetDepthOrXYUnit(IsXYFeet);
+                return depthUnit;
+            }
+        }
+        public MeasureUnit OilOrWaterUnit
+        {
+            get
+            {
+                var Unit = Utils.GetOilOrWaterUnit(IsDepthFeet);
+                return Unit;
+            }
+        }
+
+        public MeasureUnit GasUnit
+        {
+            get
+            {
+                var Unit = Utils.GetGasUnit(IsDepthFeet);
+                return Unit;
+            }
+        }
+
+        #endregion
 
         public void SetProjectPath(string projectPath)
         {
@@ -930,6 +950,28 @@ namespace KindomDataAPIServer.KindomAPI
             List<WellExport> Wells = KingDomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
 
+            List<MetaInfo> MetaInfoList = new List<MetaInfo>();
+            MetaInfo metaInfo = new MetaInfo();
+            metaInfo.DisplayName = "油体积";
+            metaInfo.PropertyName = "dailyList.oilVol";
+            metaInfo.UnitId = OilOrWaterUnit.UnitId;
+            metaInfo.MeasureId = OilOrWaterUnit.MeasureID;
+            MetaInfoList.Add(metaInfo);
+            MetaInfo metaInfo2 = new MetaInfo();
+            metaInfo2.DisplayName = "气体积";
+            metaInfo2.PropertyName = "dailyList.gasVol";
+            metaInfo2.UnitId = GasUnit.UnitId;
+            metaInfo2.MeasureId = GasUnit.MeasureID;
+            MetaInfoList.Add(metaInfo2);
+
+            MetaInfo metaInfo3 = new MetaInfo();
+            metaInfo3.DisplayName = "水体积";
+            metaInfo3.PropertyName = "dailyList.waterVol";
+            metaInfo3.UnitId = OilOrWaterUnit.UnitId;
+            metaInfo3.MeasureId = OilOrWaterUnit.MeasureID;
+            MetaInfoList.Add(metaInfo3);
+
+
             using (var context = project.GetKingdom())
             {
                 foreach (var boreID in BoreholeIds)
@@ -955,6 +997,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                         WellDailyProductionData productionData = new WellDailyProductionData();
                         productionData.WellId = wellWebID;
+                        productionData.MetaInfoList = MetaInfoList;
                         foreach (var item in kindomDatas)
                         {
                             if (item.data.StartDate == null || item.data.EndDate == null)

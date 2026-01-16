@@ -10,7 +10,7 @@ namespace KindomDataAPIServer.Common
     {
         public int MeasureID {  get; set; }
         public int UnitId { get; set; }
-        public string Unit { get; set; }
+        public string Unit { get; set; }//Abbr
     }
 
     public class MeasureUnitList

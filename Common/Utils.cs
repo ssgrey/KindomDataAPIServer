@@ -33,6 +33,42 @@ namespace KindomDataAPIServer.Common
             return measureUnit;
         }
 
+
+        public static MeasureUnit GetOilOrWaterUnit(bool IsFt)
+        {
+            MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 21 };
+            var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 21);
+            if (type != null)
+            {
+                string abbr = IsFt ? "bbl" : "m3";
+                var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
+                if (info != null)
+                {
+                    measureUnit.UnitId = info.Id;
+                    measureUnit.Unit = info.Abbr;
+                }
+            }
+            return measureUnit;
+        }
+
+        public static MeasureUnit GetGasUnit(bool IsFt)
+        {
+            MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 25 };
+            var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 25);
+            if (type != null)
+            {
+                //string abbr = IsFt ? "mcf" : "m3";
+                string abbr = IsFt ? "scf" : "m3";
+                var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
+                if (info != null)
+                {
+                    measureUnit.UnitId = info.Id;
+                    measureUnit.Unit = info.Abbr;
+                }
+            }
+            return measureUnit;
+        }
+
         public static Project CreateProject(string path)
         {
             Project project = null;
