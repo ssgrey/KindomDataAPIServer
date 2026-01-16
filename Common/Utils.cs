@@ -85,7 +85,7 @@ namespace KindomDataAPIServer.Common
 
         public static long GetWellIDByWellUWI(string wellUwi, PbViewMetaObjectList WellIDandNameList)
         {
-            if (WellIDandNameList != null)
+            if (WellIDandNameList != null&& !string.IsNullOrEmpty(wellUwi))
             {
                 var obj = WellIDandNameList.MetaObjects.FirstOrDefault(o => o.Name == wellUwi);
                 if (obj != null)

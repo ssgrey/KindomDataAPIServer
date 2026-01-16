@@ -1,4 +1,6 @@
 ﻿using DevExpress.Spreadsheet.Functions;
+using DevExpress.Xpf.Core;
+using DevExpress.Xpf.Grid.Hierarchy;
 using Google.Protobuf;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.Models;
@@ -50,6 +52,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
+                DXMessageBox.Show($"SetProjectPath failed: {ex.Message}");
                 LogManagerService.Instance.Log($"SetProjectPath failed: {ex.Message}");
             }
         }
@@ -120,20 +123,6 @@ namespace KindomDataAPIServer.KindomAPI
                 var logons = project.AuthorizedLogOnAuthorNames ?? Enumerable.Empty<string>();
                 var logonList = logons.Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
 
-
-               // CurrentLoginName = loginName;
-                //if(string.IsNullOrWhiteSpace(dbuserName))
-                //{
-                //    project.DBUserName = "";
-                //}
-                //else
-                //{
-                //    project.DBUserName = dbuserName;
-                //}
-                //project.SetPassword(dbpassword);
-
-                //project.LogOn(CurrentLoginName);
-
                 return logonList;
             }
             catch (Exception ex)
@@ -167,9 +156,17 @@ namespace KindomDataAPIServer.KindomAPI
 
         public void Close()
         {
-            if (project != null)
+            try
             {
-                project.Dispose();
+                if (project != null)
+                {
+                    project.Dispose();
+                }
+            }
+            catch(Exception ex)
+            {
+                LogManagerService.Instance.Log($"close failed: {ex.Message}");
+
             }
         }
 
@@ -401,82 +398,82 @@ namespace KindomDataAPIServer.KindomAPI
                     //          x => true,
                     //          false).ToList();
 
-                    var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
+     //               var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
 
-                    var res2 = digitalLogs.FirstOrDefault(o => o.LogData.BoreholeId == res.BoreholeId);
-                    var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-                             x => new
-                             {
-                                 data = x,
-                             },
-                             x => x.BoreholeId == res.BoreholeId,
-                             false).ToList();
-                    var IntervalRecord = context.Get(new Smt.Entities.IntervalRecord(),
-                         x => new
-                         {
-                             data = x,
-                             intervalName = x.IntervalName,
-                             texts = x.IntervalTextValues
-                         },
-                          x => x.BoreholeId == res.BoreholeId,
-                         false).ToList();
+     //               var res2 = digitalLogs.FirstOrDefault(o => o.LogData.BoreholeId == res.BoreholeId);
+     //               var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+     //                        x => new
+     //                        {
+     //                            data = x,
+     //                        },
+     //                        x => x.BoreholeId == res.BoreholeId,
+     //                        false).ToList();
+     //               var IntervalRecord = context.Get(new Smt.Entities.IntervalRecord(),
+     //                    x => new
+     //                    {
+     //                        data = x,
+     //                        intervalName = x.IntervalName,
+     //                        texts = x.IntervalTextValues
+     //                    },
+     //                     x => x.BoreholeId == res.BoreholeId,
+     //                    false).ToList();
 
-                    var IntervalAttribute = context.Get(new Smt.Entities.IntervalTextValue(),
-     x => new
-     {
-         data = x,
-         intervalAttr = x.IntervalAttribute,
-         id = x.IntervalRecordId
-     },
-      x => true,
-     false).ToList();
+     //               var IntervalAttribute = context.Get(new Smt.Entities.IntervalTextValue(),
+     //x => new
+     //{
+     //    data = x,
+     //    intervalAttr = x.IntervalAttribute,
+     //    id = x.IntervalRecordId
+     //},
+     // x => true,
+     //false).ToList();
 
-                    var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
-     x => new
-     {
-         data = x,
-     },
-      x => true,
-     false).ToList();
+     //               var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
+     //x => new
+     //{
+     //    data = x,
+     //},
+     // x => true,
+     //false).ToList();
 
-                    var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
-                         x => new
-                         {
-                             data = x,
-                         },
-                          x => x.BoreholeId == res.BoreholeId,
-                         false).ToList();
-                                    var TestProduction3 = context.Get(new Smt.Entities.TestProductionPerforation(),
-                          x => new
-                          {
-                              data = x,
-                          },
-                           x => true,
-                          false).ToList();
+     //               var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
+     //                    x => new
+     //                    {
+     //                        data = x,
+     //                    },
+     //                     x => x.BoreholeId == res.BoreholeId,
+     //                    false).ToList();
+     //                               var TestProduction3 = context.Get(new Smt.Entities.TestProductionPerforation(),
+     //                     x => new
+     //                     {
+     //                         data = x,
+     //                     },
+     //                      x => true,
+     //                     false).ToList();
 
-                                    var TestProduction4 = context.Get(new Smt.Entities.ProductionEntity(),
-                    x => new
-                    {
-                        data = x,
-                    },
-                    x => true,
-                    false).ToList();
+     //                               var TestProduction4 = context.Get(new Smt.Entities.ProductionEntity(),
+     //               x => new
+     //               {
+     //                   data = x,
+     //               },
+     //               x => true,
+     //               false).ToList();
 
-                     var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
-                    x => new
-                    {
-                        data = x,
-                    },
-                    x => true,
-                    false).ToList();
+     //                var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
+     //               x => new
+     //               {
+     //                   data = x,
+     //               },
+     //               x => true,
+     //               false).ToList();
 
-                    var survey = context.Get(new Smt.Entities.IntervalRecord(),
-                    x => new
-                    {
-                        data = x,
-                    },
-                    x => true,
-                    false).ToList();
+     //               var survey = context.Get(new Smt.Entities.IntervalRecord(),
+     //               x => new
+     //               {
+     //                   data = x,
+     //               },
+     //               x => true,
+     //               false).ToList();
                 #endif
                     return new ProjectResponse
                     {
@@ -666,67 +663,293 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
+        public List<WellTrajData> GetWellTrajs(ProjectResponse KingDomData,PbViewMetaObjectList WellIDandNameList)
+        {
+            List<WellTrajData> datas = new List<WellTrajData>();
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
+                 x => new
+                 {
+                     borehole = x.Borehole,
+                     boreholeId = x.BoreholeId,
+                     wellUWI = x.Borehole.Uwi,
+                     data = x,
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId),
+                 false).ToList();
+
+                var dicts = DeviationSurveys.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());
+                foreach (var item in dicts)
+                {
+                    long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
+                    if (wellWebID == -1)
+                        continue;
+
+                    foreach (var formItem in item.Value)
+                    {
+                        if (formItem.data != null)
+                        {
+                            WellTrajData wellTrajData = new WellTrajData();
+                            wellTrajData.WellId = wellWebID;
+                            for (int i = 0; i < formItem.data.MD.Count; i++)
+                            {
+                                CoordData coordData = new CoordData()
+                                {
+                                    Md = formItem.data.MD[i],
+                                    Tvd = formItem.data.TVD[i],
+                                    Dx = formItem.data.DX[i],
+                                    Dy = formItem.data.DY[i]
+                                };
+
+                                wellTrajData.CoordList.Add(coordData);
+                                AimuthData aimuthData = new AimuthData()
+                                {
+                                    Md = formItem.data.MD[i],
+                                    Azim = formItem.data.Azimuth[i],
+                                    Devi = formItem.data.Inclination[i],
+                                };
+                                wellTrajData.AimuthList.Add(aimuthData);
+                            }
+                            datas.Add(wellTrajData);
+                        }
+                    }
+
+                }
+            }
+
+            return datas;
+        }
+
         public PbWellLogCreateList GetWellLogs(ProjectResponse KingDomData,string resdataSetID, PbViewMetaObjectList WellIDandNameList)
         {
             long dataSetId = long.Parse(resdataSetID);
             List<WellExport> Wells = KingDomData.Wells;
             var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            List<List<int>> allBoreholeIds = new List<List<int>>();
+            List<int> tempBoreholeIds = new List<int>();
+            allBoreholeIds.Add(tempBoreholeIds);
+            for (int i = 0; i < BoreholeIds.Count; i++)
+            {
+                if (tempBoreholeIds.Count <= 100)
+                {
+                    tempBoreholeIds.Add(BoreholeIds[i]);
+                }
+                else
+                {
+                    tempBoreholeIds = new List<int>();
+                    allBoreholeIds.Add(tempBoreholeIds);
+                    tempBoreholeIds.Add(BoreholeIds[i]);
+                }
+            }
+
             PbWellLogCreateList logList = new PbWellLogCreateList();
          
             List<LogData> digitalLogExports = new List<LogData>();
             using (var context = project.GetKingdom())
             {
-                var formations = context.Get(new LogData(),
-                    x => new
-                    {
-                        LogData = x,
-                        LogCurveName = x.LogCurveName,
-                        borehole = x.Borehole,
-                        boreholeId = x.BoreholeId,
-                        wellUWI = x.Borehole.Uwi,
 
-                    },
-                    x => BoreholeIds.Contains(x.BoreholeId),
-                    false).ToList();
-                var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());
-                foreach (var item in dicts)
+                foreach (var tempids in allBoreholeIds)
                 {
-                    long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
-                    if (wellWebID == -1)
-                        continue;
-  
-                    foreach (var formItem in item.Value)
-                    {
-                        if (formItem.LogData!=null)
+                    var formations = context.Get(new LogData(),
+                        x => new
                         {
-                            if (!checkNames.Contains(formItem.LogCurveName.Name))
-                                continue;
-                            // var res = pbWellFormation.Items.FirstOrDefault(o => (o.Name == formItem.FormationTopName.Name || o.Name == formItem.FormationTopName.Abbreviation) && o.Top == formItem.FormationTop.Depth.Value);
-                            // if (res == null)
+                            LogData = x,
+                            LogCurveName = x.LogCurveName,
+                            borehole = x.Borehole,
+                            boreholeId = x.BoreholeId,
+                            wellUWI = x.Borehole.Uwi,
 
-                            var dataArray = formItem.LogData.LogDataValues.Select(o=>(double)o).ToArray();
-                            PbWellLogCreateParams logObj =new PbWellLogCreateParams
+                        },
+                        x => tempids.Contains(x.BoreholeId),
+                        false).ToList();
+                    var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());
+                    foreach (var item in dicts)
+                    {
+                        long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
+                        if (wellWebID == -1)
+                            continue;
+
+                        foreach (var formItem in item.Value)
+                        {
+                            if (formItem.LogData != null)
                             {
-                                WellId = wellWebID,
-                                SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
-                                StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
-                                CurveName = formItem.LogCurveName.Name,
-                                 DataSetId = dataSetId,
-                            };
-                            logObj.Samples.AddRange(dataArray);
+                                if (!checkNames.Contains(formItem.LogCurveName.Name))
+                                    continue;
+                                var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o).ToArray();
+                                PbWellLogCreateParams logObj = new PbWellLogCreateParams
+                                {
+                                    WellId = wellWebID,
+                                    SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
+                                    StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
+                                    CurveName = formItem.LogCurveName.Name,
+                                    DataSetId = dataSetId,
+                                };
+                                logObj.Samples.AddRange(dataArray);
 
-                            logList.LogList.Add(logObj);
+                                logList.LogList.Add(logObj);
+                            }
                         }
                     }
-                   
                 }
+
             }
 
             return logList;
         }
 
-        
+        public List<WellDailyProductionData> GetWellProductionData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
+        {
+            List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                foreach (var boreID in BoreholeIds)
+                {
+                    var kindomDatas = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                     x => new
+                     {
+                         borehole = x.Borehole,
+                         boreholeId = x.BoreholeId,
+                         wellUWI = x.Borehole.Uwi,
+                         data = x,
+                     },
+                       x => x.BoreholeId == boreID,
+                     false).ToList();
+
+                    if (kindomDatas.Count > 0)
+                    {
+                        string WellUWI = kindomDatas.FirstOrDefault().wellUWI;
+                        long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, WellIDandNameList);
+                        if (wellWebID == -1)
+                            continue;
+
+
+                        WellDailyProductionData productionData = new WellDailyProductionData();
+                        productionData.WellId = wellWebID;
+                        foreach (var item in kindomDatas)
+                        {
+                            if (item.data.StartDate == null || item.data.EndDate == null)
+                                continue;
+                            TimeSpan timespan = item.data.EndDate.Value - item.data.StartDate.Value;
+                            int totalDays = timespan.Days + 1;
+                            for (int i = 0; i < totalDays; i++)
+                            {
+                                DailyData dailyData = new DailyData()
+                                {
+                                    OilVol = item.data.OilProductionVolume == null ? 0 : item.data.OilProductionVolume.Value / totalDays,
+                                    GasVol = item.data.GasProductionVolume == null ? 0 : item.data.GasProductionVolume.Value / totalDays,
+                                    WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays,
+                                    MeasureDate = item.data.StartDate.Value.AddDays(i).ToShortDateString()
+                                };
+                                productionData.DailyList.Add(dailyData);
+                            }
+                        }
+                        datas.Add(productionData);
+                    }
+                }
+            }
+
+            return datas;
+        }
+
+        public (List<WellGasTestData>,List<WellOilTestData>) GetWellGasTestData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
+        {
+            List<WellGasTestData> datas = new List<WellGasTestData>();
+            List<WellOilTestData> datasOil = new List<WellOilTestData>();
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                var DeviationSurveys = context.Get(new Smt.Entities.TestInitialPotential(),
+                 x => new
+                 {
+                     boreholeId = x.BoreholeId,
+                     data = x,
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId),
+                 false).ToList();
+
+                var dicts = DeviationSurveys.GroupBy(o => o.boreholeId).ToDictionary(a => a.Key, a => a.ToList());
+                foreach (var item in dicts)//一口井一般一条试数据
+                {
+                    var well = Wells.FirstOrDefault(o => o.BoreholeId == item.Key);
+                    var uwi = well?.Uwi;
+                    long wellWebID = Utils.GetWellIDByWellUWI(uwi, WellIDandNameList);
+                    if (wellWebID == -1)
+                        continue;
+                    WellGasTestData wellGasTestData = new WellGasTestData();
+                    wellGasTestData.WellId = wellWebID;
+                    datas.Add(wellGasTestData);
+
+                    WellOilTestData wellOilTestData = new WellOilTestData();
+                    wellOilTestData.WellId = wellWebID;
+                    datasOil.Add(wellOilTestData);
+
+                    foreach (var formItem in item.Value)
+                    {
+                        if (formItem.data != null)
+                        {
+                            string duanName = "";
+                            if (formItem.data.StartDepth.HasValue && formItem.data.EndDepth.HasValue)
+                            {
+                                duanName = formItem.data.StartDepth.Value.ToString() + "-" + formItem.data.EndDepth.Value.ToString();
+                            }
+
+                            if (formItem.data.GasVolume.HasValue)
+                            {
+                                GasTestData gasTestData = new GasTestData()
+                                {
+                                    WellId = wellWebID.ToString(),
+                                    WellName = well?.WellName,
+                                    Interval = duanName,
+                                    Wpr = formItem.data.GasVolume.Value,
+                                };
+                                if (formItem.data.WaterVolume.HasValue)
+                                {
+                                    gasTestData.Wp = formItem.data.WaterVolume.Value;
+                                }
+                                wellGasTestData.GasTestList.Add(gasTestData);
+                            }
+
+                            if (formItem.data.OilVolume.HasValue)
+                            {
+                                OilTestData gasTestData = new OilTestData()
+                                {
+                                    WellId = wellWebID.ToString(),
+                                    WellName = well?.WellName,
+                                    TestWellSection = duanName,
+                                    OilAmountPerDay = formItem.data.OilVolume.Value,
+                                    ChokeSize = formItem.data.TopChokeSize.HasValue ?  formItem.data.TopChokeSize.Value:0,
+                                    FlowPressure = formItem.data.FlowingTubingPressure.HasValue ?  formItem.data.FlowingTubingPressure.Value:0,
+                                    StaticTemp = formItem.data.BottomHoleTemperature.HasValue ?  formItem.data.BottomHoleTemperature.Value:0
+                                }
+                            ;
+                                if (formItem.data.WaterVolume.HasValue)
+                                {
+                                    gasTestData.WaterAmountPerDay = formItem.data.WaterVolume.Value;
+                                }
+                                wellOilTestData.OilTestList.Add(gasTestData);
+                            }
+
+                        }
+                    }
+
+                }
+            }
+
+            return (datas,datasOil);
+        }
+
+
 
         /// <summary>
         /// 创建或更新井数据

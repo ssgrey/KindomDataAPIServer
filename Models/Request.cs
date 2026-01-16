@@ -276,7 +276,7 @@ namespace KindomDataAPIServer.Models
         public double TubingPressure { get; set; }   // 油管压力
         public double CasingPressure { get; set; }   // 套管压力
         public double PumpingDepth { get; set; }     // 抽油深度
-        public double PumpingCount { get; set; }     // 抽油次数
+        public int PumpingCount { get; set; }     // 抽油次数
         public double MinWorkingLiquidLevel { get; set; }  // 最小工作液面
         public double MaxWorkingLiquidLevel { get; set; }  // 最大工作液面
         public double OilAmountPerDay { get; set; }        // 日产油量

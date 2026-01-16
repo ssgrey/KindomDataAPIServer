@@ -316,8 +316,7 @@ namespace KindomDataAPIServer.ViewModels
                             WellboreBottomX = well.BottomX,
                             WellboreBottomY = well.BottomY,
                             Longitude = well.Longitude,
-                            Latitude = well.Latitude,
-
+                            Latitude = well.Latitude,                               
                         };
                         wellDataRequest.Items.Add(item);
                     }
@@ -374,6 +373,174 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     LogManagerService.Instance.Log($"resdataSetID: {resdataSetID}");
                 }
+                #region 井轨迹
+                LogManagerService.Instance.Log($"WellTrajs start synchronize！");
+
+                List<WellTrajData> AllwellTrajs = KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList);
+
+                if (AllwellTrajs.Count > 0)
+                {
+                    int AllwellTrajsCount = AllwellTrajs.Count;
+                    List<WellTrajRequest> tempList = new List<WellTrajRequest>();
+                    WellTrajRequest wellTrajRequest = null;
+                    for (int i = 0; i < AllwellTrajsCount; i++)
+                    {
+                        if (i % 3 == 0)
+                        {
+                            wellTrajRequest = new WellTrajRequest();
+                            tempList.Add(wellTrajRequest);
+                            wellTrajRequest.Items.Add(AllwellTrajs[i]);
+                        }
+                        else
+                        {
+                            wellTrajRequest.Items.Add(AllwellTrajs[i]);
+                        }
+                    }
+                    for (int i = 0; i < tempList.Count; i++)
+                    {
+                        var res4 = await wellDataService.batch_create_well_trajectory_with_meta_infos(tempList[i]);
+                        if (res4 != null)
+                        {
+
+                        }
+                        LogManagerService.Instance.Log($"WellTrajs synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                        ProgressValue = 20 + ((i + 1) * 3 * 10) / AllwellTrajsCount;
+                    }
+
+                    LogManagerService.Instance.Log($"WellTrajs synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"WellTrajs Count is 0");
+                }
+                #endregion
+
+                #region 井产量
+
+
+                LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
+
+                List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList);
+
+                if (AllwellProductionDatas.Count > 0)
+                {
+                    int AllwellTrajsCount = AllwellProductionDatas.Count;
+                    List<WellProductionDataRequest> tempList = new List<WellProductionDataRequest>();
+                    WellProductionDataRequest wellTrajRequest = null;
+                    for (int i = 0; i < AllwellTrajsCount; i++)
+                    {
+                        if (i % 3 == 0)
+                        {
+                            wellTrajRequest = new WellProductionDataRequest();
+                            tempList.Add(wellTrajRequest);
+                            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                        }
+                        else
+                        {
+                            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                        }
+                    }
+                    for (int i = 0; i < tempList.Count; i++)
+                    {
+                        var res4 = await wellDataService.batch_create_well_production_with_meta_infos(tempList[i]);
+                        if (res4 != null)
+                        {
+
+                        }
+
+                        LogManagerService.Instance.Log($"Well Production Datas synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                        ProgressValue = 30 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
+                    }
+
+                    LogManagerService.Instance.Log($"Well Production Datas synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"Well Production Data Count is 0");
+                }
+
+
+                #endregion
+
+
+                #region 试油试气
+
+                (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList);
+
+                if (AllwellTestDatas.Item1.Count>0)
+                {
+                    LogManagerService.Instance.Log($"Well Gas Test Data start synchronize！");
+                    int AllCount = AllwellTestDatas.Item1.Count;
+                    List<WellGasTestRequest> tempList = new List<WellGasTestRequest>();
+                    WellGasTestRequest wellTrajRequest = null;
+                    for (int i = 0; i < AllCount; i++)
+                    {
+                        if (i % 3 == 0)
+                        {
+                            wellTrajRequest = new WellGasTestRequest();
+                            tempList.Add(wellTrajRequest);
+                            wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                        }
+                        else
+                        {
+                            wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                        }
+                    }
+                    for (int i = 0; i < tempList.Count; i++)
+                    {
+                        var res4 = await wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(tempList[i]);
+                        if (res4 != null)
+                        {
+
+                        }
+                    }
+                    ProgressValue = 55;
+                    LogManagerService.Instance.Log($"Well Gas Test Data synchronize synchronize over！");
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"Well Gas Test Data Count is 0");
+                }
+
+
+                if (AllwellTestDatas.Item2.Count > 0)
+                {
+                    LogManagerService.Instance.Log($"Well Oil Test Data start synchronize！");
+                    int AllCount = AllwellTestDatas.Item2.Count;
+                    List<WellOilTestDataRequset> tempList = new List<WellOilTestDataRequset>();
+                    WellOilTestDataRequset wellTrajRequest = null;
+                    for (int i = 0; i < AllCount; i++)
+                    {
+                        if (i % 3 == 0)
+                        {
+                            wellTrajRequest = new WellOilTestDataRequset();
+                            tempList.Add(wellTrajRequest);
+                            wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                        }
+                        else
+                        {
+                            wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                        }
+                    }
+                    for (int i = 0; i < tempList.Count; i++)
+                    {
+                        var res4 = await wellDataService.batch_create_well_oil_test_with_meta_infos(tempList[i]);
+                        if (res4 != null)
+                        {
+
+                        }
+                    }
+                    ProgressValue = 60;
+                    LogManagerService.Instance.Log($"Well Oil Test Data synchronize synchronize over！");
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"Well Oil Test Data Count is 0");
+                }
+
+                #endregion
+
+                #region  井曲线 
 
                 LogManagerService.Instance.Log($"WellLogs start synchronize！");
 
@@ -405,7 +572,7 @@ namespace KindomDataAPIServer.ViewModels
                         }
                         
                         LogManagerService.Instance.Log($"welllog synchronize ({(i + 1) * 3}/{AllwellLogs.LogList.Count})");
-                        ProgressValue = 20+ ((i + 1) * 3 *80)/AllwellLogs.LogList.Count;
+                        ProgressValue = 60+ ((i + 1) * 3 *20)/AllwellLogs.LogList.Count;
                     }
 
                     LogManagerService.Instance.Log($"welllog synchronize ({AllwellLogs.LogList.Count}/{AllwellLogs.LogList.Count}) synchronize over！");
@@ -414,6 +581,9 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     LogManagerService.Instance.Log($"WellLog Count is 0");
                 }
+                #endregion
+
+
                 ProgressValue = 100;
                 LogManagerService.Instance.Log($"Kindom data synchronize over!.");
                 DXMessageBox.Show("Kindom data synchronize over!");
