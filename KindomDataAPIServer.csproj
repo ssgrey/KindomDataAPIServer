@@ -320,5 +320,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tet.GeoSymbol\Tet.GeoSymbol.csproj">
+      <Project>{4a8e4f11-549d-45b6-88ef-a0f97a5acd57}</Project>
+      <Name>Tet.GeoSymbol</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

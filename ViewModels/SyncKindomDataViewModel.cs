@@ -5,6 +5,7 @@ using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.KindomAPI;
 using KindomDataAPIServer.Models;
+using Smt;
 using Smt.IO.LAS;
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,8 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using Tet.GeoSymbol;
+using Tet.GeoSymbol.UI;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
 using UnitType = KindomDataAPIServer.Models.UnitType;
@@ -38,13 +41,18 @@ namespace KindomDataAPIServer.ViewModels
         }
 
         public ICommand SyncCommand { get; set; }
+        public ICommand ConclusionSettingCommand { get; set; }
+
+        
         public SyncKindomDataViewModel()
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
-
+            ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             _ = LoadUnits();
         }
+
+
 
         private async Task LoadUnits()
         {
@@ -298,6 +306,48 @@ namespace KindomDataAPIServer.ViewModels
                 IsEnable = true;
             }
         }
+
+
+        string[] _displayCatalogs = new string[0];
+        public string[] DisplayCatalogs
+        {
+            get { return _displayCatalogs; }
+            set { _displayCatalogs = value; }
+        }
+        private void ConclusionSettingCommandAction()
+        {
+            GeoSymbolRepository geoSymbolLib = SymboManager.GeoSymbolLib;
+            var symbolNodes = geoSymbolLib.SymbolNodes;
+            if (this.DisplayCatalogs == null || this.DisplayCatalogs.Length == 0)
+            {
+                this.DisplayCatalogs = symbolNodes.Select(node => node.m_sCode).ToArray();
+            }
+
+            GeologySymbolExplorerWindow explorer = new GeologySymbolExplorerWindow
+            {
+                Title = "符号浏览器",
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                SymbolLib = geoSymbolLib,
+                DisplaySymbolCatalogs = this.DisplayCatalogs
+            };
+
+            bool? result = explorer.ShowDialog();
+            if (result.HasValue && result.Value)
+            {
+                GeoSymbolData symbolData = explorer.GetResult();
+                if (symbolData != null)
+                {
+                    //conclusionMapping.SymbolLibraryName = symbolData.Title;
+                    //conclusionMapping.Image = CreateConclusionImage(symbolData.ID, Colors.Transparent);
+                    //conclusionMapping.SymbolLibraryCode = symbolData.ID;
+                }
+            }
+            else
+            {
+                Console.WriteLine("No symbol was selected.");
+            }
+        }
+
 
         PbViewMetaObjectList WellIDandNameList = null;
 

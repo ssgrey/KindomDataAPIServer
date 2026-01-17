@@ -174,7 +174,10 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <dx:SimpleButton Content="Synchronize" IsEnabled="{Binding IsEnable}" Width="100" Height="30" Margin="10,10,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{Binding SyncCommand}"></dx:SimpleButton>
+            <StackPanel Orientation="Horizontal">
+                <dx:SimpleButton Content="Conclusion Setting" IsEnabled="{Binding IsEnable}" Width="120" Height="30" Margin="10,10,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{Binding ConclusionSettingCommand}"></dx:SimpleButton>
+                <dx:SimpleButton Content="Synchronize" IsEnabled="{Binding IsEnable}" Width="100" Height="30" Margin="10,10,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{Binding SyncCommand}"></dx:SimpleButton>
+            </StackPanel>
             <dxe:ProgressBarEdit Grid.Row="1" x:Name="progressBar"  Margin="10,5,10,10"
                 Height="20"  ContentDisplayMode="Value"  IsPercent="False"  DisplayFormatString=" {0:f0}%"
                 HorizontalAlignment="Stretch" 
