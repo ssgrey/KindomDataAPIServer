@@ -148,7 +148,7 @@ namespace KindomDataAPIServer.DataService
                 throw;
             }
         }
-
+        //测井解释
         public async Task<WellOperationResult> batch_create_well_payzone_with_meta_infos(CreatePayzoneRequest wellDataRequest)
         {
             try
@@ -161,7 +161,33 @@ namespace KindomDataAPIServer.DataService
                 throw;
             }
         }
-        
+        //岩性
+        public async Task<WellOperationResult> batch_create_well_lithology_with_meta_infos(CreatePayzoneRequest wellDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<CreatePayzoneRequest, WellOperationResult>("dp/api/welldata/batch_create_well_lithology_with_meta_infos", wellDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_lithology_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+        //沉积相
+        public async Task<WellOperationResult> batch_create_well_facies_with_meta_infos(CreatePayzoneRequest wellDataRequest)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<CreatePayzoneRequest, WellOperationResult>("dp/api/welldata/batch_create_well_facies_with_meta_infos", wellDataRequest);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"batch_create_well_facies_with_meta_infos failed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+
 
         public async Task<string> create_well_log_set(string datasetName)
         {

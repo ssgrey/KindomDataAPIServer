@@ -336,7 +336,7 @@ namespace KindomDataAPIServer.Models
     public class DatasetItemDto
     {
         public List<MetaInfo> MetaInfoList { get; set; } = new List<MetaInfo>();
-        public int WellId { get; set; }
+        public long WellId { get; set; }
         public List<ConclusionDto> ConclusionList { get; set; } = new List<ConclusionDto>();
     }
 
@@ -344,8 +344,8 @@ namespace KindomDataAPIServer.Models
 
     public class ConclusionDto
     {
-        public decimal Top { get; set; }
-        public decimal Bottom { get; set; }
+        public double Top { get; set; }
+        public double Bottom { get; set; }
         public string ConclusionName { get; set; }
         public int Color { get; set; }
         public string SymbolLibraryCode { get; set; }

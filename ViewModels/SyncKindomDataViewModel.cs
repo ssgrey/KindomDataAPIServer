@@ -16,6 +16,7 @@ using System.Web.UI.WebControls;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
 using UnitType = KindomDataAPIServer.Models.UnitType;
@@ -365,6 +366,7 @@ namespace KindomDataAPIServer.ViewModels
                 ProgressValue = 20;
                 LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
 
+                #region 数据集
                 string resdataSetID = "";
                 var datasetInfos = await wellDataService.get_dataset_list();
 
@@ -387,6 +389,8 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     LogManagerService.Instance.Log($"resdataSetID: {resdataSetID}");
                 }
+                #endregion
+
                 #region 井轨迹
                 LogManagerService.Instance.Log($"WellTrajs start synchronize！");
 
@@ -476,7 +480,6 @@ namespace KindomDataAPIServer.ViewModels
 
                 #endregion
 
-
                 #region 试油试气
 
                 (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList);
@@ -561,6 +564,81 @@ namespace KindomDataAPIServer.ViewModels
                 await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, resdataSetID, WellIDandNameList);
                 ProgressValue = 80;
                 #endregion
+
+
+                #region 解释结论
+                LogManagerService.Instance.Log($"WellConclusions start synchronize！");
+
+                List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
+                SymbolMappingDto symbolMappingDto = new SymbolMappingDto();
+                symbolMappingDto.Color = Utils.ColorToInt(Colors.Red);
+                symbolMappingDto.ConclusionName = "1";
+                symbolMappingDto.SymbolLibraryCode = "44C0010";
+                SymbolMapping.Add(symbolMappingDto);
+
+                SymbolMappingDto symbolMappingDto2 = new SymbolMappingDto();
+                symbolMappingDto2.Color = Utils.ColorToInt(Colors.Red);
+                symbolMappingDto2.ConclusionName = "3";
+                symbolMappingDto2.SymbolLibraryCode = "44C0010";
+                SymbolMapping.Add(symbolMappingDto2);
+
+                SymbolMappingDto symbolMappingDto3 = new SymbolMappingDto();
+                symbolMappingDto3.Color = Utils.ColorToInt(Colors.Red);
+                symbolMappingDto3.ConclusionName = "4";
+                symbolMappingDto3.SymbolLibraryCode = "44C0010";
+                SymbolMapping.Add(symbolMappingDto3);
+
+
+                SymbolMappingDto symbolMappingDto4 = new SymbolMappingDto();
+                symbolMappingDto4.Color = Utils.ColorToInt(Colors.Red);
+                symbolMappingDto4.ConclusionName = "5";
+                symbolMappingDto4.SymbolLibraryCode = "44C0010";
+                SymbolMapping.Add(symbolMappingDto4);
+
+
+                List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList);
+
+                if (Conclusions.Count > 0)
+                {
+                    int AllwellTrajsCount = Conclusions.Count;
+                    List<CreatePayzoneRequest> tempList = new List<CreatePayzoneRequest>();
+                    CreatePayzoneRequest wellTrajRequest = null;
+                    for (int i = 0; i < AllwellTrajsCount; i++)
+                    {
+                        if (i % 3 == 0)
+                        {
+                            wellTrajRequest = new CreatePayzoneRequest();
+                            wellTrajRequest.DatasetType = 1;
+                            wellTrajRequest.DatasetName = "一次解释";
+                            wellTrajRequest.SymbolMapping = SymbolMapping;
+
+                            tempList.Add(wellTrajRequest);
+                            wellTrajRequest.Items.Add(Conclusions[i]);
+                        }
+                        else
+                        {
+                            wellTrajRequest.Items.Add(Conclusions[i]);
+                        }
+                    }
+                    for (int i = 0; i < tempList.Count; i++)
+                    {
+                        var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
+                        if (res4 != null)
+                        {
+
+                        }
+                        LogManagerService.Instance.Log($"WellConclusions synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                        ProgressValue = 80 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
+                    }
+
+                    LogManagerService.Instance.Log($"WellConclusions synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
+                }
+                else
+                {
+                    LogManagerService.Instance.Log($"WellConclusions Count is 0");
+                }
+                #endregion
+
 
 
                 ProgressValue = 100;

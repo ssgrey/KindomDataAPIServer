@@ -1113,6 +1113,76 @@ namespace KindomDataAPIServer.KindomAPI
             return (datas,datasOil);
         }
 
+        public List<DatasetItemDto> GetWellConclusion(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
+        {
+            List<DatasetItemDto> datas = new List<DatasetItemDto>();
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+            
+            List<MetaInfo> MetaInfoList = new List<MetaInfo>();
+            MetaInfo metaInfo = new MetaInfo();
+            metaInfo.DisplayName = "top";
+            metaInfo.PropertyName = "conclusionList.top";
+            metaInfo.UnitId = DepthUnit.UnitId;
+            metaInfo.MeasureId = DepthUnit.MeasureID;
+            MetaInfoList.Add(metaInfo);
+            MetaInfo metaInfo2 = new MetaInfo();
+            metaInfo2.DisplayName = "bottom";
+            metaInfo2.PropertyName = "conclusionList.bottom";
+            metaInfo2.UnitId = DepthUnit.UnitId;
+            metaInfo2.MeasureId = DepthUnit.MeasureID;
+            MetaInfoList.Add(metaInfo2);
+
+            using (var context = project.GetKingdom())
+            {
+                var DeviationSurveys = context.Get(new Smt.Entities.IntervalRecord(),
+                 x => new
+                 {
+                     borehole = x.Borehole,
+                     boreholeId = x.BoreholeId,
+                     wellUWI = x.Borehole.Uwi,
+                     data = x,
+                     TextValues = x.IntervalTextValues
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId),
+                 false).ToList();
+
+                var dicts = DeviationSurveys.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//按井分组
+                foreach (var item in dicts)
+                {
+                    long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
+                    if (wellWebID == -1)
+                        continue;
+                    DatasetItemDto datasetItemDto = new DatasetItemDto();
+                    datasetItemDto.MetaInfoList = MetaInfoList;
+                    datasetItemDto.WellId = wellWebID;                   
+                    foreach (var dictItem in item.Value)
+                    {
+                        if (dictItem.data != null)
+                        {
+                            if (dictItem.TextValues.Count > 0)//必须由第三列字段
+                            {
+                                string consolusionName = dictItem.TextValues[0].Value;
+                                ConclusionDto conclusionDto = new ConclusionDto();
+                                conclusionDto.ConclusionName = consolusionName;
+                                conclusionDto.Top = dictItem.data.StartDepth;
+                                conclusionDto.Bottom = dictItem.data.EndDepth;
+                                conclusionDto.SymbolLibraryCode = "44C0010";
+                                datasetItemDto.ConclusionList.Add(conclusionDto);
+                            }
+                        }
+                    }
+
+                    if (datasetItemDto.ConclusionList.Count > 0)
+                    {
+                        datas.Add(datasetItemDto);
+                    }
+
+                }
+            }
+
+            return datas;
+        }
 
 
         /// <summary>

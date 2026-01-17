@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
 using Tet.Transport.Protobuf.Metaobjs;
 
 namespace KindomDataAPIServer.Common
@@ -67,6 +68,12 @@ namespace KindomDataAPIServer.Common
                 }
             }
             return measureUnit;
+        }
+
+        public static int ColorToInt(Color color)
+        {
+            int argb = (color.A << 24) | (color.R << 16) | (color.G << 8) | color.B;
+            return argb;
         }
 
         public static Project CreateProject(string path)
