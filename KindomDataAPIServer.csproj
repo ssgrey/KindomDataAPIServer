@@ -173,6 +173,7 @@
     <Reference Include="System.Diagnostics.DiagnosticSource, Version=10.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>packages\System.Diagnostics.DiagnosticSource.10.0.0\lib\net462\System.Diagnostics.DiagnosticSource.dll</HintPath>
     </Reference>
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Memory, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>packages\System.Memory.4.6.3\lib\net462\System.Memory.dll</HintPath>
     </Reference>
@@ -246,7 +247,12 @@
     <Compile Include="Models\WellRequest.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Startup.cs" />
+    <Compile Include="Models\Settings\ConclusionMappingItem.cs" />
+    <Compile Include="ViewModels\ConclusionSettingViewModel.cs" />
     <Compile Include="ViewModels\SyncKindomDataViewModel.cs" />
+    <Compile Include="Views\ConclusionSettingView.xaml.cs">
+      <DependentUpon>ConclusionSettingView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\OpenProjectView.xaml.cs">
       <DependentUpon>OpenProjectView.xaml</DependentUpon>
     </Compile>
@@ -256,6 +262,10 @@
     <Page Include="GlobalStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ConclusionSettingView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\MainServerView.xaml">
       <Generator>MSBuild:Compile</Generator>

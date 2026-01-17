@@ -1,4 +1,5 @@
 ﻿using DevExpress.Mvvm;
+using DevExpress.Mvvm.POCO;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpo.Logger;
 using KindomDataAPIServer.Common;
@@ -28,27 +29,19 @@ namespace KindomDataAPIServer.ViewModels
 {
     public class SyncKindomDataViewModel : BindableBase
     {
-        IDataWellService wellDataService = null;
+       public ConclusionSettingViewModel ConclusionSettingVM { set; get; }
 
-        public void BrowseProjectPath()
-        {
-            var dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.Filter = "Kindom Project File|*.tks";
-            if (dialog.ShowDialog() == true)
-            {
-                ProjectPath = dialog.FileName;
-            }
-        }
+        IDataWellService wellDataService = null;
 
         public ICommand SyncCommand { get; set; }
         public ICommand ConclusionSettingCommand { get; set; }
-
-        
+             
         public SyncKindomDataViewModel()
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
+            ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
             _ = LoadUnits();
         }
 
@@ -62,8 +55,6 @@ namespace KindomDataAPIServer.ViewModels
                 Utils.UnitTypes = res7;
             }
         }
-
-
 
         #region Properties
         private string _ProjectPath;
