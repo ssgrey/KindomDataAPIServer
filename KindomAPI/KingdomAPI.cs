@@ -1187,6 +1187,43 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
+
+        public List<string> GetConclusionNames(ProjectResponse KingDomData)
+        {
+            List<string> ConclusionNames = new List<string>();
+
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                var DeviationSurveys = context.Get(new Smt.Entities.IntervalRecord(),
+                 x => new
+                 {
+                     borehole = x.Borehole,
+                     boreholeId = x.BoreholeId,
+                     wellUWI = x.Borehole.Uwi,
+                     data = x,
+                     TextValues = x.IntervalTextValues
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId),
+                 false).ToList();
+
+                var dicts = DeviationSurveys.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//按井分组
+                foreach (var item in DeviationSurveys)
+                {
+                    if (item.TextValues.Count > 0)//必须由第三列字段
+                    {
+                        string consolusionName = item.TextValues[0].Value;
+                        if (!ConclusionNames.Contains(consolusionName))
+                            ConclusionNames.Add(consolusionName);
+                    }
+                }
+            }
+
+
+            return ConclusionNames;
+        }
         /// <summary>
         /// 创建或更新井数据
         /// </summary>

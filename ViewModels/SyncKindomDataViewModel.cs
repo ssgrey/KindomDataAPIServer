@@ -6,6 +6,8 @@ using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.KindomAPI;
 using KindomDataAPIServer.Models;
+using KindomDataAPIServer.Views;
+using Microsoft.Win32;
 using Smt;
 using Smt.IO.LAS;
 using System;
@@ -30,6 +32,7 @@ namespace KindomDataAPIServer.ViewModels
     public class SyncKindomDataViewModel : BindableBase
     {
        public ConclusionSettingViewModel ConclusionSettingVM { set; get; }
+
 
         IDataWellService wellDataService = null;
 
@@ -57,6 +60,21 @@ namespace KindomDataAPIServer.ViewModels
         }
 
         #region Properties
+
+
+        public void BrowseProjectPath()
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+
+            openFileDialog.Title = "Select Project";
+            openFileDialog.Filter = " (*.tks)|*.tks";
+            openFileDialog.FilterIndex = 1;
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                ProjectPath = openFileDialog.FileName;
+            }
+        }
         private string _ProjectPath;
         public string ProjectPath
         {
@@ -307,43 +325,18 @@ namespace KindomDataAPIServer.ViewModels
         }
         private void ConclusionSettingCommandAction()
         {
-            GeoSymbolRepository geoSymbolLib = SymboManager.GeoSymbolLib;
-            var symbolNodes = geoSymbolLib.SymbolNodes;
-            if (this.DisplayCatalogs == null || this.DisplayCatalogs.Length == 0)
-            {
-                this.DisplayCatalogs = symbolNodes.Select(node => node.m_sCode).ToArray();
-            }
-
-            GeologySymbolExplorerWindow explorer = new GeologySymbolExplorerWindow
-            {
-                Title = "符号浏览器",
-                WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                SymbolLib = geoSymbolLib,
-                DisplaySymbolCatalogs = this.DisplayCatalogs
-            };
-
-            bool? result = explorer.ShowDialog();
-            if (result.HasValue && result.Value)
-            {
-                GeoSymbolData symbolData = explorer.GetResult();
-                if (symbolData != null)
-                {
-                    //conclusionMapping.SymbolLibraryName = symbolData.Title;
-                    //conclusionMapping.Image = CreateConclusionImage(symbolData.ID, Colors.Transparent);
-                    //conclusionMapping.SymbolLibraryCode = symbolData.ID;
-                }
-            }
-            else
-            {
-                Console.WriteLine("No symbol was selected.");
-            }
+            if (KindomData == null)
+                return;
+            ConclusionSettingView conclusionSettingView = new ConclusionSettingView(this);
+            conclusionSettingView.ShowDialog();
         }
 
 
-        PbViewMetaObjectList WellIDandNameList = null;
+        public PbViewMetaObjectList WellIDandNameList = null;
 
         public async Task SyncCommandAction()
         {
+
              IsEnable = false;
             try
             {
@@ -610,37 +603,48 @@ namespace KindomDataAPIServer.ViewModels
                 #region 解释结论
                 LogManagerService.Instance.Log($"WellConclusions start synchronize！");
 
-                List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
-                SymbolMappingDto symbolMappingDto = new SymbolMappingDto();
-                symbolMappingDto.Color = Utils.ColorToInt(Colors.Red);
-                symbolMappingDto.ConclusionName = "1";
-                symbolMappingDto.SymbolLibraryCode = "44C0010";
-                SymbolMapping.Add(symbolMappingDto);
+                //List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
+                //SymbolMappingDto symbolMappingDto = new SymbolMappingDto();
+                //symbolMappingDto.Color = Utils.ColorToInt(Colors.Red);
+                //symbolMappingDto.ConclusionName = "1";
+                //symbolMappingDto.SymbolLibraryCode = "44C0010";
+                //SymbolMapping.Add(symbolMappingDto);
 
-                SymbolMappingDto symbolMappingDto2 = new SymbolMappingDto();
-                symbolMappingDto2.Color = Utils.ColorToInt(Colors.Red);
-                symbolMappingDto2.ConclusionName = "3";
-                symbolMappingDto2.SymbolLibraryCode = "44C0010";
-                SymbolMapping.Add(symbolMappingDto2);
+                //SymbolMappingDto symbolMappingDto2 = new SymbolMappingDto();
+                //symbolMappingDto2.Color = Utils.ColorToInt(Colors.Red);
+                //symbolMappingDto2.ConclusionName = "3";
+                //symbolMappingDto2.SymbolLibraryCode = "44C0010";
+                //SymbolMapping.Add(symbolMappingDto2);
 
-                SymbolMappingDto symbolMappingDto3 = new SymbolMappingDto();
-                symbolMappingDto3.Color = Utils.ColorToInt(Colors.Red);
-                symbolMappingDto3.ConclusionName = "4";
-                symbolMappingDto3.SymbolLibraryCode = "44C0010";
-                SymbolMapping.Add(symbolMappingDto3);
+                //SymbolMappingDto symbolMappingDto3 = new SymbolMappingDto();
+                //symbolMappingDto3.Color = Utils.ColorToInt(Colors.Red);
+                //symbolMappingDto3.ConclusionName = "4";
+                //symbolMappingDto3.SymbolLibraryCode = "44C0010";
+                //SymbolMapping.Add(symbolMappingDto3);
 
 
-                SymbolMappingDto symbolMappingDto4 = new SymbolMappingDto();
-                symbolMappingDto4.Color = Utils.ColorToInt(Colors.Red);
-                symbolMappingDto4.ConclusionName = "5";
-                symbolMappingDto4.SymbolLibraryCode = "44C0010";
-                SymbolMapping.Add(symbolMappingDto4);
+                //SymbolMappingDto symbolMappingDto4 = new SymbolMappingDto();
+                //symbolMappingDto4.Color = Utils.ColorToInt(Colors.Red);
+                //symbolMappingDto4.ConclusionName = "5";
+                //symbolMappingDto4.SymbolLibraryCode = "44C0010";
+                //SymbolMapping.Add(symbolMappingDto4);
 
 
                 List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList);
 
-                if (Conclusions.Count > 0)
+                if (Conclusions!=null && Conclusions.Count > 0)
                 {
+                    List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
+                    foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
+                    {
+                        SymbolMappingDto temp = new SymbolMappingDto();
+                        temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
+                        temp.ConclusionName = ConclusionMappingItem.PolygonName;
+                        temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
+                        SymbolMapping.Add(temp);
+                    } 
+
+                    string NewConclusionName = string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "一次解释" : ConclusionSettingVM.NewConclusionName;
                     int AllwellTrajsCount = Conclusions.Count;
                     List<CreatePayzoneRequest> tempList = new List<CreatePayzoneRequest>();
                     CreatePayzoneRequest wellTrajRequest = null;
@@ -649,8 +653,21 @@ namespace KindomDataAPIServer.ViewModels
                         if (i % 3 == 0)
                         {
                             wellTrajRequest = new CreatePayzoneRequest();
-                            wellTrajRequest.DatasetType = 1;
-                            wellTrajRequest.DatasetName = "一次解释";
+                            
+
+                            if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
+                            {
+                                wellTrajRequest.DatasetType = 1;
+                            }
+                            else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
+                            {
+                                wellTrajRequest.DatasetType = 2;
+                            }
+                            else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
+                            {
+                                wellTrajRequest.DatasetType = 3;
+                            }
+                            wellTrajRequest.DatasetName = NewConclusionName;
                             wellTrajRequest.SymbolMapping = SymbolMapping;
 
                             tempList.Add(wellTrajRequest);
@@ -663,13 +680,19 @@ namespace KindomDataAPIServer.ViewModels
                     }
                     for (int i = 0; i < tempList.Count; i++)
                     {
-                        var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
-                        //var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
-                        //var res6= await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
-                        if (res4 != null)
+                        if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
                         {
-
+                            var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
                         }
+                        else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
+                        {
+                            var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
+                        }
+                        else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
+                        {
+                            var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
+                        }
+
                         LogManagerService.Instance.Log($"WellConclusions synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
                         ProgressValue = 80 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
                     }

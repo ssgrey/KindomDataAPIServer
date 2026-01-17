@@ -7,6 +7,7 @@ using DevExpress.Xpf.Charts;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Grid;
 using DevExpress.XtraPrinting;
+using KindomDataAPIServer.KindomAPI;
 using KindomDataAPIServer.Models;
 using KindomDataAPIServer.ViewModels;
 using log4net;
@@ -40,14 +41,18 @@ namespace KindomDataAPIServer.Views
     {
         public readonly ILog _logger = LogManager.GetLogger("DVCreateConclusionView");
 
-        public ConclusionSettingViewModel ViewModel { get; private set; }
+        public SyncKindomDataViewModel ViewModel { get; private set; }
 
-        public ConclusionSettingView(ConclusionSettingViewModel viewModel)
+        public ConclusionSettingView(SyncKindomDataViewModel viewModel)
         {
             InitializeComponent();
             GridControl.AllowInfiniteGridSize = true;
-                ViewModel = viewModel; 
-            this.DataContext = ViewModel;
+                ViewModel = viewModel;
+            if (ViewModel.ConclusionSettingVM.ConclusionMappingItems.Count == 0)
+            {
+                Reload_Clicked(null, null);
+            }
+            this.DataContext = ViewModel.ConclusionSettingVM;
         }
 
         private void OnClosed(object sender, EventArgs e)
@@ -55,6 +60,21 @@ namespace KindomDataAPIServer.Views
             GridControl.AllowInfiniteGridSize = false;
         }
 
+
+        private void Reload_Clicked(object sender, RoutedEventArgs e)
+        {
+            ViewModel.ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
+            List<string> ConclusionNames = KingdomAPI.Instance.GetConclusionNames(ViewModel.KindomData);
+            foreach (var item in ConclusionNames)
+            {
+                ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
+                {
+                    Color = Colors.Red,
+                    PolygonName = item,
+                };
+                ViewModel.ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
+            }
+        }
 
 
         private void Apply_Clicked(object sender, RoutedEventArgs e)
@@ -125,6 +145,8 @@ namespace KindomDataAPIServer.Views
                 }
             }
         }
+
+
 
         //private BitmapImage CreateConclusionImage(string symboId, Color? backcolor)
         //{

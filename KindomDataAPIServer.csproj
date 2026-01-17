@@ -229,6 +229,7 @@
     <Compile Include="Controllers\DirectoryController.cs" />
     <Compile Include="Controllers\HelpControler.cs" />
     <Compile Include="Controllers\WellControler.cs" />
+    <Compile Include="Converters\Converters.cs" />
     <Compile Include="DataService\APIClient.cs" />
     <Compile Include="DataService\ClientModels.cs" />
     <Compile Include="DataService\IApiClient.cs" />
