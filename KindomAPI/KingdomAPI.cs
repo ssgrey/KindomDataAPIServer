@@ -15,6 +15,7 @@ using System.Runtime.Remoting.Contexts;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
 
@@ -1165,6 +1166,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 string consolusionName = dictItem.TextValues[0].Value;
                                 ConclusionDto conclusionDto = new ConclusionDto();
                                 conclusionDto.ConclusionName = consolusionName;
+                                conclusionDto.Color = Utils.ColorToInt(Colors.Red);
                                 conclusionDto.Top = dictItem.data.StartDepth;
                                 conclusionDto.Bottom = dictItem.data.EndDepth;
                                 conclusionDto.SymbolLibraryCode = "44C0010";

@@ -623,6 +623,8 @@ namespace KindomDataAPIServer.ViewModels
                     for (int i = 0; i < tempList.Count; i++)
                     {
                         var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
+                        //var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
+                        //var res6= await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
                         if (res4 != null)
                         {
 
