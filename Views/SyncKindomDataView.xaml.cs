@@ -111,6 +111,9 @@ namespace KindomDataAPIServer.Views
             KingdomAPI.Instance.Close();
         }
 
-
+        private void Exit_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
+        {
+            this.Close();
+        }
     }
 }

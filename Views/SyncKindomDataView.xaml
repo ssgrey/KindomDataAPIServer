@@ -51,10 +51,16 @@
                 </StackPanel>-->
                 <dxb:BarContainerControl>
                     <dxb:MainMenuControl AllowCustomizationMenu="False">
-                        <dxb:BarSubItem Content="Peoject" >
+                        <dxb:BarSubItem Content="File" >
                             <dxb:BarButtonItem Content="Open" ItemClick="Open_Click" />
+                            <dxb:BarButtonItem Content="Exit" ItemClick="Exit_Click" />
                         </dxb:BarSubItem>
-                        <dxb:BarSubItem Content="Setting" >
+                        <dxb:BarSubItem Content="Tool" >
+                            <dxb:BarButtonItem Content="Synchronize" Command="{Binding SyncCommand}" />
+                        </dxb:BarSubItem>
+                        <dxb:BarSubItem Content="Help" >
+                            <dxb:BarButtonItem Content="Log"/>
+                            <dxb:BarButtonItem Content="About" />
                         </dxb:BarSubItem>
                     </dxb:MainMenuControl>
     
@@ -178,16 +184,24 @@
                 <dx:SimpleButton Content="Conclusion Setting" IsEnabled="{Binding IsEnable}" Width="120" Height="30" Margin="10,10,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{Binding ConclusionSettingCommand}"></dx:SimpleButton>
                 <dx:SimpleButton Content="Synchronize" IsEnabled="{Binding IsEnable}" Width="100" Height="30" Margin="10,10,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Command="{Binding SyncCommand}"></dx:SimpleButton>
             </StackPanel>
-            <dxe:ProgressBarEdit Grid.Row="1" x:Name="progressBar"  Margin="10,5,10,10"
+        </Grid>
+        <Grid Grid.Row="2" >
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition ></ColumnDefinition>
+                <ColumnDefinition Width="300"></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" >
+                <Label Content="User：" FontSize="10" Margin="5,0,0,0" VerticalContentAlignment="Center"></Label>
+                <Label x:Name="userlabel" FontSize="10" VerticalContentAlignment="Center"></Label>
+            </StackPanel>
+            <dxe:ProgressBarEdit Grid.Column="1" x:Name="progressBar"  Margin="10,5,10,5"
                 Height="20"  ContentDisplayMode="Value"  IsPercent="False"  DisplayFormatString=" {0:f0}%"
                 HorizontalAlignment="Stretch" 
                 VerticalAlignment="Center"              
                 Minimum="0" 
                 Maximum="100"   Value="{Binding ProgressValue}"/>
-
         </Grid>
-
-        <Expander
+        <Expander  Visibility="Collapsed"
             Grid.Row="2"
             Grid.Column="0" Grid.ColumnSpan="2"
             Padding="5"

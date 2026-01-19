@@ -254,6 +254,9 @@
     <Compile Include="Views\ConclusionSettingView.xaml.cs">
       <DependentUpon>ConclusionSettingView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\LogView.xaml.cs">
+      <DependentUpon>LogView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\OpenProjectView.xaml.cs">
       <DependentUpon>OpenProjectView.xaml</DependentUpon>
     </Compile>
@@ -267,6 +270,10 @@
     <Page Include="Views\ConclusionSettingView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\LogView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\MainServerView.xaml">
       <Generator>MSBuild:Compile</Generator>
