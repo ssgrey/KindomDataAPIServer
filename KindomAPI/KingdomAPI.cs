@@ -1114,8 +1114,8 @@ namespace KindomDataAPIServer.KindomAPI
             return (datas,datasOil);
         }
 
-        public List<DatasetItemDto> GetWellConclusion(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
-        {
+        public List<DatasetItemDto> GetWellConclusion(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<SymbolMappingDto> SymbolMapping)
+        {         
             List<DatasetItemDto> datas = new List<DatasetItemDto>();
             List<WellExport> Wells = KingDomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
@@ -1169,7 +1169,10 @@ namespace KindomDataAPIServer.KindomAPI
                                 conclusionDto.Color = Utils.ColorToInt(Colors.Red);
                                 conclusionDto.Top = dictItem.data.StartDepth;
                                 conclusionDto.Bottom = dictItem.data.EndDepth;
-                                conclusionDto.SymbolLibraryCode = "44C0010";
+
+                                var res =  SymbolMapping.FirstOrDefault(o => o.ConclusionName == consolusionName);
+                                if (res != null)
+                                    conclusionDto.SymbolLibraryCode = res.SymbolLibraryCode;
                                 datasetItemDto.ConclusionList.Add(conclusionDto);
                             }
                         }

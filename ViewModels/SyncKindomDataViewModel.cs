@@ -337,7 +337,23 @@ namespace KindomDataAPIServer.ViewModels
         public async Task SyncCommandAction()
         {
 
-             IsEnable = false;
+            List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
+            foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
+            {
+                SymbolMappingDto temp = new SymbolMappingDto();
+                temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
+                temp.ConclusionName = ConclusionMappingItem.PolygonName;
+                temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
+                if(string.IsNullOrEmpty(ConclusionMappingItem.SymbolLibraryCode))
+                {
+                    DXMessageBox.Show("Please set all conclusion item code");
+                    return;
+                }
+                SymbolMapping.Add(temp);
+            }
+
+
+            IsEnable = false;
             try
             {
 
@@ -630,19 +646,12 @@ namespace KindomDataAPIServer.ViewModels
                 //SymbolMapping.Add(symbolMappingDto4);
 
 
+
                 List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList);
 
                 if (Conclusions!=null && Conclusions.Count > 0)
                 {
-                    List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
-                    foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
-                    {
-                        SymbolMappingDto temp = new SymbolMappingDto();
-                        temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
-                        temp.ConclusionName = ConclusionMappingItem.PolygonName;
-                        temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
-                        SymbolMapping.Add(temp);
-                    } 
+
 
                     string NewConclusionName = string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "一次解释" : ConclusionSettingVM.NewConclusionName;
                     int AllwellTrajsCount = Conclusions.Count;
@@ -653,8 +662,7 @@ namespace KindomDataAPIServer.ViewModels
                         if (i % 3 == 0)
                         {
                             wellTrajRequest = new CreatePayzoneRequest();
-                            
-
+                           
                             if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
                             {
                                 wellTrajRequest.DatasetType = 1;
