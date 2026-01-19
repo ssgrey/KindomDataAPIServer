@@ -30,5 +30,11 @@ namespace KindomDataAPIServer.Views
         {
             logger.Document.Blocks.Clear();
         }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            this.Hide();
+            e.Cancel = true;
+        }
     }
 }

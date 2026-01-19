@@ -647,7 +647,7 @@ namespace KindomDataAPIServer.ViewModels
 
 
 
-                List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList);
+                List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping);
 
                 if (Conclusions!=null && Conclusions.Count > 0)
                 {

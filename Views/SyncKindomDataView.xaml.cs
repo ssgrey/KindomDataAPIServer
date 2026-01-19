@@ -28,6 +28,7 @@ namespace KindomDataAPIServer.Views
     /// </summary>
     public partial class SyncKindomDataView : ThemedWindow
     {
+        LogView logView = null;
         SyncKindomDataViewModel ViewModel = null;
         public SyncKindomDataView(string[] args)
         {
@@ -37,7 +38,7 @@ namespace KindomDataAPIServer.Views
 
         private void Ini(string[] args)
         {
-            LogManagerService.Instance.TextBox = logger;
+            logView = new LogView();
             try
             {
                 if (args != null && args.Length > 0)
@@ -113,7 +114,17 @@ namespace KindomDataAPIServer.Views
 
         private void Exit_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
         {
+            logView.Close();
             this.Close();
+            Application.Current.Shutdown();
+        }
+
+
+        private void Log_ItemClick(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
+        {
+            if(logView==null)
+                logView = new LogView();
+           logView.Show();
         }
     }
 }
