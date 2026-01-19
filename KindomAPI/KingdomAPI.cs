@@ -328,7 +328,6 @@ namespace KindomDataAPIServer.KindomAPI
                         Country = b.Well.Country.Name,
                         State = b.Well.State.Name,
                         County = b.Well.County.Name,
-
                     },
                         _ => true,
                         false).ToList();
@@ -923,6 +922,7 @@ namespace KindomDataAPIServer.KindomAPI
                                     StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
                                     CurveName = formItem.LogCurveName.Name,
                                     DataSetId = dataSetId,
+                                    
                                 };
                                 logObj.Samples.AddRange(dataArray);
 

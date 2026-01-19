@@ -211,7 +211,126 @@ namespace KindomDataAPIServer.ViewModels
 
             }
         }
-        
+
+        private ProjectResponse _KindomData;
+        public ProjectResponse KindomData
+        {
+            get
+            {
+                return _KindomData;
+            }
+            set
+            {
+                SetProperty(ref _KindomData, value, nameof(KindomData));
+            }
+        }
+        #region wellSetting
+
+        private bool _IsShowWellHeaderXY = true;
+        public bool IsShowWellHeaderXY
+        {
+            get
+            {
+                return _IsShowWellHeaderXY;
+            }
+            set
+            {
+                SetProperty(ref _IsShowWellHeaderXY, value, nameof(IsShowWellHeaderXY));
+            }
+        }
+
+        private bool _IsShowWellBottomXY = true;
+        public bool IsShowWellBottomXY
+        {
+            get
+            {
+                return _IsShowWellBottomXY;
+            }
+            set
+            {
+                SetProperty(ref _IsShowWellBottomXY, value, nameof(IsShowWellBottomXY));
+            }
+        }
+
+        private bool _IsShowBL = true;
+        public bool IsShowBL
+        {
+            get
+            {
+                return _IsShowBL;
+            }
+            set
+            {
+                SetProperty(ref _IsShowBL, value, nameof(IsShowBL));
+            }
+        }
+
+        private bool _IsShowCountry = true;
+        public bool IsShowCountry
+        {
+            get
+            {
+                return _IsShowCountry;
+            }
+            set
+            {
+                SetProperty(ref _IsShowCountry, value, nameof(IsShowCountry));
+            }
+        }
+
+        private bool _IsShowState = true;
+        public bool IsShowState
+        {
+            get
+            {
+                return _IsShowState;
+            }
+            set
+            {
+                SetProperty(ref _IsShowState, value, nameof(IsShowState));
+            }
+        }
+
+        private bool _IsShowCounty = true;
+        public bool IsShowCounty
+        {
+            get
+            {
+                return _IsShowCounty;
+            }
+            set
+            {
+                SetProperty(ref _IsShowCounty, value, nameof(IsShowCounty));
+            }
+        }
+
+        private bool _IsSyncWellHeader = true;
+        public bool IsSyncWellHeader
+        {
+            get
+            {
+                return _IsSyncWellHeader;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncWellHeader, value, nameof(IsSyncWellHeader));
+            }
+        }
+
+        private bool _IsSyncTrajectory = true;
+        public bool IsSyncTrajectory
+        {
+            get
+            {
+                return _IsSyncTrajectory;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncTrajectory, value, nameof(IsSyncTrajectory));
+            }
+        }
+        #endregion
+
         #endregion
 
 
@@ -275,18 +394,6 @@ namespace KindomDataAPIServer.ViewModels
             }
         });
 
-        private ProjectResponse _KindomData;
-        public ProjectResponse KindomData
-        {
-            get
-            {
-                return _KindomData;
-            }
-            set
-            {
-                SetProperty(ref _KindomData, value, nameof(KindomData));
-            }
-        }
 
         private void LoadKingdomData()
         {
@@ -357,51 +464,75 @@ namespace KindomDataAPIServer.ViewModels
             try
             {
 
-                LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
                 ProgressValue = 0;
 
-                WellDataRequest wellDataRequest = new WellDataRequest();
-                wellDataRequest.Items = new List<WellItemRequest>();
-                KindomData.Wells.ForEach(well =>
+                if (IsSyncWellHeader)
                 {
-                    if (well.IsChecked == true)
+                    LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
+                    WellDataRequest wellDataRequest = new WellDataRequest();
+                    wellDataRequest.Items = new List<WellItemRequest>();
+                    KindomData.Wells.ForEach(well =>
                     {
-                        WellItemRequest item = new WellItemRequest()
+                        if (well.IsChecked == true)
                         {
-                            WellName = well.Uwi,
-                            Alias = well.WellName + "-" + well.BoreholeName,
-                            WellNumber = well.WellNumber,
-                            WellType = 0,
-                            WellTrajectoryType = 0,
-                            Country = well.Country,
-                            Region = well.Region,
-                            Districts = well.Districts,
-                            WellheadX = well.SurfaceX,
-                            WellheadY = well.SurfaceY,
-                            WellboreBottomX = well.BottomX,
-                            WellboreBottomY = well.BottomY,
-                            Longitude = well.Longitude,
-                            Latitude = well.Latitude,                               
-                        };
-                        wellDataRequest.Items.Add(item);
+                            WellItemRequest item = new WellItemRequest()
+                            {
+                                WellName = well.Uwi,
+                                Alias = well.WellName + "-" + well.BoreholeName,
+                                WellNumber = well.WellNumber,
+                                WellType = 0,
+                                WellTrajectoryType = 0,
+                            };
+                            if (IsShowWellHeaderXY)
+                            {
+                                item.WellheadX = well.SurfaceX;
+                                item.WellheadY = well.SurfaceY;
+                            }
+                            //if (IsShowWellBottomXY)
+                            //{
+                            //    item.WellboreBottomX = well.BottomX;
+                            //    item.WellboreBottomY = well.BottomY;
+                            //}
+                            if (IsShowBL)
+                            {
+                                item.Latitude = well.Latitude;
+                                item.Longitude = well.Longitude;
+                            }
+                            if (IsShowCountry)
+                            {
+                                item.Country = well.Country;
+                            }
+
+                            if (IsShowState)
+                            {
+                                item.Region = well.Region;
+                            }
+                            if (IsShowCounty)
+                            {
+                                item.Districts = well.Districts;
+                            }
+
+                            wellDataRequest.Items.Add(item);
+                        }
+
+                    });
+
+                    if (wellDataRequest.Items.Count == 0)
+                    {
+                        IsEnable = false;
+                        DXMessageBox.Show("The number of wells selected cannot be 0");
+                        return;
                     }
 
-                });
+                    var res = await wellDataService.batch_create_well_header(wellDataRequest);
+                    if (res != null)
+                    {
 
-                if(wellDataRequest.Items.Count == 0)
-                {
-                    IsEnable = false;
-                    DXMessageBox.Show("The number of wells selected cannot be 0");
-                    return;
+                    }
+                    LogManagerService.Instance.Log($"WellHeader({wellDataRequest.Items.Count}) synchronize over！");
                 }
 
-                var res = await wellDataService.batch_create_well_header(wellDataRequest);
-                if (res != null)
-                {
-                    
-                }
                 ProgressValue = 10;
-                LogManagerService.Instance.Log($"WellHeader({wellDataRequest.Items.Count}) synchronize over！");
 
                 WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
 
@@ -442,45 +573,51 @@ namespace KindomDataAPIServer.ViewModels
                 #endregion
 
                 #region 井轨迹
-                LogManagerService.Instance.Log($"WellTrajs start synchronize！");
 
-                List<WellTrajData> AllwellTrajs = KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList);
-
-                if (AllwellTrajs.Count > 0)
+                if (IsSyncTrajectory)
                 {
-                    int AllwellTrajsCount = AllwellTrajs.Count;
-                    List<WellTrajRequest> tempList = new List<WellTrajRequest>();
-                    WellTrajRequest wellTrajRequest = null;
-                    for (int i = 0; i < AllwellTrajsCount; i++)
-                    {
-                        if (i % 3 == 0)
-                        {
-                            wellTrajRequest = new WellTrajRequest();
-                            tempList.Add(wellTrajRequest);
-                            wellTrajRequest.Items.Add(AllwellTrajs[i]);
-                        }
-                        else
-                        {
-                            wellTrajRequest.Items.Add(AllwellTrajs[i]);
-                        }
-                    }
-                    for (int i = 0; i < tempList.Count; i++)
-                    {
-                        var res4 = await wellDataService.batch_create_well_trajectory_with_meta_infos(tempList[i]);
-                        if (res4 != null)
-                        {
+                    LogManagerService.Instance.Log($"WellTrajs start synchronize！");
 
-                        }
-                        LogManagerService.Instance.Log($"WellTrajs synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                        ProgressValue = 20 + ((i + 1) * 3 * 10) / AllwellTrajsCount;
-                    }
+                    List<WellTrajData> AllwellTrajs = KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList);
 
-                    LogManagerService.Instance.Log($"WellTrajs synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
+                    if (AllwellTrajs.Count > 0)
+                    {
+                        int AllwellTrajsCount = AllwellTrajs.Count;
+                        List<WellTrajRequest> tempList = new List<WellTrajRequest>();
+                        WellTrajRequest wellTrajRequest = null;
+                        for (int i = 0; i < AllwellTrajsCount; i++)
+                        {
+                            if (i % 3 == 0)
+                            {
+                                wellTrajRequest = new WellTrajRequest();
+                                tempList.Add(wellTrajRequest);
+                                wellTrajRequest.Items.Add(AllwellTrajs[i]);
+                            }
+                            else
+                            {
+                                wellTrajRequest.Items.Add(AllwellTrajs[i]);
+                            }
+                        }
+                        for (int i = 0; i < tempList.Count; i++)
+                        {
+                            var res4 = await wellDataService.batch_create_well_trajectory_with_meta_infos(tempList[i]);
+                            if (res4 != null)
+                            {
+
+                            }
+                            LogManagerService.Instance.Log($"WellTrajs synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                            ProgressValue = 20 + ((i + 1) * 3 * 10) / AllwellTrajsCount;
+                        }
+
+                        LogManagerService.Instance.Log($"WellTrajs synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
+                    }
+                    else
+                    {
+                        LogManagerService.Instance.Log($"WellTrajs Count is 0");
+                    }
                 }
-                else
-                {
-                    LogManagerService.Instance.Log($"WellTrajs Count is 0");
-                }
+                ProgressValue = 50;
+
                 #endregion
 
                 #region 井产量

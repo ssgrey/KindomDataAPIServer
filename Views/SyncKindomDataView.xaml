@@ -11,6 +11,47 @@
     xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
     x:Name="root" Closed="root_Closed"  Icon="/datapool.ico"
     Title="Kingdom Data Synchronization"  MinHeight="500" MinWidth="500" Height="800" Width="1000" >
+    <dx:ThemedWindow.Resources>
+        <Style TargetType="dxe:ColorEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style TargetType="dxe:TextEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Width" Value="100" />
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Width" Value="120" />
+        </Style>
+        <Style TargetType="dxe:CheckEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="5,0,5,0" />
+
+        </Style>
+        <Style TargetType="dxe:SpinEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Width" Value="120" />
+            <Setter Property="ShowError" Value="False" />
+        </Style>
+        <Style TargetType="dxe:PopupColorEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Width" Value="120" />
+        </Style>
+        <Style TargetType="dxe:ComboBoxEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="IsTextEditable" Value="False" />
+            <Setter Property="Width" Value="80" />
+        </Style>
+    </dx:ThemedWindow.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -38,110 +79,21 @@
 
             </dxb:BarContainerControl>
             <Grid Grid.Row="1" Margin="2" IsEnabled="{Binding IsEnable}">
-                <dx:DXTabControl DataContext="{Binding KindomData}">
-                    <dx:DXTabItem Header="Well Header">
+                <dx:DXTabControl >
+                    <dx:DXTabItem Header="Well Information">
                         <Grid Grid.Row="1" x:Name="dataGrid" >
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <GroupBox Padding="0" Margin="0,0,5,0">
-                                <GroupBox.Header>
-                                    <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
-                                <dxg:GridControl  x:Name="tableWell" Margin="0"  SelectionMode="Row" 
-                                          ItemsSource="{Binding Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
-                                    <dxg:GridControl.Columns>
-                                        <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.HeaderTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=dataGrid,Path=DataContext.AllWellsChecked, Mode=TwoWay}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.HeaderTemplate>
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Uwi" Width="*"  Header="Uwi"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="BoreholeName" Width="*"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellName" Width="*"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellNumber" Width="*"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
-                                   RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                  NavigationStyle="Row"  
-                                  ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>
-                            </GroupBox>
-                        </Grid>
-                    </dx:DXTabItem>
-                    <dx:DXTabItem Header="Trajectory">
-                        <Grid >
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="500"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <GroupBox Padding="0" Margin="0,0,5,0">
-                                <GroupBox.Header>
-                                    <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
-                                <dxg:GridControl  x:Name="tableWell2" Margin="0"  SelectionMode="Row" 
-                                          ItemsSource="{Binding Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
-                                    <dxg:GridControl.Columns>
-                                        <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.HeaderTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=dataGrid,Path=DataContext.AllWellsChecked, Mode=TwoWay}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.HeaderTemplate>
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Uwi" Width="*"  Header="Uwi"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="BoreholeName" Width="*"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellName" Width="*"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellNumber" Width="*"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
-                                   RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                  NavigationStyle="Row"  
-                                  ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>
-                            </GroupBox>
-                        </Grid>
-                    </dx:DXTabItem>
-                    <dx:DXTabItem Header="Formation">
-                        <Grid >
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="500"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <GroupBox Padding="0" Margin="0,0,5,0">
                                 <GroupBox.Header>
                                     <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
-                                <dxg:GridControl Margin="0"  SelectionMode="Row" 
-                                          ItemsSource="{Binding Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
+                                <dxg:GridControl  x:Name="tableWell" Margin="0"  SelectionMode="Row" 
+                                          ItemsSource="{Binding KindomData.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
                                             <dxg:GridColumn.HeaderTemplate>
@@ -163,6 +115,20 @@
                                         </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="WellNumber" Width="*"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
                                         </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="SurfaceX" Width="*"  Header="SurfaceX"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
+                                        </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="SurfaceY" Width="*"  Header="SurfaceY"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
+                                        </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="Longitude" Width="*"  Header="Longitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
+                                        </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="Latitude" Width="*"  Header="Latitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
+                                        </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="Country" Width="*"  Header="Country"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCountry}">
+                                        </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="Region" Width="*"  Header="State"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowState}">
+                                        </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="Districts" Width="*"  Header="County"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCounty}">
+                                        </dxg:GridColumn>
                                     </dxg:GridControl.Columns>
                                     <dxg:GridControl.View>
                                         <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
@@ -173,7 +139,73 @@
                                     </dxg:GridControl.View>
                                 </dxg:GridControl>
                             </GroupBox>
+                            <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0" Width="200">
+                                <GroupBox.Header>
+                                    <Label Content="Field" FontWeight="Bold" Width="Auto"/>
+                                </GroupBox.Header>
+                                <Grid>
+                                    <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
+                                        <StackPanel.Resources>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Height" Value="30"></Setter>
+                                            </Style>
+                                        </StackPanel.Resources>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowWellHeaderXY,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="WellHeadXY"></Label>
+                                        </StackPanel>
+                                        <!--<StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowWellBottomXY,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="WellBottomXY"></Label>
+                                        </StackPanel>-->
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowBL,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Longitude/Latitude"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowCountry,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Country"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowState,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="State"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowCounty,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="County"></Label>
+                                        </StackPanel>
+                                        <!--<StackPanel Orientation="Horizontal" Grid.Row="4">
+                                            <Label Content="线型"></Label>
+                                            <dxe:ComboBoxEdit   DisplayMember="Key" ValueMember="Value" EditValue="{Binding LineSetting.LineStyle,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
+                                        </StackPanel>-->
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
                             <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="200">
+                                <GroupBox.Header>
+                                    <Label Content="Sync Config" FontWeight="Bold" Width="Auto"/>
+                                </GroupBox.Header>
+                                <Grid>
+                                    <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
+                                        <StackPanel.Resources>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Height" Value="30"></Setter>
+                                            </Style>
+                                        </StackPanel.Resources>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncWellHeader,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Well Header"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncTrajectory,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Well Trajectory"></Label>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
+                            <GroupBox Grid.Column="3" Padding="0" Margin="0,0,5,0" Width="200">
                                 <GroupBox.Header>
                                     <Label Content="Formations" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
@@ -204,53 +236,16 @@
                                     </dxg:GridControl.View>
                                 </dxg:GridControl>
                             </GroupBox>
+
                         </Grid>
                     </dx:DXTabItem>
                     <dx:DXTabItem Header="Logcurve">
                         <Grid >
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="500"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <GroupBox Padding="0" Margin="0,0,5,0">
-                                <GroupBox.Header>
-                                    <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
-                                <dxg:GridControl Margin="0"  SelectionMode="Row" 
-                                          ItemsSource="{Binding Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
-                                    <dxg:GridControl.Columns>
-                                        <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.HeaderTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=dataGrid,Path=DataContext.AllWellsChecked, Mode=TwoWay}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.HeaderTemplate>
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Uwi" Width="*"  Header="Uwi"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="BoreholeName" Width="*"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellName" Width="*"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellNumber" Width="*"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
-                                   RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                  NavigationStyle="Row"  
-                                  ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>
-                            </GroupBox>
-                            <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0" Width="200">
+                            <GroupBox Grid.Column="0" Padding="0" Margin="0,0,5,0" Width="200">
                                 <GroupBox.Header>
                                     <Label Content="Logcurves" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
