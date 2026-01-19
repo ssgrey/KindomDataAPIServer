@@ -392,12 +392,26 @@ namespace KindomDataAPIServer.KindomAPI
 
 
                     var logNames = context.Get(new LogCurveName(),
-                        x => new CheckNameExport
+                        x => new 
                         {
                             Name = x.Name,
+                            LogType = x.LogType,
                         },
                         x => true,
                         false).ToList();
+
+                    List<CheckNameLog> checklogs = new List<CheckNameLog>();
+                    foreach (var logName in logNames)
+                    {
+                        CheckNameLog checkNameLog = new CheckNameLog()
+                        {
+                            Name = logName.Name,
+                        };
+                        checkNameLog.LogType = Utils.GetLogDictByName(logName.LogType.Name, logName.Name);
+                        checkNameLog.UnitID = checkNameLog.LogType.DbUnit;
+                        checklogs.Add(checkNameLog);
+                    }
+
 
                     var formationNames = context.Get(new FormationTopName(),
                          x => new CheckNameExport
@@ -520,7 +534,7 @@ namespace KindomDataAPIServer.KindomAPI
                         VerticalUnit = verticalUnit,
                         Wells = wells,
                         FormationNames = formationNames,
-                        LogNames = logNames
+                        LogNames = checklogs
                     };
                 }
 
@@ -873,7 +887,7 @@ namespace KindomDataAPIServer.KindomAPI
             return logList;
         }
 
-        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, string resdataSetID, PbViewMetaObjectList WellIDandNameList)
+        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, string resdataSetID, bool IsSyncLogType,bool IsSyncLogUnit)
         {
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
 
@@ -889,15 +903,15 @@ namespace KindomDataAPIServer.KindomAPI
                 using (var context = project.GetKingdom())
                 {
                     PbWellLogCreateList logList = new PbWellLogCreateList();
-
                     var formations = context.Get(new LogData(),
                         x => new
                         {
                             LogData = x,
                             LogCurveName = x.LogCurveName,
+                            LogType = x.LogCurveName.LogType,
                             borehole = x.Borehole,
                             boreholeId = x.BoreholeId,
-                            wellUWI = x.Borehole.Uwi,
+                            wellUWI = x.Borehole.Uwi,                         
                         },
                         x => x.BoreholeId == borID,
                         false).ToList();
@@ -921,11 +935,18 @@ namespace KindomDataAPIServer.KindomAPI
                                     SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
                                     StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
                                     CurveName = formItem.LogCurveName.Name,
-                                    DataSetId = dataSetId,
-                                    
+                                    DataSetId = dataSetId,                                   
                                 };
-                                logObj.Samples.AddRange(dataArray);
 
+                                var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
+                                if (checkNameObj != null)
+                                {
+                                    logObj.CurveType = checkNameObj.LogType.FamilyName;
+                                    logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
+                                    logObj.SampleUnitId = checkNameObj.UnitID;
+                                }
+      
+                                logObj.Samples.AddRange(dataArray);
                                 logList.LogList.Add(logObj);
                             }
                         }
@@ -940,9 +961,7 @@ namespace KindomDataAPIServer.KindomAPI
                     LogManagerService.Instance.Log($"welllog synchronize ({index}/{BoreholeIds.Count})");
                 }
                 index++;
-            }
-
-           
+            }    
         }
 
         public List<WellDailyProductionData> GetWellProductionData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)

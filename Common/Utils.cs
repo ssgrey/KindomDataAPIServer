@@ -1,4 +1,5 @@
-﻿using KindomDataAPIServer.Models;
+﻿using DevExpress.Utils.About;
+using KindomDataAPIServer.Models;
 using Newtonsoft.Json;
 using Smt;
 using Smt.Entities;
@@ -16,6 +17,29 @@ namespace KindomDataAPIServer.Common
     public class Utils
     {
         public static List<UnitType> UnitTypes = new List<UnitType>();
+        public static List<LogDictItem> LogDicts = new List<LogDictItem>();
+        
+        public static LogDictItem GetLogDictByName(string curveType, string curveName)
+        {
+            foreach (var item in LogDicts)
+            {
+                if(item.FamilyName == curveType)
+                {
+                    if( item.CurveList.Contains(curveName))
+                        return item;           
+                }
+            }
+            curveType = "Generic Curve";
+            foreach (var item in LogDicts)
+            {
+                if (item.FamilyName == curveType)
+                {
+                    return item;
+                }
+            }
+
+            return null;
+        }
 
         public static MeasureUnit GetDepthOrXYUnit(bool IsFt)
         {

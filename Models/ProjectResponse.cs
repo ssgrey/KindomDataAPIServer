@@ -15,7 +15,7 @@ namespace KindomDataAPIServer.Models
         public string MapUnit { get; set; }
         public string VerticalUnit { get; set; }
         public List<WellExport> Wells { get; set; } = new List<WellExport>();
-        public List<CheckNameExport> LogNames { get; set; } = new List<CheckNameExport>();
+        public List<CheckNameLog> LogNames { get; set; } = new List<CheckNameLog>();
         public List<CheckNameExport> FormationNames { get; set; } = new List<CheckNameExport>();
 
         
@@ -150,5 +150,64 @@ namespace KindomDataAPIServer.Models
         }
 
         public string Name { get; set; }
+    }
+
+    public class CheckNameLog : CheckNameExport
+    {
+        private LogDictItem _LogType;
+        public LogDictItem LogType
+        {
+            get
+            {
+                return _LogType;
+            }
+            set
+            {
+                SetProperty(ref _LogType, value, nameof(LogType));
+                if (_LogType != null)
+                {
+                   string[] strs = _LogType.UnitListStr.Split(',');
+                    if(strs.Length == _LogType.UnitList.Count)
+                    {
+                        Dictionary<int, string> tempUnits = new Dictionary<int, string>();
+                        for (int i = 0; i < strs.Length; i++)
+                        {
+                            tempUnits.Add(_LogType.UnitList[i], strs[i]);
+                        }
+                        Units = tempUnits;
+                    }
+
+                    UnitID = _LogType.DbUnit;
+                }
+
+            }
+        }
+
+
+        private int _UnitID;
+        public int UnitID
+        {
+            get
+            {
+                return _UnitID;
+            }
+            set
+            {
+                SetProperty(ref _UnitID, value, nameof(UnitID));
+            }
+        }
+
+        private Dictionary<int, string> _Units;
+        public Dictionary<int, string> Units
+        {
+            get
+            {
+                return _Units;
+            }
+            set
+            {
+                SetProperty(ref _Units, value, nameof(Units));
+            }
+        }
     }
 }

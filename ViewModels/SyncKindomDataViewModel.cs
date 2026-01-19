@@ -57,6 +57,25 @@ namespace KindomDataAPIServer.ViewModels
             {
                 Utils.UnitTypes = res7;
             }
+            var res8 = await wellDataService.get_log_dic();
+            if (res8 != null)
+            {
+                Utils.LogDicts = res8;
+                LogDicts = Utils.LogDicts;
+            }
+
+           await UpdateLogDataSets();
+        }
+
+
+        public async Task UpdateLogDataSets()
+        {
+            var datasetInfos = await wellDataService.get_dataset_list();
+            if (datasetInfos != null)
+            {
+                LogDataSets = datasetInfos;
+                SelectedLogDataSet = LogDataSets.FirstOrDefault();
+            }
         }
 
         #region Properties
@@ -105,6 +124,47 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        public List<LogDictItem> _LogDicts;
+        public List<LogDictItem> LogDicts
+        {
+            get
+            {
+                return _LogDicts;
+            }
+            set
+            {
+                SetProperty(ref _LogDicts, value, nameof(LogDicts));
+
+            }
+        }
+        public List<LogSetInfo> _LogDataSets;
+        public List<LogSetInfo> LogDataSets
+        {
+            get
+            {
+                return _LogDataSets;
+            }
+            set
+            {
+                SetProperty(ref _LogDataSets, value, nameof(LogDataSets));
+
+            }
+        }
+
+
+        public LogSetInfo _SelectedLogDataSet;
+        public LogSetInfo SelectedLogDataSet
+        {
+            get
+            {
+                return _SelectedLogDataSet;
+            }
+            set
+            {
+                SetProperty(ref _SelectedLogDataSet, value, nameof(SelectedLogDataSet));
+
+            }
+        }
 
         private string _LoginName;
         public string LoginName
@@ -329,6 +389,33 @@ namespace KindomDataAPIServer.ViewModels
                 SetProperty(ref _IsSyncTrajectory, value, nameof(IsSyncTrajectory));
             }
         }
+
+        private bool _IsSyncLogType = true;
+        public bool IsSyncLogType
+        {
+            get
+            {
+                return _IsSyncLogType;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncLogType, value, nameof(IsSyncLogType));
+            }
+        }
+
+        private bool _IsSyncLogUnit = true;
+        public bool IsSyncLogUnit
+        {
+            get
+            {
+                return _IsSyncLogUnit;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncLogUnit, value, nameof(IsSyncLogUnit));
+            }
+        }
+
         #endregion
 
         #endregion
@@ -548,19 +635,11 @@ namespace KindomDataAPIServer.ViewModels
                 LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
 
                 #region 数据集
-                string resdataSetID = "";
-                var datasetInfos = await wellDataService.get_dataset_list();
+                string resdataSetID = SelectedLogDataSet.Id;
 
-                LogManagerService.Instance.Log($"datasetInfos1");
-
-                if (datasetInfos != null&& datasetInfos.Count> 0)
-                {
-                    resdataSetID = datasetInfos[0].Id;
-                }
-                else
-                {
-                    resdataSetID = await wellDataService.create_well_log_set("KindomDataset");
-                }
+ 
+               //  resdataSetID = await wellDataService.create_well_log_set("KindomDataset");
+                
 
                 if(string.IsNullOrWhiteSpace(resdataSetID))
                 {
@@ -748,7 +827,7 @@ namespace KindomDataAPIServer.ViewModels
 
                 LogManagerService.Instance.Log($"WellLogs start synchronize！");
 
-                await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, resdataSetID, WellIDandNameList);
+                await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData,  WellIDandNameList, resdataSetID, IsSyncLogType, IsSyncLogUnit);
                 ProgressValue = 80;
                 #endregion
 
@@ -762,26 +841,6 @@ namespace KindomDataAPIServer.ViewModels
                 //symbolMappingDto.ConclusionName = "1";
                 //symbolMappingDto.SymbolLibraryCode = "44C0010";
                 //SymbolMapping.Add(symbolMappingDto);
-
-                //SymbolMappingDto symbolMappingDto2 = new SymbolMappingDto();
-                //symbolMappingDto2.Color = Utils.ColorToInt(Colors.Red);
-                //symbolMappingDto2.ConclusionName = "3";
-                //symbolMappingDto2.SymbolLibraryCode = "44C0010";
-                //SymbolMapping.Add(symbolMappingDto2);
-
-                //SymbolMappingDto symbolMappingDto3 = new SymbolMappingDto();
-                //symbolMappingDto3.Color = Utils.ColorToInt(Colors.Red);
-                //symbolMappingDto3.ConclusionName = "4";
-                //symbolMappingDto3.SymbolLibraryCode = "44C0010";
-                //SymbolMapping.Add(symbolMappingDto3);
-
-
-                //SymbolMappingDto symbolMappingDto4 = new SymbolMappingDto();
-                //symbolMappingDto4.Color = Utils.ColorToInt(Colors.Red);
-                //symbolMappingDto4.ConclusionName = "5";
-                //symbolMappingDto4.SymbolLibraryCode = "44C0010";
-                //SymbolMapping.Add(symbolMappingDto4);
-
 
 
                 List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping);

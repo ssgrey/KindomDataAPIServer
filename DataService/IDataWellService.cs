@@ -14,7 +14,7 @@ namespace KindomDataAPIServer.DataService
         Task<List<WellExport>> GetWells();
         Task<string> GetUserInfos();
         Task<List<UnitType>> get_sys_unit();
-
+        Task<List<LogDictItem>> get_log_dic();
         Task<List<UnitType>> get_sys_unit_by_measureid(List<int> typeIDs);
         Task<WellOperationResult> batch_create_well_header(WellDataRequest wellDataRequest);
 

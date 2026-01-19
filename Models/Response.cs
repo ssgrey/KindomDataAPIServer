@@ -174,4 +174,19 @@ namespace KindomDataAPIServer.Models
         /// </summary>
         public List<UnitInfo> UnitInfoList { get; set; } = new List<UnitInfo>();
     }
+
+    public class LogDictItem
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string FamilyName { get; set; }
+        public string Alias { get; set; }
+        public int MeasureType { get; set; }
+        public int DbUnit { get; set; }
+        public string DbUnitStr { get; set; }
+        public List<int> UnitList { get; set; } = new List<int>();
+        public string UnitListStr { get; set; }
+        public string CurveList { get; set; }
+        public bool IsBuiltIn { get; set; }
+    }
 }

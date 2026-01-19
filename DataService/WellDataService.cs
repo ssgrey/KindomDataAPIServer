@@ -64,6 +64,20 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
+        public async Task<List<LogDictItem>> get_log_dic()
+        {
+            try
+            {
+                Dictionary<string,object> keyValuePairs = new Dictionary<string,object>();
+                keyValuePairs.Add("builtInOnly", true);
+                return await _apiClient.PostAsync<Dictionary<string, object>, List<LogDictItem>>("dp/api/well_log/get_log_dic ", keyValuePairs);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"get_log_dic: {ex.Message + ex.StackTrace}");
+                throw ex;
+            }
+        }
 
         public async Task<List<UnitType>> get_sys_unit_by_measureid(List<int> typeIDs)
         {

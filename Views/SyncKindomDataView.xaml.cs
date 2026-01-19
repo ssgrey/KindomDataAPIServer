@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Policy;
 using System.Text;
+using System.Web.UI.WebControls;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -114,8 +115,11 @@ namespace KindomDataAPIServer.Views
 
         private void Exit_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
         {
-            logView.Close();
+            LogManagerService.Instance.TextBox = null;
+            logView.Close();       
+            logView = null;
             this.Close();
+            GC.Collect();
             Application.Current.Shutdown();
         }
 
