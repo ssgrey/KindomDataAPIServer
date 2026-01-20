@@ -9,6 +9,7 @@
     xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
+    xmlns:utils="clr-namespace:KindomDataAPIServer.Common"
     x:Name="root" Closed="root_Closed"  Icon="/datapool.ico"
     Title="Kingdom Data Synchronization"  MinHeight="500" MinWidth="500" Height="800" Width="1000" >
     <dx:ThemedWindow.Resources>
@@ -211,6 +212,21 @@
                                                     <dxe:CheckEdit IsChecked="{Binding IsSyncTrajectory,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
                                                     <Label Content="Well Trajectory"></Label>
                                                 </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncWellFormation,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                                    <Label Content="Well Formation"></Label>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncWellLog,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                                    <Label Content="Well Log"></Label>
+                                                </StackPanel>
+                                                
+                                                
+                                                <StackPanel Orientation="Horizontal">
+                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                                    <Label Content="Well Production Data"></Label>
+                                                </StackPanel>
+                                                
                                             </StackPanel>
                                         </Grid>
                                     </GroupBox>
@@ -339,10 +355,10 @@
                                         </StackPanel.Resources>
                                         <StackPanel Orientation="Horizontal">
                                             <Label Content="Log DataSet" Width="Auto"></Label>
-                                            <dxe:ComboBoxEdit EditValue="{Binding SelectedLogDataSet,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
+                                            <dxe:ComboBoxEdit Height="26" EditValue="{Binding SelectedLogDataSet,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <dx:SimpleButton Content="New LogDataSet" Command="{Binding NewLogDataSetCommand}" ></dx:SimpleButton>
+                                            <dx:SimpleButton Height="26" Content="New LogDataSet" Command="{Binding NewLogDataSetCommand}" ></dx:SimpleButton>
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>
@@ -434,83 +450,34 @@
                     <dx:DXTabItem Header="Production Test">
                         <Grid >
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="48"/>
-                                <ColumnDefinition Width="452"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <GroupBox Padding="0" Margin="0,0,5,0" Grid.ColumnSpan="2">
+                            <GroupBox Grid.Column="0" Padding="0" Margin="0,0,5,0" Width="300">
                                 <GroupBox.Header>
-                                    <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="Production Data Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
-                                <dxg:GridControl Margin="0"  SelectionMode="Row" 
-                                         ItemsSource="{Binding Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
-                                    <dxg:GridControl.Columns>
-                                        <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.HeaderTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=dataGrid,Path=DataContext.AllWellsChecked, Mode=TwoWay}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.HeaderTemplate>
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Uwi" Width="*"  Header="Uwi"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="BoreholeName" Width="*"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellName" Width="*"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellNumber" Width="*"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
-                                  RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                 NavigationStyle="Row"  
-                                 ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>
-                            </GroupBox>
-                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="200">
-                                <GroupBox.Header>
-                                    <Label Content="Logcurves" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
-                                <dxg:GridControl  Margin="0"  SelectionMode="Row" 
-                                    ItemsSource="{Binding LogNames}"  ShowBorder="True" AllowInitiallyFocusedRow="True">
-                                    <dxg:GridControl.Columns>
-                                        <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.HeaderTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=dataGrid,Path=DataContext.AllWellLogsChecked, Mode=TwoWay}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.HeaderTemplate>
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Name" Width="*"  Header="Name"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
-                                  RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                 NavigationStyle="Row"  
-                                 ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>
-                            </GroupBox>
-                            <GroupBox Grid.Column="3" Padding="0" Margin="0,0,5,0" Width="200">
-                                <GroupBox.Header>
-                                    <Label Content="Field" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
+                                <Grid>
+                                    <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
+                                        <StackPanel.Resources>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Height" Value="30"></Setter>
+                                            </Style>
+                                        </StackPanel.Resources>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Label Content="Choke Size Unit" Width="170"></Label>
+                                            <dxe:ComboBoxEdit EditValue="{Binding KindomData.ChokeSizeUnit,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding KindomData.ChokeUnitInfos}"></dxe:ComboBoxEdit>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Label Content="Flowing Tubing Pressure Unit" Width="170"></Label>
+                                            <dxe:ComboBoxEdit EditValue="{Binding KindomData.FlowingTubingPressureUnit,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding KindomData.PressureUnitInfos}"></dxe:ComboBoxEdit>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Label Content="Bottom Hole Temperature Unit" Width="170"></Label>
+                                            <dxe:ComboBoxEdit EditValue="{Binding KindomData.BottomHoleTemperatureUnit,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding KindomData.TemperatureUnitInfos}"></dxe:ComboBoxEdit>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>
@@ -612,5 +579,16 @@
                 </RichTextBox>
             </Grid>
         </Expander>
+        <dx:WaitIndicator x:Name="Waiter" Content="Loading..." Grid.RowSpan="3">
+            <dx:WaitIndicator.ContentTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Please Wait" FontSize="20"/>
+                        <TextBlock Text="{Binding}"/>
+                    </StackPanel>
+                </DataTemplate>
+            </dx:WaitIndicator.ContentTemplate>
+        </dx:WaitIndicator>
     </Grid>
+ 
 </dx:ThemedWindow>

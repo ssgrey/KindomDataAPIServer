@@ -1,6 +1,7 @@
 ﻿<Application x:Class="KindomDataAPIServer.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
               xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
              xmlns:local="clr-namespace:KindomDataAPIServer" >
     <Application.Resources>
@@ -9,6 +10,13 @@
             <ResourceDictionary.MergedDictionaries>
                 <!-- 全局样式 -->
                 <ResourceDictionary Source="GlobalStyles.xaml" />
+                <ResourceDictionary>
+                    <dx:SplashScreenManagerService
+                x:Key="TetWaitIndicatorService"
+                InputBlock="Window"
+                PredefinedSplashScreenType="WaitIndicator" />
+                </ResourceDictionary>
+
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

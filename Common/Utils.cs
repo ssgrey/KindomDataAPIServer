@@ -1,4 +1,5 @@
-﻿using DevExpress.Utils.About;
+﻿using DevExpress.Mvvm;
+using DevExpress.Utils.About;
 using KindomDataAPIServer.Models;
 using Newtonsoft.Json;
 using Smt;
@@ -16,6 +17,20 @@ namespace KindomDataAPIServer.Common
 {
     public class Utils
     {
+        public static ISplashScreenManagerService WaitIndicatorService
+        {
+            get
+            {
+                var ret = ServiceContainer.Default.GetService<ISplashScreenManagerService>("TetWaitIndicatorService");
+                if (ret != null)
+                {
+                    ret.ViewModel = new DXSplashScreenViewModel { Status = "请等待" };
+                }
+                return ret;
+            }
+        }
+
+
         public static List<UnitType> UnitTypes = new List<UnitType>();
         public static List<LogDictItem> LogDicts = new List<LogDictItem>();
 
@@ -52,7 +67,53 @@ namespace KindomDataAPIServer.Common
             }
         }
 
+        private static List<UnitInfo> _PressureUnitInfos;
+        public static List<UnitInfo> PressureUnitInfos
+        {
+            get
+            {
+                if (_PressureUnitInfos == null)
+                {
+                    _PressureUnitInfos = new List<UnitInfo>();
+                    var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 32);
+                    if (type != null)
+                        _PressureUnitInfos = type.UnitInfoList;
+                }
+                return _PressureUnitInfos;
+            }
+        }
 
+        private static List<UnitInfo> _ChokeUnitInfos;
+        public static List<UnitInfo> ChokeUnitInfos
+        {
+            get
+            {
+                if (_ChokeUnitInfos == null)
+                {
+                    _ChokeUnitInfos = new List<UnitInfo>();
+                    var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 90);
+                    if (type != null)
+                        _ChokeUnitInfos = type.UnitInfoList;
+                }
+                return _ChokeUnitInfos;
+            }
+        }
+
+        private static List<UnitInfo> _TemperatureUnitInfos;
+        public static List<UnitInfo> TemperatureUnitInfos
+        {
+            get
+            {
+                if (_TemperatureUnitInfos == null)
+                {
+                    _TemperatureUnitInfos = new List<UnitInfo>();
+                    var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 7);
+                    if (type != null)
+                        _TemperatureUnitInfos = type.UnitInfoList;
+                }
+                return _TemperatureUnitInfos;
+            }
+        }
 
 
         public static LogDictItem GetLogDictByName(string curveType, string curveName)

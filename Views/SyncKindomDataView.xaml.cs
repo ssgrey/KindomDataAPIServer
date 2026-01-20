@@ -35,6 +35,7 @@ namespace KindomDataAPIServer.Views
         {
             InitializeComponent();
             Ini(args);
+            this.Loaded += SyncKindomDataView_Loaded;
         }
 
         private void Ini(string[] args)
@@ -83,13 +84,23 @@ namespace KindomDataAPIServer.Views
                 LogManagerService.Instance.Log(ex.Message);
             }
 
-            ViewModel = new SyncKindomDataViewModel();
-            this.DataContext = ViewModel;
         }
 
+        private void SyncKindomDataView_Loaded(object sender, RoutedEventArgs e)
+        {
+            Waiter.DeferedVisibility = true;
+            ViewModel = new SyncKindomDataViewModel();
+            this.DataContext = ViewModel;
+            Waiter.DeferedVisibility = false;
+        }
 
         private void Open_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
         {
+            if (ViewModel.IsInitial)
+            {
+                DXMessageBox.Show("It's loading unit config from web,please wait...");
+                return;
+            }
             OpenProjectView openProjectView = new OpenProjectView(ViewModel);
             openProjectView.Owner = this;
             openProjectView.ShowDialog();

@@ -31,9 +31,10 @@ namespace KindomDataAPIServer.ViewModels
 {
     public class SyncKindomDataViewModel : BindableBase
     {
+        ISplashScreenManagerService waiter;
        public ConclusionSettingViewModel ConclusionSettingVM { set; get; }
 
-
+        public bool IsInitial { get; set; } = false;
         IDataWellService wellDataService = null;
 
         public ICommand SyncCommand { get; set; }
@@ -47,6 +48,7 @@ namespace KindomDataAPIServer.ViewModels
             NewLogDataSetCommand = new DevExpress.Mvvm.AsyncCommand(NewLogDataSetCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
+            IsInitial = true;
             _ = Initial();
         }
 
@@ -54,27 +56,49 @@ namespace KindomDataAPIServer.ViewModels
 
         private async Task Initial()
         {
-            var res7 = await wellDataService.get_sys_unit();
-            if (res7 != null)
+            try
             {
-                Utils.UnitTypes = res7;
+                LogManagerService.Instance.Log("start load config...");
 
-                foreach (var unit in Utils.UnitTypes)
+                var res7 = await wellDataService.get_sys_unit();
+                if (res7 != null)
                 {
-                    foreach (var unit2 in unit.UnitInfoList)
+                    Utils.UnitTypes = res7;
+                    foreach (var unit in Utils.UnitTypes)
                     {
-                        unit2.MeasureID = unit.UnitTypeID;
+                        foreach (var unit2 in unit.UnitInfoList)
+                        {
+                            unit2.MeasureID = unit.UnitTypeID;
+                        }
                     }
-                }
-            }
-            var res8 = await wellDataService.get_log_dic();
-            if (res8 != null)
-            {
-                Utils.LogDicts = res8;
-                LogDicts = Utils.LogDicts;
-            }
 
-           await UpdateLogDataSets();
+                    KingdomAPI.Instance.ChokeSizeUnit = Utils.ChokeUnitInfos.FirstOrDefault(o => o.Abbr == "1/64 in");
+                    KingdomAPI.Instance.FlowingTubingPressureUnit = Utils.PressureUnitInfos.FirstOrDefault(o => o.Abbr == "Mpa");
+                    KingdomAPI.Instance.BottomHoleTemperatureUnit = Utils.TemperatureUnitInfos.FirstOrDefault(o => o.Abbr == "degC");
+                    KingdomAPI.Instance.ChokeUnitInfos = Utils.ChokeUnitInfos;
+                    KingdomAPI.Instance.PressureUnitInfos = Utils.PressureUnitInfos;
+                    KingdomAPI.Instance.TemperatureUnitInfos = Utils.TemperatureUnitInfos;
+                }
+                var res8 = await wellDataService.get_log_dic();
+                if (res8 != null)
+                {
+                    Utils.LogDicts = res8;
+                    LogDicts = Utils.LogDicts;
+                }
+
+                await UpdateLogDataSets();
+
+                LogManagerService.Instance.Log("load config over!");
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("Initial failed !" + ex.StackTrace + ex.Message);
+                DXMessageBox.Show(ex.Message + ex.StackTrace);
+            }
+            finally
+            {
+                IsInitial = false;
+            }
         }
 
 
@@ -401,19 +425,46 @@ namespace KindomDataAPIServer.ViewModels
                 SetProperty(ref _IsSyncTrajectory, value, nameof(IsSyncTrajectory));
             }
         }
-
-        private bool _IsSyncLogType = true;
-        public bool IsSyncLogType
+        private bool _IsSyncWellFormation = true;
+        public bool IsSyncWellFormation
         {
             get
             {
-                return _IsSyncLogType;
+                return _IsSyncWellFormation;
             }
             set
             {
-                SetProperty(ref _IsSyncLogType, value, nameof(IsSyncLogType));
+                SetProperty(ref _IsSyncWellFormation, value, nameof(IsSyncWellFormation));
             }
         }
+
+        private bool _IsSyncWellLog = true;
+        public bool IsSyncWellLog
+        {
+            get
+            {
+                return _IsSyncWellLog;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncWellLog, value, nameof(IsSyncWellLog));
+            }
+        }
+
+        private bool _IsSyncProduction = true;
+        public bool IsSyncProduction
+        {
+            get
+            {
+                return _IsSyncProduction;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncProduction, value, nameof(IsSyncProduction));
+            }
+        }
+
+
 
         private bool _IsSyncLogUnit = true;
         public bool IsSyncLogUnit
@@ -427,6 +478,10 @@ namespace KindomDataAPIServer.ViewModels
                 SetProperty(ref _IsSyncLogUnit, value, nameof(IsSyncLogUnit));
             }
         }
+
+
+
+
 
         #endregion
 
@@ -639,22 +694,24 @@ namespace KindomDataAPIServer.ViewModels
 
                 ProgressValue = 10;
 
+               
                 WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
 
-
-                PbWellFormationList pbWellFormationList = KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList);
-
-                var tsk3 = await wellDataService.batch_create_well_formation(pbWellFormationList);
-
-                if (tsk3 != null)
+                if (IsSyncWellFormation)
                 {
-                }
-                ProgressValue = 20;
-                LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
+                    PbWellFormationList pbWellFormationList = KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList);
 
+                    var tsk3 = await wellDataService.batch_create_well_formation(pbWellFormationList);
+
+                    if (tsk3 != null)
+                    {
+                    }
+                    ProgressValue = 20;
+                    LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
+
+                }
 
                 #region 井轨迹
-
                 if (IsSyncTrajectory)
                 {
                     LogManagerService.Instance.Log($"WellTrajs start synchronize！");
@@ -697,56 +754,57 @@ namespace KindomDataAPIServer.ViewModels
                         LogManagerService.Instance.Log($"WellTrajs Count is 0");
                     }
                 }
-                ProgressValue = 50;
-
                 #endregion
+
+                ProgressValue = 30;
 
                 #region 井产量
-
-
-                LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
-
-                List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList);
-
-                if (AllwellProductionDatas.Count > 0)
+                if (IsSyncProduction)
                 {
-                    int AllwellTrajsCount = AllwellProductionDatas.Count;
-                    List<WellProductionDataRequest> tempList = new List<WellProductionDataRequest>();
-                    WellProductionDataRequest wellTrajRequest = null;
-                    for (int i = 0; i < AllwellTrajsCount; i++)
+                    LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
+
+                    List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList);
+
+                    if (AllwellProductionDatas.Count > 0)
                     {
-                        if (i % 3 == 0)
+                        int AllwellTrajsCount = AllwellProductionDatas.Count;
+                        List<WellProductionDataRequest> tempList = new List<WellProductionDataRequest>();
+                        WellProductionDataRequest wellTrajRequest = null;
+                        for (int i = 0; i < AllwellTrajsCount; i++)
                         {
-                            wellTrajRequest = new WellProductionDataRequest();
-                            tempList.Add(wellTrajRequest);
-                            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                            if (i % 3 == 0)
+                            {
+                                wellTrajRequest = new WellProductionDataRequest();
+                                tempList.Add(wellTrajRequest);
+                                wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                            }
+                            else
+                            {
+                                wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                            }
                         }
-                        else
+                        for (int i = 0; i < tempList.Count; i++)
                         {
-                            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                            var res4 = await wellDataService.batch_create_well_production_with_meta_infos(tempList[i]);
+                            if (res4 != null)
+                            {
+
+                            }
+
+                            LogManagerService.Instance.Log($"Well Production Datas synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                            ProgressValue = 30 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
                         }
+
+                        LogManagerService.Instance.Log($"Well Production Datas synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
                     }
-                    for (int i = 0; i < tempList.Count; i++)
+                    else
                     {
-                        var res4 = await wellDataService.batch_create_well_production_with_meta_infos(tempList[i]);
-                        if (res4 != null)
-                        {
-
-                        }
-
-                        LogManagerService.Instance.Log($"Well Production Datas synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                        ProgressValue = 30 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
+                        LogManagerService.Instance.Log($"Well Production Data Count is 0");
                     }
-
-                    LogManagerService.Instance.Log($"Well Production Datas synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
                 }
-                else
-                {
-                    LogManagerService.Instance.Log($"Well Production Data Count is 0");
-                }
-
-
                 #endregion
+
+                ProgressValue = 50;
 
                 #region 试油试气
 
@@ -826,11 +884,13 @@ namespace KindomDataAPIServer.ViewModels
                 #endregion
 
                 #region  井曲线 
+                if (IsSyncWellLog)
+                {
+                    LogManagerService.Instance.Log($"WellLogs start synchronize！");
+                    string resdataSetID = SelectedLogDataSet.Id;
 
-                LogManagerService.Instance.Log($"WellLogs start synchronize！");
-                string resdataSetID = SelectedLogDataSet.Id;
-
-                await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData,  WellIDandNameList, resdataSetID, IsSyncLogType, IsSyncLogUnit);
+                    await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID);
+                }
                 ProgressValue = 80;
                 #endregion
 
@@ -947,6 +1007,7 @@ namespace KindomDataAPIServer.ViewModels
                     }
                     else
                     {
+                        await UpdateLogDataSets();
                         LogManagerService.Instance.Log($"Create New resdataSetID: {resdataSetID} successful!");
                     }
                 }

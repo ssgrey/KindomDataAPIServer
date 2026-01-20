@@ -142,6 +142,89 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
+        public UnitInfo _ChokeSizeUnit;
+        public UnitInfo ChokeSizeUnit
+        {
+            get
+            {             
+                return _ChokeSizeUnit;
+            }
+            set
+            {
+                SetProperty(ref _ChokeSizeUnit, value, nameof(ChokeSizeUnit));
+
+            }
+        }
+
+        public UnitInfo _FlowingTubingPressureUnit;
+        public UnitInfo FlowingTubingPressureUnit
+        {
+            get
+            {
+                return _FlowingTubingPressureUnit;
+            }
+            set
+            {
+                SetProperty(ref _FlowingTubingPressureUnit, value, nameof(FlowingTubingPressureUnit));
+
+            }
+        }
+
+
+        public UnitInfo _BottomHoleTemperatureUnit;
+        public UnitInfo BottomHoleTemperatureUnit
+        {
+            get
+            {
+                return _BottomHoleTemperatureUnit;
+            }
+            set
+            {
+                SetProperty(ref _BottomHoleTemperatureUnit, value, nameof(BottomHoleTemperatureUnit));
+
+            }
+        }
+
+
+        private List<UnitInfo> _PressureUnitInfos;
+        public List<UnitInfo> PressureUnitInfos
+        {
+
+            get
+            {
+                return _PressureUnitInfos;
+            }
+            set
+            {
+                SetProperty(ref _PressureUnitInfos, value, nameof(PressureUnitInfos));
+            }
+        }
+
+        private List<UnitInfo> _ChokeUnitInfos;
+        public List<UnitInfo> ChokeUnitInfos
+        {
+            get
+            {
+                return _ChokeUnitInfos;
+            }
+            set
+            {
+                SetProperty(ref _ChokeUnitInfos, value, nameof(ChokeUnitInfos));
+            }
+        }
+
+        private List<UnitInfo> _TemperatureUnitInfos;
+        public List<UnitInfo> TemperatureUnitInfos
+        {
+            get
+            {
+                return _TemperatureUnitInfos;
+            }
+            set
+            {
+                SetProperty(ref _TemperatureUnitInfos, value, nameof(TemperatureUnitInfos));
+            }
+        }
         #endregion
 
         public void SetProjectPath(string projectPath)
@@ -438,7 +521,7 @@ namespace KindomDataAPIServer.KindomAPI
                             Name = logName.Name,
                         };
                         checkNameLog.LogType = Utils.GetLogDictByName(logName.LogType.Name, logName.Name);
-                        checkNameLog.UnitID = checkNameLog.LogType.DbUnit;
+                        checkNameLog.UnitID = checkNameLog.LogType == null? 0: checkNameLog.LogType.DbUnit;
                         checklogs.Add(checkNameLog);
                     }
 
@@ -917,7 +1000,7 @@ namespace KindomDataAPIServer.KindomAPI
             return logList;
         }
 
-        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, string resdataSetID, bool IsSyncLogType,bool IsSyncLogUnit)
+        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, string resdataSetID)
         {
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
 
@@ -1081,6 +1164,28 @@ namespace KindomDataAPIServer.KindomAPI
             List<WellExport> Wells = KingDomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
 
+            List<MetaInfo> OilTestDataMetaInfoList = new List<MetaInfo>();
+            MetaInfo metaInfo = new MetaInfo();
+            metaInfo.DisplayName = "chokeSize";
+            metaInfo.PropertyName = "oilTestList.chokeSize";
+            metaInfo.UnitId = ChokeSizeUnit.Id;
+            metaInfo.MeasureId = ChokeSizeUnit.MeasureID;
+            OilTestDataMetaInfoList.Add(metaInfo);
+            MetaInfo metaInfo2 = new MetaInfo();
+            metaInfo2.DisplayName = "FlowingTubingPressure";
+            metaInfo2.PropertyName = "oilTestList.flowPressure";
+            metaInfo2.UnitId = FlowingTubingPressureUnit.Id;
+            metaInfo2.MeasureId = FlowingTubingPressureUnit.MeasureID;
+            OilTestDataMetaInfoList.Add(metaInfo2);
+
+            MetaInfo metaInfo3 = new MetaInfo();
+            metaInfo3.DisplayName = "staticTemp";
+            metaInfo3.PropertyName = "oilTestList.staticTemp";
+            metaInfo3.UnitId = BottomHoleTemperatureUnit.Id;
+            metaInfo3.MeasureId = BottomHoleTemperatureUnit.MeasureID;
+            OilTestDataMetaInfoList.Add(metaInfo3);
+
+
             using (var context = project.GetKingdom())
             {
                 var DeviationSurveys = context.Get(new Smt.Entities.TestInitialPotential(),
@@ -1101,10 +1206,12 @@ namespace KindomDataAPIServer.KindomAPI
                     if (wellWebID == -1)
                         continue;
                     WellGasTestData wellGasTestData = new WellGasTestData();
+                    wellGasTestData.MetaInfoList = new List<MetaInfo>();
                     wellGasTestData.WellId = wellWebID;
                     datas.Add(wellGasTestData);
 
                     WellOilTestData wellOilTestData = new WellOilTestData();
+                    wellOilTestData.MetaInfoList = OilTestDataMetaInfoList;
                     wellOilTestData.WellId = wellWebID;
                     datasOil.Add(wellOilTestData);
 
