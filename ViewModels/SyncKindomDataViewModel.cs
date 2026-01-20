@@ -588,6 +588,7 @@ namespace KindomDataAPIServer.ViewModels
             {
                 IsEnable = false;
                 KindomData = KingdomAPI.Instance.GetProjectData();
+                LoadConclusionFileNameObj();
                 if (KindomData == null)
                 {
                     Application.Current.Dispatcher.Invoke(new Action(() => {
@@ -625,11 +626,26 @@ namespace KindomDataAPIServer.ViewModels
             conclusionSettingView.ShowDialog();
         }
 
+        /// <summary>
+        /// 加载解释结论
+        /// </summary>
+        public void LoadConclusionFileNameObj()
+        {
+            ConclusionSettingVM.ConclusionFileNameObjItems = KingdomAPI.Instance.GetConclusionFileNameObjs(KindomData);
+        }
+
+
 
         public PbViewMetaObjectList WellIDandNameList = null;
 
         public async Task SyncCommandAction()
         {
+
+            if(KindomData == null)
+            {
+                DXMessageBox.Show("Please load data first!");
+                return;
+            }
             List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
             foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
             {

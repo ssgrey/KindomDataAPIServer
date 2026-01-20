@@ -18,10 +18,13 @@ namespace KindomDataAPIServer.ViewModels
 
     public class ConclusionSettingViewModel
     {
-        //public virtual bool? IsPayzon { get; set; } = true;//测井解释
-        //public virtual bool? IsLithology { get; set; } = false;//岩性 
-        //public virtual bool? IsSedimentaryFacies { get; set; } = false;//沉积相
-        public virtual ExplanationType ExplanationType { get; set; } =  ExplanationType.Payzon;
+        public ConclusionSettingViewModel()
+        {
+            ConclusionMappingItems = new ObservableCollection<ConclusionMappingItem>();
+            ConclusionFileNameObjItems = new List<ConclusionFileNameObj>();
+            this.NewConclusionName = "Payzone";
+        }
+        public virtual ExplanationType ExplanationType { get; set; } = ExplanationType.Payzon;
 
         protected void OnExplanationTypeChanged()
         {
@@ -38,31 +41,59 @@ namespace KindomDataAPIServer.ViewModels
                 NewConclusionName = "Facies";
             }
         }
-        //protected void OnIsLithologyChanged()
-        //{
-        //    if (IsLithology == true)
-        //    {
-        //        NewConclusionName = "Lithology";
-        //    }
-        //}
-        //protected void OnIsSedimentaryFaciesChanged()
-        //{
-        //    if (IsSedimentaryFacies == true)
-        //    {
-        //        NewConclusionName = "Facies";
-        //    }
-        //}
 
-        public virtual string NewConclusionName { get; set; } 
+        public virtual string NewConclusionName { get; set; }
 
         public virtual ObservableCollection<ConclusionMappingItem> ConclusionMappingItems { get; set; }
 
 
-        public ConclusionSettingViewModel()
+        public virtual List<ConclusionFileNameObj> ConclusionFileNameObjItems { get; set; }
+
+        public virtual bool IsCheckAllConclusionFileNameObj { get; set; } = true;
+
+        protected void OnIsCheckAllConclusionFileNameObjChanged()
         {
-            ConclusionMappingItems = new ObservableCollection<ConclusionMappingItem>();
-            this.NewConclusionName = "Payzone";
+            foreach (var item in ConclusionFileNameObjItems)
+            {
+                item.IsChecked = IsCheckAllConclusionFileNameObj;
+            }
+        }
+    }
+
+    public class ConclusionFileNameObj : BindableBase
+    {
+        private bool _IsChecked = true;
+        public bool IsChecked
+        {
+            get
+            {
+                return _IsChecked;
+            }
+            set
+            {
+
+                SetProperty(ref _IsChecked, value, nameof(IsChecked));
+            }
         }
 
+        public string FileName { get; set; }
+
+        private string _ColumnName;
+        public string ColumnName
+        {
+            get
+            {
+                return _ColumnName;
+            }
+            set
+            {
+
+                SetProperty(ref _ColumnName, value, nameof(ColumnName));
+
+            }
+        }
+
+        public List<string> Columns { get; set; } = new List<string>();
     }
+
 }

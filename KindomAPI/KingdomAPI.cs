@@ -6,6 +6,7 @@ using Google.Protobuf;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.Models;
+using KindomDataAPIServer.ViewModels;
 using Smt;
 using Smt.Entities;
 using System;
@@ -547,99 +548,117 @@ namespace KindomDataAPIServer.KindomAPI
                     // },
                     // x => true,
                     // false).ToList();
-                    // var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
-                    //  x => new
-                    //  {
-                    //      data = x,
-                    //  },
-                    //  x => true,
-                    //  false).ToList();
+                    //var IntervalRecords = context.Get(new Smt.Entities.IntervalName(),
+                    // x => new
+                    // {
+                    //     data = x,  
+                    //     attrs = x.IntervalAttributes
+                    // },
+                    // x => true,
+                    // false).ToList();
 
-                    // var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
-                    //          x => new
-                    //          {
-                    //              data = x,
-                    //          },
-                    //          x => true,
-                    //          false).ToList();
+                    //foreach (var intervalRecord in IntervalRecords)
+                    //{
+                    //    {
+                    //        foreach (var attr in intervalRecord.attrs)
+                    //        {
+                    //            var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
+                    //                    x => new
+                    //                    {
+                    //                        attrdata = x,
+                    //                        texts = x.IntervalTextValues
+                    //                    },
+                    //                    x => x.Id == attr.Id,
+                    //                    false).ToList();
+                    //        }
 
-     //               var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
+                    //    }
+                    //}
+                    //var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
+                    //         x => new
+                    //         {
+                    //             data = x,
+                    //         },
+                    //         x => true,
+                    //         false).ToList();
 
-     //               var res2 = digitalLogs.FirstOrDefault(o => o.LogData.BoreholeId == res.BoreholeId);
-     //               var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-     //                        x => new
-     //                        {
-     //                            data = x,
-     //                        },
-     //                        x => x.BoreholeId == res.BoreholeId,
-     //                        false).ToList();
-     //               var IntervalRecord = context.Get(new Smt.Entities.IntervalRecord(),
-     //                    x => new
-     //                    {
-     //                        data = x,
-     //                        intervalName = x.IntervalName,
-     //                        texts = x.IntervalTextValues
-     //                    },
-     //                     x => x.BoreholeId == res.BoreholeId,
-     //                    false).ToList();
+                    //               var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
 
-     //               var IntervalAttribute = context.Get(new Smt.Entities.IntervalTextValue(),
-     //x => new
-     //{
-     //    data = x,
-     //    intervalAttr = x.IntervalAttribute,
-     //    id = x.IntervalRecordId
-     //},
-     // x => true,
-     //false).ToList();
+                    //               var res2 = digitalLogs.FirstOrDefault(o => o.LogData.BoreholeId == res.BoreholeId);
+                    //               var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                    //                        x => new
+                    //                        {
+                    //                            data = x,
+                    //                        },
+                    //                        x => x.BoreholeId == res.BoreholeId,
+                    //                        false).ToList();
+                    //               var IntervalRecord = context.Get(new Smt.Entities.IntervalRecord(),
+                    //                    x => new
+                    //                    {
+                    //                        data = x,
+                    //                        intervalName = x.IntervalName,
+                    //                        texts = x.IntervalTextValues
+                    //                    },
+                    //                     x => x.BoreholeId == res.BoreholeId,
+                    //                    false).ToList();
 
-     //               var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
-     //x => new
-     //{
-     //    data = x,
-     //},
-     // x => true,
-     //false).ToList();
+                    //               var IntervalAttribute = context.Get(new Smt.Entities.IntervalTextValue(),
+                    //x => new
+                    //{
+                    //    data = x,
+                    //    intervalAttr = x.IntervalAttribute,
+                    //    id = x.IntervalRecordId
+                    //},
+                    // x => true,
+                    //false).ToList();
 
-     //               var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
-     //                    x => new
-     //                    {
-     //                        data = x,
-     //                    },
-     //                     x => x.BoreholeId == res.BoreholeId,
-     //                    false).ToList();
-     //                               var TestProduction3 = context.Get(new Smt.Entities.TestProductionPerforation(),
-     //                     x => new
-     //                     {
-     //                         data = x,
-     //                     },
-     //                      x => true,
-     //                     false).ToList();
+                    //               var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
+                    //x => new
+                    //{
+                    //    data = x,
+                    //},
+                    // x => true,
+                    //false).ToList();
 
-     //                               var TestProduction4 = context.Get(new Smt.Entities.ProductionEntity(),
-     //               x => new
-     //               {
-     //                   data = x,
-     //               },
-     //               x => true,
-     //               false).ToList();
+                    //               var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
+                    //                    x => new
+                    //                    {
+                    //                        data = x,
+                    //                    },
+                    //                     x => x.BoreholeId == res.BoreholeId,
+                    //                    false).ToList();
+                    //                               var TestProduction3 = context.Get(new Smt.Entities.TestProductionPerforation(),
+                    //                     x => new
+                    //                     {
+                    //                         data = x,
+                    //                     },
+                    //                      x => true,
+                    //                     false).ToList();
 
-     //                var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
-     //               x => new
-     //               {
-     //                   data = x,
-     //               },
-     //               x => true,
-     //               false).ToList();
+                    //                               var TestProduction4 = context.Get(new Smt.Entities.ProductionEntity(),
+                    //               x => new
+                    //               {
+                    //                   data = x,
+                    //               },
+                    //               x => true,
+                    //               false).ToList();
 
-     //               var survey = context.Get(new Smt.Entities.IntervalRecord(),
-     //               x => new
-     //               {
-     //                   data = x,
-     //               },
-     //               x => true,
-     //               false).ToList();
-                #endif
+                    //                var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
+                    //               x => new
+                    //               {
+                    //                   data = x,
+                    //               },
+                    //               x => true,
+                    //               false).ToList();
+
+                    //               var survey = context.Get(new Smt.Entities.IntervalRecord(),
+                    //               x => new
+                    //               {
+                    //                   data = x,
+                    //               },
+                    //               x => true,
+                    //               false).ToList();
+#endif
                     return new ProjectResponse
                     {
                         ProjectPath = this.ProjectPath,
@@ -665,60 +684,6 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
-        public ProjectResponse GetProjectWellData()
-        {
-            var mapUnit = project.MapUnit.ToString();
-            var verticalUnit = project.VerticalUnit.ToString();
-
-            using (var context = project.GetKingdom())
-            {
-                var boreholes = context.Get(new Borehole(), b => new
-                {
-                    BoreholeId = b.Id,
-                    BoreholeName = b.Name,
-                    Uwi = b.Uwi,
-                    WellId = b.Well.Id,
-                    WellName = b.Well.Name,
-                    WellNumber = b.Well.WellNumber,
-                    SurfaceX = b.Well.SurfaceLocX,
-                    SurfaceY = b.Well.SurfaceLocY,
-                    Country = b.Well.Country.Name,
-                    State = b.Well.State.Name,
-                    County = b.Well.County.Name
-                },
-                    _ => true,
-                    false).ToList();
-
-                var boreholeIds = boreholes.Select(b => b.BoreholeId).ToList();
-
-                var wells = new List<WellExport>();
-                foreach (var bh in boreholes)
-                {
-                    //wells.Add(new WellExport
-                    //{
-                    //    BoreholeId = bh.BoreholeId,
-                    //    BoreholeName = bh.BoreholeName,
-                    //    WellId = bh.WellId,
-                    //    WellName = bh.WellName,
-                    //    Uwi = bh.Uwi,
-                    //    WellNumber = bh.WellNumber,
-                    //    SurfaceX = bh.SurfaceX,
-                    //    SurfaceY = bh.SurfaceY,
-                    //    Country = bh.Country,
-                    //    MapUnit = mapUnit,
-                    //    VerticalUnit = verticalUnit,
-                    //});
-                }
-
-                return new ProjectResponse
-                {
-                    ProjectPath = this.ProjectPath,
-                    MapUnit = mapUnit,
-                    VerticalUnit = verticalUnit,
-                    Wells = wells
-                };
-            }
-        }
 
         public WellExport GetWellExportByUWI(string UWI)
         {
@@ -1383,6 +1348,83 @@ namespace KindomDataAPIServer.KindomAPI
 
             return ConclusionNames;
         }
+
+        public Dictionary<string, List<string>> ColumnNameDict = new Dictionary<string, List<string>>();
+
+        public List<ConclusionFileNameObj> GetConclusionFileNameObjs(ProjectResponse KingDomData)
+        {
+            ColumnNameDict = new Dictionary<string, List<string>>();
+            List<ConclusionFileNameObj> ConclusionNames = new List<ConclusionFileNameObj>();
+
+            try
+            {
+                //List<WellExport> Wells = KingDomData.Wells;
+                //List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+                using (var context = project.GetKingdom())
+                {
+                    var IntervalNames = context.Get(new Smt.Entities.IntervalName(),
+                       x => new
+                       {
+                           data = x,
+                           attrs = x.IntervalAttributes,
+                           Name = x.Name,
+                       },
+                       x => true,
+                       false).ToList();
+
+                    foreach (var intervalName in IntervalNames)
+                    {
+                        ConclusionFileNameObj conclusionFileNameObj = new ConclusionFileNameObj();
+                        conclusionFileNameObj.FileName = intervalName.Name;
+                        foreach (var attr in intervalName.attrs)
+                        {
+                            if (attr.IntervalAttributeType == AttributeType.Text || attr.IntervalAttributeType == AttributeType.Numeric)
+                            {
+                                var IntervalAttribute = context.Get(new Smt.Entities.IntervalAttribute(),
+                                     x => new
+                                     {
+                                         texts = x.IntervalTextValues,
+                                         numberTexts = x.IntervalNumericValues
+                                     },
+                                     x => x.Id == attr.Id,
+                                     false);
+                                List<string> textValues = IntervalAttribute.FirstOrDefault().texts.Select(o => o.Value).Distinct().ToList();
+                                List<string> numValues = IntervalAttribute.FirstOrDefault().numberTexts.Select(o => o.Value.ToString()).Distinct().ToList();
+                                textValues.AddRange(numValues);
+                                textValues = textValues.Distinct().ToList();
+
+                                if (textValues.Count > 0)
+                                {
+                                    if (ColumnNameDict.ContainsKey(attr.Name))
+                                    {
+                                        ColumnNameDict[attr.Name].AddRange(textValues);
+                                    }
+                                    else
+                                    {
+                                        ColumnNameDict.Add(attr.Name, textValues);
+                                    }
+                                    conclusionFileNameObj.Columns.Add(attr.Name);
+                                }
+
+                            }
+                        }
+                        if (conclusionFileNameObj.Columns.Count > 0)
+                        {
+                            conclusionFileNameObj.ColumnName = conclusionFileNameObj.Columns.FirstOrDefault();
+                            ConclusionNames.Add(conclusionFileNameObj);
+                        }
+                    }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"GetConclusionFileNameObjs failed: {ex.Message+ ex.StackTrace}");
+            }
+            return ConclusionNames;
+        }
+
         /// <summary>
         /// 创建或更新井数据
         /// </summary>
