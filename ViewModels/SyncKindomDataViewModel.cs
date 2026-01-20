@@ -37,12 +37,14 @@ namespace KindomDataAPIServer.ViewModels
         IDataWellService wellDataService = null;
 
         public ICommand SyncCommand { get; set; }
+        public ICommand NewLogDataSetCommand { get; set; }
         public ICommand ConclusionSettingCommand { get; set; }
-             
+        
         public SyncKindomDataViewModel()
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
+            NewLogDataSetCommand = new DevExpress.Mvvm.AsyncCommand(NewLogDataSetCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
             _ = LoadUnits();
@@ -482,6 +484,7 @@ namespace KindomDataAPIServer.ViewModels
         });
 
 
+
         private void LoadKingdomData()
         {
             try
@@ -637,18 +640,6 @@ namespace KindomDataAPIServer.ViewModels
                 #region 数据集
                 string resdataSetID = SelectedLogDataSet.Id;
 
- 
-               //  resdataSetID = await wellDataService.create_well_log_set("KindomDataset");
-                
-
-                if(string.IsNullOrWhiteSpace(resdataSetID))
-                {
-                    LogManagerService.Instance.Log($"create_well_log_set ID is null");
-                }
-                else
-                {
-                    LogManagerService.Instance.Log($"resdataSetID: {resdataSetID}");
-                }
                 #endregion
 
                 #region 井轨迹
@@ -925,6 +916,33 @@ namespace KindomDataAPIServer.ViewModels
             finally
             {
                  IsEnable = true;
+            }
+        }
+
+        public async Task NewLogDataSetCommandAction()
+        {
+            LogDatasetCreateView logDatasetCreateView = new LogDatasetCreateView();
+            if (logDatasetCreateView.ShowDialog() == true)
+            {
+                IsEnable = false;
+                try
+                {
+                    var resdataSetID = await wellDataService.create_well_log_set(logDatasetCreateView.NewName);
+
+                    if (string.IsNullOrWhiteSpace(resdataSetID))
+                    {
+                        LogManagerService.Instance.Log($"create_well_log_set ID is null");
+                    }
+                    else
+                    {
+                        LogManagerService.Instance.Log($"Create New resdataSetID: {resdataSetID} successful!");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogManagerService.Instance.Log($"Create New LogSetID error: {ex.Message} ");
+                }finally { IsEnable = true; }
+ 
             }
         }
     }

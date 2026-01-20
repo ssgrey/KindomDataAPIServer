@@ -328,7 +328,7 @@
                             </GroupBox>
                             <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="200">
                                 <GroupBox.Header>
-                                    <Label Content="Field" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
                                 <Grid>
                                     <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
@@ -338,9 +338,11 @@
                                             </Style>
                                         </StackPanel.Resources>
                                         <StackPanel Orientation="Horizontal">
-                                            <Label Content="DataSet" Width="Auto"></Label>
-                                            <dxe:ComboBoxEdit EditValue="{Binding SelectedLogDataSet,UpdateSourceTrigger=PropertyChanged}" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
-                                            <dx:SimpleButton Content="Create"></dx:SimpleButton>
+                                            <Label Content="Log DataSet" Width="Auto"></Label>
+                                            <dxe:ComboBoxEdit EditValue="{Binding SelectedLogDataSet,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dx:SimpleButton Content="New LogDataSet" Command="{Binding NewLogDataSetCommand}" ></dx:SimpleButton>
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>
