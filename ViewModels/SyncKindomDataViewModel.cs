@@ -612,18 +612,10 @@ namespace KindomDataAPIServer.ViewModels
         }
 
 
-        string[] _displayCatalogs = new string[0];
-        public string[] DisplayCatalogs
-        {
-            get { return _displayCatalogs; }
-            set { _displayCatalogs = value; }
-        }
         private void ConclusionSettingCommandAction()
         {
             if (KindomData == null)
                 return;
-            ConclusionSettingView conclusionSettingView = new ConclusionSettingView(this);
-            conclusionSettingView.ShowDialog();
         }
 
         /// <summary>
@@ -632,6 +624,43 @@ namespace KindomDataAPIServer.ViewModels
         public void LoadConclusionFileNameObj()
         {
             ConclusionSettingVM.ConclusionFileNameObjItems = KingdomAPI.Instance.GetConclusionFileNameObjs(KindomData);
+            foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
+            {
+                item.PropertyChanged += Item_PropertyChanged;
+            }
+            RefreshConclusionMappingItems();
+        }
+
+        private void Item_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            RefreshConclusionMappingItems();
+        }
+
+        public void RefreshConclusionMappingItems()
+        {
+            ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
+            List<string> ConclusionNames = new List<string>();
+
+            foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
+            {
+                if (item.IsChecked&& !string.IsNullOrEmpty(item.ColumnName))
+                {
+                   if(KingdomAPI.Instance.ColumnNameDict.TryGetValue(item.ColumnName,out var list))
+                    {
+                        ConclusionNames.AddRange(list);
+                    }
+                }
+            }
+            ConclusionNames = ConclusionNames.Distinct().ToList();
+            foreach (var item in ConclusionNames)
+            {
+                ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
+                {
+                    Color = Colors.Red,
+                    PolygonName = item,
+                };
+                ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
+            }
         }
 
 

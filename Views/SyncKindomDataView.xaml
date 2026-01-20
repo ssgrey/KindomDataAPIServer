@@ -9,6 +9,7 @@
     xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
+    xmlns:views="clr-namespace:KindomDataAPIServer.Views"
     xmlns:utils="clr-namespace:KindomDataAPIServer.Common"
     xmlns:kindom ="clr-namespace:KindomDataAPIServer.KindomAPI"
     x:Name="root" Closed="root_Closed"  Icon="/datapool.ico"
@@ -176,10 +177,6 @@
                                             <dxe:CheckEdit IsChecked="{Binding IsShowCounty,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
                                             <Label Content="County"></Label>
                                         </StackPanel>
-                                        <!--<StackPanel Orientation="Horizontal" Grid.Row="4">
-                                            <Label Content="线型"></Label>
-                                            <dxe:ComboBoxEdit   DisplayMember="Key" ValueMember="Value" EditValue="{Binding LineSetting.LineStyle,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
-                                        </StackPanel>-->
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
@@ -417,10 +414,11 @@
                                     </dxg:GridControl.View>
                                 </dxg:GridControl>
                             </GroupBox>
-                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="300">
+                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="Auto">
                                 <GroupBox.Header>
-                                    <Label Content="Field" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
+                                <views:ConclusionSettingView DataContext="{Binding ConclusionSettingVM}"></views:ConclusionSettingView>
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>

@@ -37,59 +37,35 @@ namespace KindomDataAPIServer.Views
     /// <summary>
     /// Interaction logic for DVChartPointSettings.xaml
     /// </summary>
-    public partial class ConclusionSettingView : ThemedWindow
+    public partial class ConclusionSettingView : UserControl
     {
-        public readonly ILog _logger = LogManager.GetLogger("DVCreateConclusionView");
-
         public SyncKindomDataViewModel ViewModel { get; private set; }
 
-        public ConclusionSettingView(SyncKindomDataViewModel viewModel)
+        public ConclusionSettingView()
         {
             InitializeComponent();
             GridControl.AllowInfiniteGridSize = true;
-                ViewModel = viewModel;
-            if (ViewModel.ConclusionSettingVM.ConclusionMappingItems.Count == 0)
-            {
-                Reload_Clicked(null, null);
-            }
-            this.DataContext = ViewModel.ConclusionSettingVM;
         }
-
-        private void OnClosed(object sender, EventArgs e)
-        {
-            GridControl.AllowInfiniteGridSize = false;
-        }
-
 
         private void Reload_Clicked(object sender, RoutedEventArgs e)
         {
-            ViewModel.ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
-            List<string> ConclusionNames = KingdomAPI.Instance.GetConclusionNames(ViewModel.KindomData);
-            foreach (var item in ConclusionNames)
-            {
-                ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
-                {
-                    Color = Colors.Red,
-                    PolygonName = item,
-                };
-                ViewModel.ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
-            }
+            //ViewModel.ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
+            //List<string> ConclusionNames = KingdomAPI.Instance.GetConclusionNames(ViewModel.KindomData);
+            //foreach (var item in ConclusionNames)
+            //{
+            //    ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
+            //    {
+            //        Color = Colors.Red,
+            //        PolygonName = item,
+            //    };
+            //    ViewModel.ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
+            //}
         }
 
 
         private void Apply_Clicked(object sender, RoutedEventArgs e)
         {
 
-        }
-        private void Cancel_Clicked(object sender, RoutedEventArgs e)
-        {
-            this.Close();
-        }
-
-        private void Ok_Clicked(object sender, RoutedEventArgs e)
-        {
-            Apply_Clicked(sender, e);
-            this.Close();
         }
 
         string[] _displayCatalogs = new string[0];
