@@ -37,6 +37,14 @@ namespace KindomDataAPIServer.ViewModels
         public bool IsInitial { get; set; } = false;
         IDataWellService wellDataService = null;
 
+
+        public KingdomAPI KingdomAPIInstance
+        {
+            get
+            {
+                return KingdomAPI.Instance;
+            }
+        }
         public ICommand SyncCommand { get; set; }
         public ICommand NewLogDataSetCommand { get; set; }
         public ICommand ConclusionSettingCommand { get; set; }
@@ -464,7 +472,31 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private bool _IsSyncIPProduction = true;
+        public bool IsSyncIPProduction
+        {
+            get
+            {
+                return _IsSyncIPProduction;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncIPProduction, value, nameof(IsSyncIPProduction));
+            }
+        }
 
+        private bool _IsSyncConclusion = true;
+        public bool IsSyncConclusion
+        {
+            get
+            {
+                return _IsSyncConclusion;
+            }
+            set
+            {
+                SetProperty(ref _IsSyncConclusion, value, nameof(IsSyncConclusion));
+            }
+        }
 
         private bool _IsSyncLogUnit = true;
         public bool IsSyncLogUnit
@@ -598,7 +630,6 @@ namespace KindomDataAPIServer.ViewModels
 
         public async Task SyncCommandAction()
         {
-
             List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
             foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
             {
@@ -614,7 +645,7 @@ namespace KindomDataAPIServer.ViewModels
                 SymbolMapping.Add(temp);
             }
 
-            if(SelectedLogDataSet == null)
+            if(IsSyncWellLog && SelectedLogDataSet == null)
             {
                 DXMessageBox.Show("Please select a logDataSet!");
                 return;
@@ -626,8 +657,7 @@ namespace KindomDataAPIServer.ViewModels
 
                 ProgressValue = 0;
 
-                if (IsSyncWellHeader)
-                {
+
                     LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
                     WellDataRequest wellDataRequest = new WellDataRequest();
                     wellDataRequest.Items = new List<WellItemRequest>();
@@ -677,13 +707,15 @@ namespace KindomDataAPIServer.ViewModels
 
                     });
 
-                    if (wellDataRequest.Items.Count == 0)
-                    {
-                        IsEnable = false;
-                        DXMessageBox.Show("The number of wells selected cannot be 0");
-                        return;
-                    }
+                if (wellDataRequest.Items.Count == 0)
+                {
+                    IsEnable = false;
+                    DXMessageBox.Show("The number of wells selected cannot be 0");
+                    return;
+                }
 
+                if (IsSyncWellHeader)
+                {
                     var res = await wellDataService.batch_create_well_header(wellDataRequest);
                     if (res != null)
                     {
@@ -808,80 +840,84 @@ namespace KindomDataAPIServer.ViewModels
 
                 #region 试油试气
 
-                (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList);
-
-                if (AllwellTestDatas.Item1.Count>0)
+                if (IsSyncConclusion)
                 {
-                    LogManagerService.Instance.Log($"Well Gas Test Data start synchronize！");
-                    int AllCount = AllwellTestDatas.Item1.Count;
-                    List<WellGasTestRequest> tempList = new List<WellGasTestRequest>();
-                    WellGasTestRequest wellTrajRequest = null;
-                    for (int i = 0; i < AllCount; i++)
+
+                    (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList);
+
+                    if (AllwellTestDatas.Item1.Count > 0)
                     {
-                        if (i % 3 == 0)
+                        LogManagerService.Instance.Log($"Well Gas Test Data start synchronize！");
+                        int AllCount = AllwellTestDatas.Item1.Count;
+                        List<WellGasTestRequest> tempList = new List<WellGasTestRequest>();
+                        WellGasTestRequest wellTrajRequest = null;
+                        for (int i = 0; i < AllCount; i++)
                         {
-                            wellTrajRequest = new WellGasTestRequest();
-                            tempList.Add(wellTrajRequest);
-                            wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                            if (i % 3 == 0)
+                            {
+                                wellTrajRequest = new WellGasTestRequest();
+                                tempList.Add(wellTrajRequest);
+                                wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                            }
+                            else
+                            {
+                                wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                            }
                         }
-                        else
+                        for (int i = 0; i < tempList.Count; i++)
                         {
-                            wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                            var res4 = await wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(tempList[i]);
+                            if (res4 != null)
+                            {
+
+                            }
                         }
+                        ProgressValue = 55;
+                        LogManagerService.Instance.Log($"Well Gas Test Data synchronize synchronize over！");
                     }
-                    for (int i = 0; i < tempList.Count; i++)
+                    else
                     {
-                        var res4 = await wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(tempList[i]);
-                        if (res4 != null)
-                        {
-
-                        }
+                        LogManagerService.Instance.Log($"Well Gas Test Data Count is 0");
                     }
-                    ProgressValue = 55;
-                    LogManagerService.Instance.Log($"Well Gas Test Data synchronize synchronize over！");
-                }
-                else
-                {
-                    LogManagerService.Instance.Log($"Well Gas Test Data Count is 0");
-                }
 
 
-                if (AllwellTestDatas.Item2.Count > 0)
-                {
-                    LogManagerService.Instance.Log($"Well Oil Test Data start synchronize！");
-                    int AllCount = AllwellTestDatas.Item2.Count;
-                    List<WellOilTestDataRequset> tempList = new List<WellOilTestDataRequset>();
-                    WellOilTestDataRequset wellTrajRequest = null;
-                    for (int i = 0; i < AllCount; i++)
+                    if (AllwellTestDatas.Item2.Count > 0)
                     {
-                        if (i % 3 == 0)
+                        LogManagerService.Instance.Log($"Well Oil Test Data start synchronize！");
+                        int AllCount = AllwellTestDatas.Item2.Count;
+                        List<WellOilTestDataRequset> tempList = new List<WellOilTestDataRequset>();
+                        WellOilTestDataRequset wellTrajRequest = null;
+                        for (int i = 0; i < AllCount; i++)
                         {
-                            wellTrajRequest = new WellOilTestDataRequset();
-                            tempList.Add(wellTrajRequest);
-                            wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                            if (i % 3 == 0)
+                            {
+                                wellTrajRequest = new WellOilTestDataRequset();
+                                tempList.Add(wellTrajRequest);
+                                wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                            }
+                            else
+                            {
+                                wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                            }
                         }
-                        else
+                        for (int i = 0; i < tempList.Count; i++)
                         {
-                            wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                            var res4 = await wellDataService.batch_create_well_oil_test_with_meta_infos(tempList[i]);
+                            if (res4 != null)
+                            {
+
+                            }
                         }
+                        ProgressValue = 60;
+                        LogManagerService.Instance.Log($"Well Oil Test Data synchronize synchronize over！");
                     }
-                    for (int i = 0; i < tempList.Count; i++)
+                    else
                     {
-                        var res4 = await wellDataService.batch_create_well_oil_test_with_meta_infos(tempList[i]);
-                        if (res4 != null)
-                        {
-
-                        }
+                        LogManagerService.Instance.Log($"Well Oil Test Data Count is 0");
                     }
-                    ProgressValue = 60;
-                    LogManagerService.Instance.Log($"Well Oil Test Data synchronize synchronize over！");
                 }
-                else
-                {
-                    LogManagerService.Instance.Log($"Well Oil Test Data Count is 0");
-                }
-
                 #endregion
+                ProgressValue = 60;
 
                 #region  井曲线 
                 if (IsSyncWellLog)
