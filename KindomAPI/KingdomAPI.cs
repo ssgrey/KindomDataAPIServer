@@ -1,4 +1,5 @@
-﻿using DevExpress.Spreadsheet.Functions;
+﻿using DevExpress.Mvvm;
+using DevExpress.Spreadsheet.Functions;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Grid.Hierarchy;
 using Google.Protobuf;
@@ -21,7 +22,7 @@ using Tet.Transport.Protobuf.Well;
 
 namespace KindomDataAPIServer.KindomAPI
 {
-    public class KingdomAPI
+    public class KingdomAPI :BindableBase
     {
         private static KingdomAPI _instance = null;
         public static KingdomAPI Instance
@@ -77,7 +78,7 @@ namespace KindomDataAPIServer.KindomAPI
 
         }
 
-        public MeasureUnit DepthUnit
+        public UnitInfo DepthUnit
         {
             get
             {
@@ -86,7 +87,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
-        public MeasureUnit XYUnit
+        public UnitInfo XYUnit
         {
             get
             {
@@ -94,7 +95,7 @@ namespace KindomDataAPIServer.KindomAPI
                 return depthUnit;
             }
         }
-        public MeasureUnit OilOrWaterUnit
+        public UnitInfo OilOrWaterUnit
         {
             get
             {
@@ -103,12 +104,41 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
-        public MeasureUnit GasUnit
+        public UnitInfo GasUnit
         {
             get
             {
                 var Unit = Utils.GetGasUnit(IsDepthFeet);
                 return Unit;
+            }
+        }
+
+
+        public UnitInfo _OilOrWaterInfo;
+        public UnitInfo OilOrWaterInfo
+        {
+            get
+            {
+                return _OilOrWaterInfo;
+            }
+            set
+            {
+                SetProperty(ref _OilOrWaterInfo, value, nameof(OilOrWaterInfo));
+
+            }
+        }
+
+        public UnitInfo _GasInfo;
+        public UnitInfo GasInfo
+        {
+            get
+            {
+                return _GasInfo;
+            }
+            set
+            {
+                SetProperty(ref _GasInfo, value, nameof(GasInfo));
+
             }
         }
 
@@ -725,20 +755,20 @@ namespace KindomDataAPIServer.KindomAPI
             MetaInfo metaInfo = new MetaInfo();
             metaInfo.DisplayName = "测深";
             metaInfo.PropertyName = "coordList.md";
-            metaInfo.UnitId = DepthUnit.UnitId;
+            metaInfo.UnitId = DepthUnit.Id;
             metaInfo.MeasureId = DepthUnit.MeasureID;
             MetaInfoList.Add(metaInfo);
             MetaInfo metaInfo2 = new MetaInfo();
             metaInfo2.DisplayName = "垂深";
             metaInfo2.PropertyName = "coordList.tvd";
-            metaInfo2.UnitId = DepthUnit.UnitId;
+            metaInfo2.UnitId = DepthUnit.Id;
             metaInfo2.MeasureId = DepthUnit.MeasureID;
             MetaInfoList.Add(metaInfo2);
 
             MetaInfo metaInfo3 = new MetaInfo();
             metaInfo3.DisplayName = "dx";
             metaInfo3.PropertyName = "coordList.dx";
-            metaInfo3.UnitId = XYUnit.UnitId;
+            metaInfo3.UnitId = XYUnit.Id;
             metaInfo3.MeasureId = XYUnit.MeasureID;
             MetaInfoList.Add(metaInfo3);
 
@@ -746,7 +776,7 @@ namespace KindomDataAPIServer.KindomAPI
             MetaInfo metaInfo4 = new MetaInfo();
             metaInfo4.DisplayName = "dy";
             metaInfo4.PropertyName = "coordList.dy";
-            metaInfo4.UnitId = XYUnit.UnitId;
+            metaInfo4.UnitId = XYUnit.Id;
             metaInfo4.MeasureId = XYUnit.MeasureID;
             MetaInfoList.Add(metaInfo4);
 
@@ -974,20 +1004,20 @@ namespace KindomDataAPIServer.KindomAPI
             MetaInfo metaInfo = new MetaInfo();
             metaInfo.DisplayName = "油体积";
             metaInfo.PropertyName = "dailyList.oilVol";
-            metaInfo.UnitId = OilOrWaterUnit.UnitId;
+            metaInfo.UnitId = OilOrWaterUnit.Id;
             metaInfo.MeasureId = OilOrWaterUnit.MeasureID;
             MetaInfoList.Add(metaInfo);
             MetaInfo metaInfo2 = new MetaInfo();
             metaInfo2.DisplayName = "气体积";
             metaInfo2.PropertyName = "dailyList.gasVol";
-            metaInfo2.UnitId = GasUnit.UnitId;
+            metaInfo2.UnitId = GasUnit.Id;
             metaInfo2.MeasureId = GasUnit.MeasureID;
             MetaInfoList.Add(metaInfo2);
 
             MetaInfo metaInfo3 = new MetaInfo();
             metaInfo3.DisplayName = "水体积";
             metaInfo3.PropertyName = "dailyList.waterVol";
-            metaInfo3.UnitId = OilOrWaterUnit.UnitId;
+            metaInfo3.UnitId = OilOrWaterUnit.Id;
             metaInfo3.MeasureId = OilOrWaterUnit.MeasureID;
             MetaInfoList.Add(metaInfo3);
 
@@ -1143,13 +1173,13 @@ namespace KindomDataAPIServer.KindomAPI
             MetaInfo metaInfo = new MetaInfo();
             metaInfo.DisplayName = "top";
             metaInfo.PropertyName = "conclusionList.top";
-            metaInfo.UnitId = DepthUnit.UnitId;
+            metaInfo.UnitId = DepthUnit.Id;
             metaInfo.MeasureId = DepthUnit.MeasureID;
             MetaInfoList.Add(metaInfo);
             MetaInfo metaInfo2 = new MetaInfo();
             metaInfo2.DisplayName = "bottom";
             metaInfo2.PropertyName = "conclusionList.bottom";
-            metaInfo2.UnitId = DepthUnit.UnitId;
+            metaInfo2.UnitId = DepthUnit.Id;
             metaInfo2.MeasureId = DepthUnit.MeasureID;
             MetaInfoList.Add(metaInfo2);
 

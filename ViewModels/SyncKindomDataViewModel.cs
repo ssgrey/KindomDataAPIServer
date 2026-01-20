@@ -47,17 +47,25 @@ namespace KindomDataAPIServer.ViewModels
             NewLogDataSetCommand = new DevExpress.Mvvm.AsyncCommand(NewLogDataSetCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
-            _ = LoadUnits();
+            _ = Initial();
         }
 
 
 
-        private async Task LoadUnits()
+        private async Task Initial()
         {
             var res7 = await wellDataService.get_sys_unit();
             if (res7 != null)
             {
                 Utils.UnitTypes = res7;
+
+                foreach (var unit in Utils.UnitTypes)
+                {
+                    foreach (var unit2 in unit.UnitInfoList)
+                    {
+                        unit2.MeasureID = unit.UnitTypeID;
+                    }
+                }
             }
             var res8 = await wellDataService.get_log_dic();
             if (res8 != null)
@@ -167,6 +175,8 @@ namespace KindomDataAPIServer.ViewModels
 
             }
         }
+
+
 
         private string _LoginName;
         public string LoginName
@@ -549,6 +559,11 @@ namespace KindomDataAPIServer.ViewModels
                 SymbolMapping.Add(temp);
             }
 
+            if(SelectedLogDataSet == null)
+            {
+                DXMessageBox.Show("Please select a logDataSet!");
+                return;
+            }
 
             IsEnable = false;
             try
@@ -637,10 +652,6 @@ namespace KindomDataAPIServer.ViewModels
                 ProgressValue = 20;
                 LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
 
-                #region 数据集
-                string resdataSetID = SelectedLogDataSet.Id;
-
-                #endregion
 
                 #region 井轨迹
 
@@ -817,6 +828,7 @@ namespace KindomDataAPIServer.ViewModels
                 #region  井曲线 
 
                 LogManagerService.Instance.Log($"WellLogs start synchronize！");
+                string resdataSetID = SelectedLogDataSet.Id;
 
                 await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData,  WellIDandNameList, resdataSetID, IsSyncLogType, IsSyncLogUnit);
                 ProgressValue = 80;

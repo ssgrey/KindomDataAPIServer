@@ -155,6 +155,11 @@ namespace KindomDataAPIServer.Models
         /// 单位全称
         /// </summary>
         public string LongName { get; set; }
+
+        /// <summary>
+        /// MeasureID
+        /// </summary>
+        public int MeasureID { get; set; }
     }
 
     public class UnitType

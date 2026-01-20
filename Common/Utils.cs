@@ -18,7 +18,43 @@ namespace KindomDataAPIServer.Common
     {
         public static List<UnitType> UnitTypes = new List<UnitType>();
         public static List<LogDictItem> LogDicts = new List<LogDictItem>();
-        
+
+
+        private static List<UnitInfo> _OilOrWaterInfos;
+        public static List<UnitInfo> OilOrWaterInfos
+        {
+            get
+            {
+                if (_OilOrWaterInfos == null)
+                {
+                    _OilOrWaterInfos = new List<UnitInfo>();
+                    var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 21);
+                    if (type != null)
+                        _OilOrWaterInfos = type.UnitInfoList;
+                }
+                return _OilOrWaterInfos;
+            }
+        }
+
+        private static List<UnitInfo> _GasUnitInfos;
+        public static List<UnitInfo> GasUnitInfos
+        {
+            get
+            {
+                if (_GasUnitInfos==null)
+                {
+                    _GasUnitInfos = new List<UnitInfo>();
+                    var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 25);
+                    if (type != null)
+                        _GasUnitInfos = type.UnitInfoList;
+                }
+                return _GasUnitInfos;
+            }
+        }
+
+
+
+
         public static LogDictItem GetLogDictByName(string curveType, string curveName)
         {
             foreach (var item in LogDicts)
@@ -41,9 +77,9 @@ namespace KindomDataAPIServer.Common
             return null;
         }
 
-        public static MeasureUnit GetDepthOrXYUnit(bool IsFt)
+        public static UnitInfo GetDepthOrXYUnit(bool IsFt)
         {
-            MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 4 };
+            UnitInfo measureUnit = new UnitInfo() { MeasureID = 4 };
             var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 4);
             if (type != null)
             {
@@ -51,17 +87,16 @@ namespace KindomDataAPIServer.Common
                 var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
                 if (info != null)
                 {
-                    measureUnit.UnitId = info.Id;
-                    measureUnit.Unit = info.Abbr;
+                    measureUnit = info;                 
                 }
             }
             return measureUnit;
         }
 
 
-        public static MeasureUnit GetOilOrWaterUnit(bool IsFt)
+        public static UnitInfo GetOilOrWaterUnit(bool IsFt)
         {
-            MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 21 };
+            UnitInfo measureUnit = new UnitInfo() { MeasureID = 21 };
             var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 21);
             if (type != null)
             {
@@ -69,16 +104,15 @@ namespace KindomDataAPIServer.Common
                 var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
                 if (info != null)
                 {
-                    measureUnit.UnitId = info.Id;
-                    measureUnit.Unit = info.Abbr;
+                    measureUnit = info;
                 }
             }
             return measureUnit;
         }
 
-        public static MeasureUnit GetGasUnit(bool IsFt)
+        public static UnitInfo GetGasUnit(bool IsFt)
         {
-            MeasureUnit measureUnit = new MeasureUnit() { MeasureID = 25 };
+            UnitInfo measureUnit = new UnitInfo() { MeasureID = 25 };
             var type = UnitTypes.FirstOrDefault(o => o.UnitTypeID == 25);
             if (type != null)
             {
@@ -87,8 +121,7 @@ namespace KindomDataAPIServer.Common
                 var info = type.UnitInfoList.FirstOrDefault(o => o.Abbr == abbr);
                 if (info != null)
                 {
-                    measureUnit.UnitId = info.Id;
-                    measureUnit.Unit = info.Abbr;
+                    measureUnit = info;
                 }
             }
             return measureUnit;

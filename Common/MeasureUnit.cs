@@ -6,16 +6,11 @@ using System.Threading.Tasks;
 
 namespace KindomDataAPIServer.Common
 {
-    public class MeasureUnit
-    {
-        public int MeasureID {  get; set; }
-        public int UnitId { get; set; }
-        public string Unit { get; set; }//Abbr
-    }
+    //public class UnitInfo
+    //{
+    //    public int MeasureID {  get; set; }
+    //    public int Id { get; set; }
+    //    public string Abbr { get; set; }//Abbr
+    //}
 
-    public class MeasureUnitList
-    {
-        public static MeasureUnit DepthFeet { get; } = new MeasureUnit();
-
-    }
 }
