@@ -363,13 +363,13 @@
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="40"></RowDefinition>
-                                        <RowDefinition Height="Auto"></RowDefinition>
+                                        <RowDefinition Height="*"></RowDefinition>
                                     </Grid.RowDefinitions>
                                     <StackPanel Orientation="Horizontal">
                                         <dx:SimpleButton Height="26" Content="Add Row" Command="{Binding ConclusionSettingVM.AddCommand}"></dx:SimpleButton>
-                                        <dx:SimpleButton Height="26" Content="Delete Row" Command="{Binding ConclusionSettingVM.DeleteCommand}"></dx:SimpleButton>
+                                        <dx:SimpleButton Height="26" Content="Delete Row" Margin="5,0,0,0" Command="{Binding ConclusionSettingVM.DeleteCommand}"></dx:SimpleButton>
                                     </StackPanel>
-                                <dxg:GridControl Margin="0" Grid.Row="1" SelectionMode="Row" 
+                                <dxg:GridControl Margin="0" Grid.Row="1" SelectionMode="Row"  
                                          ItemsSource="{Binding ConclusionSettingVM.ConclusionFileNameObjItems}"  SelectedItem="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}" ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >

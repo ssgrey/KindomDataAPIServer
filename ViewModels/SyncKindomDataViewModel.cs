@@ -505,20 +505,46 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        private bool _IsSyncLogUnit = true;
-        public bool IsSyncLogUnit
+        private bool _IsShowOil = true;
+        public bool IsShowOil
         {
             get
             {
-                return _IsSyncLogUnit;
+                return _IsShowOil;
             }
             set
             {
-                SetProperty(ref _IsSyncLogUnit, value, nameof(IsSyncLogUnit));
+                SetProperty(ref _IsShowOil, value, nameof(IsShowOil));
             }
         }
 
 
+        private bool _IsShowGas = true;
+        public bool IsShowGas
+        {
+            get
+            {
+                return _IsShowGas;
+            }
+            set
+            {
+                SetProperty(ref _IsShowGas, value, nameof(IsShowGas));
+            }
+        }
+
+
+        private bool _IsShowWater = true;
+        public bool IsShowWater
+        {
+            get
+            {
+                return _IsShowWater;
+            }
+            set
+            {
+                SetProperty(ref _IsShowWater, value, nameof(IsShowWater));
+            }
+        }
 
 
 
@@ -651,13 +677,12 @@ namespace KindomDataAPIServer.ViewModels
         public void LoadConclusionFileNameObj()
         {
             ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
-            //foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
-            //{
-            //    item.PropertyChanged += Item_PropertyChanged;
-            //}
-            //RefreshConclusionMappingItems();
         }
 
+        /// <summary>
+        /// 刷新映射
+        /// </summary>
+        /// <param name="obj"></param>
         private void ConclusionSettingVM_ConclusionFileNameObjChanged(ConclusionFileNameObj obj)
         {
             RefreshConclusionMappingItems(obj);
@@ -867,7 +892,7 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
 
-                    List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList);
+                    List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList, IsShowOil,IsShowGas,IsShowWater);
 
                     if (AllwellProductionDatas.Count > 0)
                     {

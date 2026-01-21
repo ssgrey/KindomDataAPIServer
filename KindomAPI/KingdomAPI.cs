@@ -1053,7 +1053,7 @@ namespace KindomDataAPIServer.KindomAPI
             }    
         }
 
-        public List<WellDailyProductionData> GetWellProductionData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
+        public List<WellDailyProductionData> GetWellProductionData(ProjectResponse kindomData, PbViewMetaObjectList wellIDandNameList, bool isShowOil, bool isShowGas, bool isShowWater)
         {
             List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
             List<WellExport> Wells = KingDomData.Wells;
@@ -1099,7 +1099,7 @@ namespace KindomDataAPIServer.KindomAPI
                     if (kindomDatas.Count > 0)
                     {
                         string WellUWI = kindomDatas.FirstOrDefault().wellUWI;
-                        long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, WellIDandNameList);
+                        long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, wellIDandNameList);
                         if (wellWebID == -1)
                             continue;
 
@@ -1117,11 +1117,22 @@ namespace KindomDataAPIServer.KindomAPI
                             {
                                 DailyData dailyData = new DailyData()
                                 {
-                                    OilVol = item.data.OilProductionVolume == null ? 0 : item.data.OilProductionVolume.Value / totalDays,
-                                    GasVol = item.data.GasProductionVolume == null ? 0 : item.data.GasProductionVolume.Value / totalDays,
-                                    WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays,
                                     MeasureDate = item.data.StartDate.Value.AddDays(i).ToShortDateString()
                                 };
+
+                                if (isShowOil)
+                                {
+                                    dailyData.OilVol = item.data.OilProductionVolume == null ? 0 : item.data.OilProductionVolume.Value / totalDays;
+                                }
+                                if (isShowGas)
+                                {
+                                    dailyData.GasVol = item.data.GasProductionVolume == null ? 0 : item.data.GasProductionVolume.Value / totalDays;
+
+                                }
+                                if (isShowWater)
+                                {
+                                    dailyData.WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays;
+                                }
                                 productionData.DailyList.Add(dailyData);
                             }
                         }
