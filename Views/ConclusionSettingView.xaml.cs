@@ -30,6 +30,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Xml.Linq;
 using Tet.GeoSymbol;
+using Tet.GeoSymbol.DPSymbolUI;
 using Tet.GeoSymbol.UI;
 
 namespace KindomDataAPIServer.Views
@@ -84,39 +85,19 @@ namespace KindomDataAPIServer.Views
                 var conclusionMapping = gridCell.Row as ConclusionMappingItem;
                 if (gridCell.Column.FieldName == "SymbolLibraryName")
                 {
-                    //ViewModel
-                    GeoSymbolRepository geoSymbolLib = SymboManager.GeoSymbolLib;
 
-                    var symbolNodes = geoSymbolLib.SymbolNodes;
-                    if (this.DisplayCatalogs == null || this.DisplayCatalogs.Length == 0)
-                    {
-                        this.DisplayCatalogs = symbolNodes.Select(node => node.m_sCode).ToArray();
-                    }
+                    DPGeologySymbolsExplorer dPGeologySymbolsExplorer = new DPGeologySymbolsExplorer(Tet.GeoSymbol.DPSymbolUI.SymbolType.Lithology);
 
-                    GeologySymbolExplorerWindow explorer = new GeologySymbolExplorerWindow
+                   if(dPGeologySymbolsExplorer.ShowDialog() == true)
                     {
-                        Title = "Symbol Explorer",
-                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                        SymbolLib = geoSymbolLib,
-                        DisplaySymbolCatalogs = this.DisplayCatalogs
-                    };
-
-                    bool? result = explorer.ShowDialog();
-                    if (result.HasValue && result.Value)
-                    {
-                        GeoSymbolData symbolData = explorer.GetResult();
-                        if (symbolData != null)
+                       var res =  dPGeologySymbolsExplorer.GetSelectItem();
+                        if (res != null)
                         {
-                            conclusionMapping.SymbolLibraryName = symbolData.Title;
-                            conclusionMapping.Image = CreateConclusionImage(symbolData.ID, Colors.Transparent);
-                            conclusionMapping.SymbolLibraryCode = symbolData.ID;
+                            conclusionMapping.SymbolLibraryName = res.EngName;
+                            conclusionMapping.Image = res.ImageBitmap;
+                            conclusionMapping.SymbolLibraryCode = res.Id;
                         }
                     }
-                    else
-                    {
-                        Console.WriteLine("No symbol was selected.");
-                    }
-
 
                 }
             }
