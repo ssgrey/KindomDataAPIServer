@@ -11,7 +11,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:converter ="clr-namespace:KindomDataAPIServer.Converters"
     Width="550" Background="White"
-    Height="730"
+    Height="Auto"
     MinWidth="500"
     MinHeight="320"
     d:DesignHeight="700"
@@ -23,7 +23,7 @@
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition />
-            <RowDefinition Height="40" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid>
             <Grid Grid.Column="1">
@@ -194,7 +194,7 @@
 
 
         </Grid>
-        <Button
+        <!--<Button
             Grid.Row="4"
             Grid.ColumnSpan="2"
             Width="90"
@@ -202,7 +202,7 @@
             Margin="10,5,0,5"
             HorizontalAlignment="Left"
             Click="Reload_Clicked"
-            Content="Reload" />
+            Content="Reload" />-->
         <!--<Button
             Grid.Row="4"
             Grid.ColumnSpan="2"

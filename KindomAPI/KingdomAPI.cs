@@ -1235,7 +1235,7 @@ namespace KindomDataAPIServer.KindomAPI
             return (datas,datasOil);
         }
 
-        public List<DatasetItemDto> GetWellConclusion(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<SymbolMappingDto> SymbolMapping)
+        public List<DatasetItemDto> GetWellConclusion(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<SymbolMappingDto> SymbolMapping, List<ConclusionFileNameObj> ConclusionFileNameObjItems)
         {         
             List<DatasetItemDto> datas = new List<DatasetItemDto>();
             List<WellExport> Wells = KingDomData.Wells;
@@ -1264,10 +1264,21 @@ namespace KindomDataAPIServer.KindomAPI
                      boreholeId = x.BoreholeId,
                      wellUWI = x.Borehole.Uwi,
                      data = x,
-                     TextValues = x.IntervalTextValues
+                     intervalName = x.IntervalName.Name,
+                     TextValues = x.IntervalTextValues,
+                     numValues = x.IntervalTimeValues
                  },
                    x => BoreholeIds.Contains(x.BoreholeId),
                  false).ToList();
+
+
+                var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
+                         x => new
+                         {
+                             data = x,
+                         },
+                           x => true,
+                         false).ToList();
 
                 var dicts = DeviationSurveys.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//按井分组
                 foreach (var item in dicts)
@@ -1282,9 +1293,28 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         if (dictItem.data != null)
                         {
-                            if (dictItem.TextValues.Count > 0)//必须由第三列字段
+                             var objItem = ConclusionFileNameObjItems.FirstOrDefault(o => o.FileName == dictItem.intervalName);
+                            if (objItem!=null)
                             {
-                                string consolusionName = dictItem.TextValues[0].Value;
+                                var IntervalAttributeColumn =  IntervalAttributes.FirstOrDefault(o => o.data.Name == objItem.ColumnName);
+                                if (IntervalAttributeColumn == null)
+                                    continue;
+                                string consolusionName = "";
+                               var textValue = dictItem.TextValues.FirstOrDefault(o => o.IntervalAttributeId == IntervalAttributeColumn.data.Id);
+                                if(textValue == null)
+                                {
+                                    var  numValue = dictItem.numValues.FirstOrDefault(o => o.IntervalAttributeId == IntervalAttributeColumn.data.Id);
+                                    if (numValue!=null)
+                                    {
+                                        consolusionName = numValue.Value.ToString();
+                                    }
+                                }
+                                else
+                                {
+                                    consolusionName = textValue.Value.ToString();
+                                }
+                                if (string.IsNullOrEmpty(consolusionName))
+                                    continue;
                                 ConclusionDto conclusionDto = new ConclusionDto();
                                 conclusionDto.ConclusionName = consolusionName;
                                 conclusionDto.Color = Utils.ColorToInt(Colors.Red);
@@ -1360,6 +1390,8 @@ namespace KindomDataAPIServer.KindomAPI
             {
                 //List<WellExport> Wells = KingDomData.Wells;
                 //List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+                //if(BoreholeIds.Count==0)
+                //    return ConclusionNames;
 
                 using (var context = project.GetKingdom())
                 {

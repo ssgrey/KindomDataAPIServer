@@ -221,6 +221,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Common\ColorGenerator.cs" />
     <Compile Include="Common\JsonHelper.cs" />
     <Compile Include="Common\LogManagerService.cs" />
     <Compile Include="Common\MeasureUnit.cs" />

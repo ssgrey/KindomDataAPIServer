@@ -21,6 +21,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Tet.GeoSymbol;
 using Tet.GeoSymbol.UI;
 using Tet.Transport.Protobuf.Metaobjs;
@@ -48,7 +49,9 @@ namespace KindomDataAPIServer.ViewModels
         public ICommand SyncCommand { get; set; }
         public ICommand NewLogDataSetCommand { get; set; }
         public ICommand ConclusionSettingCommand { get; set; }
-        
+
+        private DispatcherTimer delayTimer;
+
         public SyncKindomDataViewModel()
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
@@ -56,6 +59,10 @@ namespace KindomDataAPIServer.ViewModels
             NewLogDataSetCommand = new DevExpress.Mvvm.AsyncCommand(NewLogDataSetCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
+
+            delayTimer = new DispatcherTimer();
+            delayTimer.Interval = TimeSpan.FromSeconds(0.5);
+            delayTimer.Tick += DelayTimer_Tick_RefreashConclusion;
             IsInitial = true;
             _ = Initial();
         }
@@ -589,6 +596,11 @@ namespace KindomDataAPIServer.ViewModels
                 IsEnable = false;
                 KindomData = KingdomAPI.Instance.GetProjectData();
                 LoadConclusionFileNameObj();
+
+                foreach (var item in KindomData.Wells)
+                {
+                    item.PropertyChanged += Item_PropertyChanged1;
+                }  
                 if (KindomData == null)
                 {
                     Application.Current.Dispatcher.Invoke(new Action(() => {
@@ -611,6 +623,21 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private void Item_PropertyChanged1(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+           if(e.PropertyName == "IsChecked")
+            {
+                //延时执行
+                delayTimer.Stop();
+                delayTimer.Start();
+            }
+        }
+
+        private void DelayTimer_Tick_RefreashConclusion(object sender, EventArgs e)
+        {
+            delayTimer.Stop();
+            //LoadConclusionFileNameObj();
+        }
 
         private void ConclusionSettingCommandAction()
         {
@@ -639,6 +666,8 @@ namespace KindomDataAPIServer.ViewModels
         public void RefreshConclusionMappingItems()
         {
             ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
+
+            ColorGenerator.ResetColorIndex();
             List<string> ConclusionNames = new List<string>();
 
             foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
@@ -656,7 +685,7 @@ namespace KindomDataAPIServer.ViewModels
             {
                 ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
                 {
-                    Color = Colors.Red,
+                    Color = ColorGenerator.GetNextColor(),
                     PolygonName = item,
                 };
                 ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
@@ -675,20 +704,30 @@ namespace KindomDataAPIServer.ViewModels
                 DXMessageBox.Show("Please load data first!");
                 return;
             }
+
             List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
-            foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
+            if (IsSyncConclusion)
             {
-                SymbolMappingDto temp = new SymbolMappingDto();
-                temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
-                temp.ConclusionName = ConclusionMappingItem.PolygonName;
-                temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
-                if(string.IsNullOrEmpty(ConclusionMappingItem.SymbolLibraryCode))
+                if (string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName))
                 {
-                    DXMessageBox.Show("Please set all conclusion item code");
+                    DXMessageBox.Show("ConclusionName cannot be null!");
                     return;
                 }
-                SymbolMapping.Add(temp);
+                foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
+                {
+                    SymbolMappingDto temp = new SymbolMappingDto();
+                    temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
+                    temp.ConclusionName = ConclusionMappingItem.PolygonName;
+                    temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
+                    if (string.IsNullOrEmpty(ConclusionMappingItem.SymbolLibraryCode))
+                    {
+                        DXMessageBox.Show("Please set all conclusion item code!");
+                        return;
+                    }
+                    SymbolMapping.Add(temp);
+                }
             }
+  
 
             if(IsSyncWellLog && SelectedLogDataSet == null)
             {
@@ -885,7 +924,7 @@ namespace KindomDataAPIServer.ViewModels
 
                 #region 试油试气
 
-                if (IsSyncConclusion)
+                if (IsSyncIPProduction)
                 {
 
                     (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList);
@@ -977,80 +1016,74 @@ namespace KindomDataAPIServer.ViewModels
 
 
                 #region 解释结论
-                LogManagerService.Instance.Log($"WellConclusions start synchronize！");
-
-                //List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
-                //SymbolMappingDto symbolMappingDto = new SymbolMappingDto();
-                //symbolMappingDto.Color = Utils.ColorToInt(Colors.Red);
-                //symbolMappingDto.ConclusionName = "1";
-                //symbolMappingDto.SymbolLibraryCode = "44C0010";
-                //SymbolMapping.Add(symbolMappingDto);
-
-
-                List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping);
-
-                if (Conclusions!=null && Conclusions.Count > 0)
+                if (IsSyncConclusion)
                 {
+                    LogManagerService.Instance.Log($"WellConclusions start synchronize！");
 
+                    List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping, ConclusionSettingVM.ConclusionFileNameObjItems);
 
-                    string NewConclusionName = string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "一次解释" : ConclusionSettingVM.NewConclusionName;
-                    int AllwellTrajsCount = Conclusions.Count;
-                    List<CreatePayzoneRequest> tempList = new List<CreatePayzoneRequest>();
-                    CreatePayzoneRequest wellTrajRequest = null;
-                    for (int i = 0; i < AllwellTrajsCount; i++)
+                    if (Conclusions != null && Conclusions.Count > 0)
                     {
-                        if (i % 3 == 0)
+                        string NewConclusionName = string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "Conclusion" : ConclusionSettingVM.NewConclusionName;
+                        int AllwellTrajsCount = Conclusions.Count;
+                        List<CreatePayzoneRequest> tempList = new List<CreatePayzoneRequest>();
+                        CreatePayzoneRequest wellTrajRequest = null;
+                        for (int i = 0; i < AllwellTrajsCount; i++)
                         {
-                            wellTrajRequest = new CreatePayzoneRequest();
-                           
+                            if (i % 3 == 0)
+                            {
+                                wellTrajRequest = new CreatePayzoneRequest();
+
+                                if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
+                                {
+                                    wellTrajRequest.DatasetType = 1;
+                                }
+                                else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
+                                {
+                                    wellTrajRequest.DatasetType = 2;
+                                }
+                                else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
+                                {
+                                    wellTrajRequest.DatasetType = 3;
+                                }
+                                wellTrajRequest.DatasetName = NewConclusionName;
+                                wellTrajRequest.SymbolMapping = SymbolMapping;
+
+                                tempList.Add(wellTrajRequest);
+                                wellTrajRequest.Items.Add(Conclusions[i]);
+                            }
+                            else
+                            {
+                                wellTrajRequest.Items.Add(Conclusions[i]);
+                            }
+                        }
+                        for (int i = 0; i < tempList.Count; i++)
+                        {
                             if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
                             {
-                                wellTrajRequest.DatasetType = 1;
+                                var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
                             }
                             else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
                             {
-                                wellTrajRequest.DatasetType = 2;
+                                var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
                             }
                             else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
                             {
-                                wellTrajRequest.DatasetType = 3;
+                                var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
                             }
-                            wellTrajRequest.DatasetName = NewConclusionName;
-                            wellTrajRequest.SymbolMapping = SymbolMapping;
 
-                            tempList.Add(wellTrajRequest);
-                            wellTrajRequest.Items.Add(Conclusions[i]);
+                            LogManagerService.Instance.Log($"WellConclusions synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                            ProgressValue = 80 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
                         }
-                        else
-                        {
-                            wellTrajRequest.Items.Add(Conclusions[i]);
-                        }
+
+                        LogManagerService.Instance.Log($"WellConclusions synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
                     }
-                    for (int i = 0; i < tempList.Count; i++)
+                    else
                     {
-                        if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
-                        {
-                            var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
-                        }
-                        else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
-                        {
-                            var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
-                        }
-                        else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
-                        {
-                            var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
-                        }
-
-                        LogManagerService.Instance.Log($"WellConclusions synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                        ProgressValue = 80 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
+                        LogManagerService.Instance.Log($"WellConclusions Count is 0");
                     }
-
-                    LogManagerService.Instance.Log($"WellConclusions synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
                 }
-                else
-                {
-                    LogManagerService.Instance.Log($"WellConclusions Count is 0");
-                }
+   
                 #endregion
 
 

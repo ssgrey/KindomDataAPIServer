@@ -108,7 +108,7 @@ namespace KindomDataAPIServer.Views
                         if (symbolData != null)
                         {
                             conclusionMapping.SymbolLibraryName = symbolData.Title;
-                            //conclusionMapping.Image = CreateConclusionImage(symbolData.ID, Colors.Transparent);
+                            conclusionMapping.Image = CreateConclusionImage(symbolData.ID, Colors.Transparent);
                             conclusionMapping.SymbolLibraryCode = symbolData.ID;
                         }
                     }
@@ -124,21 +124,21 @@ namespace KindomDataAPIServer.Views
 
 
 
-        //private BitmapImage CreateConclusionImage(string symboId, Color? backcolor)
-        //{
-        //    if (string.IsNullOrEmpty(symboId))
-        //        return null;
+        private BitmapImage CreateConclusionImage(string symboId, Color? backcolor)
+        {
+            if (string.IsNullOrEmpty(symboId))
+                return null;
 
-        //    System.Drawing.Color? destColor = null;
-        //    if (backcolor != null)
-        //    {
-        //        destColor = System.Drawing.Color.FromArgb(backcolor.Value.A, backcolor.Value.R, backcolor.Value.G, backcolor.Value.B);
-        //    }
-        //    var image = Project.Current.GeoSymbolLib.CreateSymbolImage(symboId, 64, false, destColor);
-        //    BitmapImage result = ImageConverter.Convert(image);
-        //    image.Dispose();
-        //    return result;
-        //}
+            System.Drawing.Color? destColor = null;
+            if (backcolor != null)
+            {
+                destColor = System.Drawing.Color.FromArgb(backcolor.Value.A, backcolor.Value.R, backcolor.Value.G, backcolor.Value.B);
+            }
+            var image = SymboManager.GeoSymbolLib.CreateSymbolImage(symboId, 64, false, destColor);
+            BitmapImage result = ImageConverter.Convert(image);
+            image.Dispose();
+            return result;
+        }
 
     }
 }
