@@ -6,7 +6,7 @@
             xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
     xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
         xmlns:local="clr-namespace:KindomDataAPIServer.Views"
-        mc:Ignorable="d" WindowStyle="ToolWindow"
+        mc:Ignorable="d" WindowStyle="ToolWindow" WindowStartupLocation="CenterScreen"
         Title="New LogDataset" Height="130" Width="240">
     <Grid Margin="5">
         <Grid.RowDefinitions>

@@ -180,8 +180,50 @@
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
+                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="210" >
+                                <GroupBox.Header>
+                                    <Label Content="Sync Config" FontWeight="Bold" Width="Auto"/>
+                                </GroupBox.Header>
+                                <Grid>
+                                    <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
+                                        <StackPanel.Resources>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Height" Value="30"></Setter>
+                                            </Style>
+                                        </StackPanel.Resources>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncWellHeader,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Well Header"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncTrajectory,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Deviation Survey"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncWellFormation,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Formation Tops"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncWellLog,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Digital Logs"></Label>
+                                        </StackPanel>
 
-                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="210">
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Production Data"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncIPProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Production Tests"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncConclusion,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Intervals"></Label>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+                            <!--<GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="210">
                                 <GroupBox.Header>
                                     <Label Content="Sync Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
@@ -191,82 +233,23 @@
                                         <RowDefinition  Height="Auto"></RowDefinition>
                                         <RowDefinition></RowDefinition>
                                     </Grid.RowDefinitions>
-                                    <GroupBox Grid.Row="0" Padding="0" Margin="0,0,5,0" >
-                                        <GroupBox.Header>
-                                            <Label Content="Well Config" FontWeight="Bold" Width="Auto"/>
-                                        </GroupBox.Header>
-                                        <Grid>
-                                            <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
-                                                <StackPanel.Resources>
-                                                    <Style TargetType="StackPanel">
-                                                        <Setter Property="Height" Value="30"></Setter>
-                                                    </Style>
-                                                </StackPanel.Resources>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncWellHeader,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well Header"></Label>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncTrajectory,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well Trajectory"></Label>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncWellFormation,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well Formation"></Label>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncWellLog,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well Log"></Label>
-                                                </StackPanel>
-                                                                                               
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well Production Data"></Label>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncIPProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well IP Production"></Label>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncConclusion,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="Well Conclusion"></Label>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Grid>
-                                    </GroupBox>
-                                    <!--<GroupBox Grid.Row="1" Padding="0" Margin="0,0,5,0" >
-                                        <GroupBox.Header>
-                                            <Label Content="LogCurve Config" FontWeight="Bold" Width="Auto"/>
-                                        </GroupBox.Header>
-                                        <Grid>
-                                            <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
-                                                <StackPanel.Resources>
-                                                    <Style TargetType="StackPanel">
-                                                        <Setter Property="Height" Value="30"></Setter>
-                                                    </Style>
-                                                </StackPanel.Resources>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncLogType,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="LogcurveType"></Label>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <dxe:CheckEdit IsChecked="{Binding IsSyncLogUnit,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                                    <Label Content="LogcurveUnit"></Label>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Grid>
-                                    </GroupBox>-->
-
+ 
                                 </Grid>
-
-                            </GroupBox>
-
+                            </GroupBox>-->
+                        </Grid>
+                    </dx:DXTabItem>
+                    <dx:DXTabItem Header="Formation Tops">
+                        <Grid >
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
                             <GroupBox Grid.Column="3" Padding="0" Margin="0,0,5,0" Width="200">
                                 <GroupBox.Header>
-                                    <Label Content="Formations" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="Formation Tops" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
                                 <dxg:GridControl  x:Name="gridFormation" Margin="0"  SelectionMode="Row" 
-                                     ItemsSource="{Binding KindomData.FormationNames}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
+                                  ItemsSource="{Binding KindomData.FormationNames}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
                                             <dxg:GridColumn.HeaderTemplate>
@@ -285,17 +268,16 @@
                                     </dxg:GridControl.Columns>
                                     <dxg:GridControl.View>
                                         <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
-                                   RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                  NavigationStyle="Row"  
-                                  ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
+                                RowMinHeight="25"  ShowFilterPanelMode="Never"
+                               NavigationStyle="Row"  
+                               ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
                                         </dxg:TableView>
                                     </dxg:GridControl.View>
                                 </dxg:GridControl>
                             </GroupBox>
-
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Logcurve">
+                    <dx:DXTabItem Header="Digital Logs">
                         <Grid >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -303,7 +285,7 @@
                             </Grid.ColumnDefinitions>
                             <GroupBox Grid.Column="0" Padding="0" Margin="0,0,5,0" Width="400">
                                 <GroupBox.Header>
-                                    <Label Content="Logcurves" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="Digital Logs" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
                                 <dxg:GridControl  Margin="0"  SelectionMode="Row" 
                                      ItemsSource="{Binding  KindomData.LogNames}"  ShowBorder="True" AllowInitiallyFocusedRow="True">
@@ -346,7 +328,7 @@
                                     </dxg:GridControl.View>
                                 </dxg:GridControl>
                             </GroupBox>
-                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="200">
+                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="240">
                                 <GroupBox.Header>
                                     <Label Content="Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
@@ -359,20 +341,18 @@
                                         </StackPanel.Resources>
                                         <StackPanel Orientation="Horizontal">
                                             <Label Content="Log DataSet" Width="Auto"></Label>
-                                            <dxe:ComboBoxEdit Height="26" EditValue="{Binding SelectedLogDataSet,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <dx:SimpleButton Height="26" Content="New LogDataSet" Command="{Binding NewLogDataSetCommand}" ></dx:SimpleButton>
+                                            <dxe:ComboBoxEdit Height="26" EditValue="{Binding SelectedLogDataSet,UpdateSourceTrigger=PropertyChanged}" Width="110" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
+                                            <dx:SimpleButton Height="25" Width="25" ToolTip="New LogDataSet" Command="{Binding NewLogDataSetCommand}" Margin="5,0,5,0" Glyph="{dx:DXImage SvgImages/Icon Builder/Actions_AddCircled.svg}"></dx:SimpleButton>
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Conclusion">
+                    <dx:DXTabItem Header="Intervals">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="500"/>
+                                <ColumnDefinition Width="300"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
@@ -422,7 +402,7 @@
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Production Test">
+                    <dx:DXTabItem Header="Production Tests">
                         <Grid >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -474,10 +454,16 @@
                                             </Style>
                                         </StackPanel.Resources>
                                         <StackPanel Orientation="Horizontal">
-                                            <Label Content="Gas Unit" Width="60"></Label>
-                                            <dxe:ComboBoxEdit EditValue="{Binding GasUnit,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Name" Margin="5,0,0,0" ItemsSource="{Binding LogDataSets,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowOil,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Oil"></Label>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowGas,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Gas"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowWater,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Water"></Label>
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>

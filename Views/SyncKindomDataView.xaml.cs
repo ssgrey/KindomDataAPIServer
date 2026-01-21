@@ -129,9 +129,9 @@ namespace KindomDataAPIServer.Views
             LogManagerService.Instance.TextBox = null;
             logView.Close();       
             logView = null;
-            this.Close();
             GC.Collect();
             Application.Current.Shutdown();
+            this.Close();
         }
 
 
