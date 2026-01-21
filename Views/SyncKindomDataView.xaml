@@ -360,8 +360,17 @@
                                 <GroupBox.Header>
                                     <Label Content="Conclusions" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
-                                <dxg:GridControl Margin="0"  SelectionMode="Row" 
-                                         ItemsSource="{Binding ConclusionSettingVM.ConclusionFileNameObjItems}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="40"></RowDefinition>
+                                        <RowDefinition Height="Auto"></RowDefinition>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Orientation="Horizontal">
+                                        <dx:SimpleButton Height="26" Content="Add Row" Command="{Binding ConclusionSettingVM.AddCommand}"></dx:SimpleButton>
+                                        <dx:SimpleButton Height="26" Content="Delete Row" Command="{Binding ConclusionSettingVM.DeleteCommand}"></dx:SimpleButton>
+                                    </StackPanel>
+                                <dxg:GridControl Margin="0" Grid.Row="1" SelectionMode="Row" 
+                                         ItemsSource="{Binding ConclusionSettingVM.ConclusionFileNameObjItems}"  SelectedItem="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}" ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
                                             <dxg:GridColumn.HeaderTemplate>
@@ -393,6 +402,7 @@
                                         </dxg:TableView>
                                     </dxg:GridControl.View>
                                 </dxg:GridControl>
+                                </Grid>
                             </GroupBox>
                             <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="Auto">
                                 <GroupBox.Header>
@@ -540,7 +550,7 @@
                 </RichTextBox>
             </Grid>
         </Expander>
-        <dx:WaitIndicator x:Name="Waiter" Content="Loading..." Grid.RowSpan="3">
+        <!--<dx:WaitIndicator x:Name="Waiter" Content="Loading..." Grid.RowSpan="3">
             <dx:WaitIndicator.ContentTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Vertical">
@@ -549,7 +559,7 @@
                     </StackPanel>
                 </DataTemplate>
             </dx:WaitIndicator.ContentTemplate>
-        </dx:WaitIndicator>
+        </dx:WaitIndicator>-->
     </Grid>
  
 </dx:ThemedWindow>

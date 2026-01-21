@@ -548,39 +548,50 @@ namespace KindomDataAPIServer.KindomAPI
                     // },
                     // x => true,
                     // false).ToList();
-                    //var IntervalRecords = context.Get(new Smt.Entities.IntervalName(),
-                    // x => new
-                    // {
-                    //     data = x,  
-                    //     attrs = x.IntervalAttributes
-                    // },
-                    // x => true,
-                    // false).ToList();
+                    var IntervalRecords = context.Get(new Smt.Entities.IntervalName(),
+                     x => new
+                     {
+                         data = x,
+                         attrs = x.IntervalAttributes
+                     },
+                     x => true,
+                     false).ToList();
 
-                    //foreach (var intervalRecord in IntervalRecords)
-                    //{
-                    //    {
-                    //        foreach (var attr in intervalRecord.attrs)
-                    //        {
-                    //            var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
-                    //                    x => new
-                    //                    {
-                    //                        attrdata = x,
-                    //                        texts = x.IntervalTextValues
-                    //                    },
-                    //                    x => x.Id == attr.Id,
-                    //                    false).ToList();
-                    //        }
+                    foreach (var intervalRecord in IntervalRecords)
+                    {
+                        {
+                            foreach (var attr in intervalRecord.attrs)
+                            {
+                                var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
+                                        x => new
+                                        {
+                                            attrdata = x,
+                                            texts = x.IntervalTextValues
+                                        },
+                                        x => x.Id == attr.Id,
+                                        false).ToList();
+                            }
 
-                    //    }
-                    //}
-                    //var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
-                    //         x => new
-                    //         {
-                    //             data = x,
-                    //         },
-                    //         x => true,
-                    //         false).ToList();
+                        }
+                    }
+
+                    var IntervalAttribute = context.Get(new Smt.Entities.IntervalRecord(),
+                     x => new
+                     {
+                         data = x,
+                         texts = x.IntervalTextValues,
+                         bore = x.Borehole
+                     },
+                      x => true,
+                     false).ToList();
+
+                    var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
+                             x => new
+                             {
+                                 data = x,
+                             },
+                             x => true,
+                             false).ToList();
 
                     //               var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
 
@@ -1293,10 +1304,10 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         if (dictItem.data != null)
                         {
-                             var objItem = ConclusionFileNameObjItems.FirstOrDefault(o => o.FileName == dictItem.intervalName);
+                            FileNameObj objItem = null;//ConclusionFileNameObjItems.FirstOrDefault(o => o.FileName == dictItem.intervalName);
                             if (objItem!=null)
                             {
-                                var IntervalAttributeColumn =  IntervalAttributes.FirstOrDefault(o => o.data.Name == objItem.ColumnName);
+                                var IntervalAttributeColumn =  IntervalAttributes.FirstOrDefault(o => o.data.Name == objItem.FileName);
                                 if (IntervalAttributeColumn == null)
                                     continue;
                                 string consolusionName = "";
@@ -1408,7 +1419,7 @@ namespace KindomDataAPIServer.KindomAPI
                     foreach (var intervalName in IntervalNames)
                     {
                         ConclusionFileNameObj conclusionFileNameObj = new ConclusionFileNameObj();
-                        conclusionFileNameObj.FileName = intervalName.Name;
+                       // conclusionFileNameObj.FileName = intervalName.Name;
                         foreach (var attr in intervalName.attrs)
                         {
                             if (attr.IntervalAttributeType == AttributeType.Text || attr.IntervalAttributeType == AttributeType.Numeric)
@@ -1436,16 +1447,16 @@ namespace KindomDataAPIServer.KindomAPI
                                     {
                                         ColumnNameDict.Add(attr.Name, textValues);
                                     }
-                                    conclusionFileNameObj.Columns.Add(attr.Name);
+                                    //conclusionFileNameObj.Columns.Add(attr.Name);
                                 }
 
                             }
                         }
-                        if (conclusionFileNameObj.Columns.Count > 0)
-                        {
-                            conclusionFileNameObj.ColumnName = conclusionFileNameObj.Columns.FirstOrDefault();
-                            ConclusionNames.Add(conclusionFileNameObj);
-                        }
+                        //if (conclusionFileNameObj.Columns.Count > 0)
+                        //{
+                        //    conclusionFileNameObj.ColumnName = conclusionFileNameObj.Columns.FirstOrDefault();
+                        //    ConclusionNames.Add(conclusionFileNameObj);
+                        //}
                     }
 
                 }
@@ -1457,6 +1468,97 @@ namespace KindomDataAPIServer.KindomAPI
             return ConclusionNames;
         }
 
+
+        public List<FileNameObj> GetColumnNameDict(ProjectResponse KingDomData)
+        {
+            List<FileNameObj> FileNameObjs = new List<FileNameObj>();
+
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),//具体行记录
+                 x => new
+                 {
+                     borehole = x.Borehole,
+                     boreholeId = x.BoreholeId,
+                     wellUWI = x.Borehole.Uwi,
+                     data = x,
+                     TextValues = x.IntervalTextValues,
+                     NumValues = x.IntervalNumericValues,
+                     IntervalName = x.IntervalName.Name,                    
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId),
+                 false).ToList();
+
+
+                var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
+                         x => new
+                         {
+                             data = x,
+                             FileNameID = x.IntervalNameId,
+                             FileName = x.IntervalName.Name,
+                             IntervalAttributeID = x.Id,
+                             IntervalAttributeName = x.Name
+                         },
+                           x => true,
+                         false).ToList();
+
+                List<string> fileNames =  IntervalRecords.Select(o => o.IntervalName).Distinct().ToList();
+                Dictionary<string, List<string>> dict = new Dictionary<string, List<string>>();
+                foreach (var file in fileNames)
+                {
+                    dict.Add(file, new List<string>());
+                }
+
+
+
+                foreach (var interval in IntervalRecords)
+                {
+                    if (interval.TextValues.Count > 0)
+                    {
+                        foreach (var intervalTextValue in interval.TextValues)
+                        {
+                            var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+
+                            if (attr != null && dict.ContainsKey(attr.FileName) && !dict[attr.FileName].Contains(attr.IntervalAttributeName))
+                            {
+                                dict[attr.FileName].Add(attr.IntervalAttributeName);
+                            }
+                        }
+                    }
+
+                    if (interval.NumValues.Count > 0)
+                    {
+                        foreach (var intervalTextValue in interval.NumValues)
+                        {
+                            var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+                            if (attr != null && dict.ContainsKey(attr.FileName) && !dict[attr.FileName].Contains(attr.IntervalAttributeName))
+                            {
+                                dict[attr.FileName].Add(attr.IntervalAttributeName);
+                            }
+                        }
+                    }
+
+                }
+
+
+                foreach (var item in dict)
+                {
+                    FileNameObj fileNameObj = new FileNameObj()
+                    {
+                        FileName = item.Key,
+                         Columns = item.Value
+                    };
+                    FileNameObjs.Add(fileNameObj);
+                }
+
+            }
+
+
+            return FileNameObjs;
+        }
         /// <summary>
         /// 创建或更新井数据
         /// </summary>

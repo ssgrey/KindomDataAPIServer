@@ -636,7 +636,7 @@ namespace KindomDataAPIServer.ViewModels
         private void DelayTimer_Tick_RefreashConclusion(object sender, EventArgs e)
         {
             delayTimer.Stop();
-            //LoadConclusionFileNameObj();
+            LoadConclusionFileNameObj();
         }
 
         private void ConclusionSettingCommandAction()
@@ -650,12 +650,12 @@ namespace KindomDataAPIServer.ViewModels
         /// </summary>
         public void LoadConclusionFileNameObj()
         {
-            ConclusionSettingVM.ConclusionFileNameObjItems = KingdomAPI.Instance.GetConclusionFileNameObjs(KindomData);
-            foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
-            {
-                item.PropertyChanged += Item_PropertyChanged;
-            }
-            RefreshConclusionMappingItems();
+            ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
+            //foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
+            //{
+            //    item.PropertyChanged += Item_PropertyChanged;
+            //}
+            //RefreshConclusionMappingItems();
         }
 
         private void Item_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -665,7 +665,7 @@ namespace KindomDataAPIServer.ViewModels
 
         public void RefreshConclusionMappingItems()
         {
-            ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
+            //ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
 
             ColorGenerator.ResetColorIndex();
             List<string> ConclusionNames = new List<string>();
@@ -688,7 +688,7 @@ namespace KindomDataAPIServer.ViewModels
                     Color = ColorGenerator.GetNextColor(),
                     PolygonName = item,
                 };
-                ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
+                //ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
             }
         }
 
@@ -708,24 +708,24 @@ namespace KindomDataAPIServer.ViewModels
             List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
             if (IsSyncConclusion)
             {
-                if (string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName))
-                {
-                    DXMessageBox.Show("ConclusionName cannot be null!");
-                    return;
-                }
-                foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
-                {
-                    SymbolMappingDto temp = new SymbolMappingDto();
-                    temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
-                    temp.ConclusionName = ConclusionMappingItem.PolygonName;
-                    temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
-                    if (string.IsNullOrEmpty(ConclusionMappingItem.SymbolLibraryCode))
-                    {
-                        DXMessageBox.Show("Please set all conclusion item code!");
-                        return;
-                    }
-                    SymbolMapping.Add(temp);
-                }
+                //if (string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName))
+                //{
+                //    DXMessageBox.Show("ConclusionName cannot be null!");
+                //    return;
+                //}
+                //foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
+                //{
+                //    SymbolMappingDto temp = new SymbolMappingDto();
+                //    temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
+                //    temp.ConclusionName = ConclusionMappingItem.PolygonName;
+                //    temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
+                //    if (string.IsNullOrEmpty(ConclusionMappingItem.SymbolLibraryCode))
+                //    {
+                //        DXMessageBox.Show("Please set all conclusion item code!");
+                //        return;
+                //    }
+                //    SymbolMapping.Add(temp);
+                //}
             }
   
 
@@ -1024,7 +1024,7 @@ namespace KindomDataAPIServer.ViewModels
 
                     if (Conclusions != null && Conclusions.Count > 0)
                     {
-                        string NewConclusionName = string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "Conclusion" : ConclusionSettingVM.NewConclusionName;
+                        string NewConclusionName = "";// string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "Conclusion" : ConclusionSettingVM.NewConclusionName;
                         int AllwellTrajsCount = Conclusions.Count;
                         List<CreatePayzoneRequest> tempList = new List<CreatePayzoneRequest>();
                         CreatePayzoneRequest wellTrajRequest = null;
@@ -1034,18 +1034,18 @@ namespace KindomDataAPIServer.ViewModels
                             {
                                 wellTrajRequest = new CreatePayzoneRequest();
 
-                                if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
-                                {
-                                    wellTrajRequest.DatasetType = 1;
-                                }
-                                else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
-                                {
-                                    wellTrajRequest.DatasetType = 2;
-                                }
-                                else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
-                                {
-                                    wellTrajRequest.DatasetType = 3;
-                                }
+                                //if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
+                                //{
+                                //    wellTrajRequest.DatasetType = 1;
+                                //}
+                                //else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
+                                //{
+                                //    wellTrajRequest.DatasetType = 2;
+                                //}
+                                //else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
+                                //{
+                                //    wellTrajRequest.DatasetType = 3;
+                                //}
                                 wellTrajRequest.DatasetName = NewConclusionName;
                                 wellTrajRequest.SymbolMapping = SymbolMapping;
 
@@ -1059,18 +1059,18 @@ namespace KindomDataAPIServer.ViewModels
                         }
                         for (int i = 0; i < tempList.Count; i++)
                         {
-                            if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
-                            {
-                                var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
-                            }
-                            else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
-                            {
-                                var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
-                            }
-                            else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
-                            {
-                                var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
-                            }
+                            //if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
+                            //{
+                            //    var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
+                            //}
+                            //else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
+                            //{
+                            //    var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
+                            //}
+                            //else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
+                            //{
+                            //    var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
+                            //}
 
                             LogManagerService.Instance.Log($"WellConclusions synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
                             ProgressValue = 80 + ((i + 1) * 3 * 20) / AllwellTrajsCount;

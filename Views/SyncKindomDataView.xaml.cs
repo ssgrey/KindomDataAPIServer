@@ -88,10 +88,10 @@ namespace KindomDataAPIServer.Views
 
         private void SyncKindomDataView_Loaded(object sender, RoutedEventArgs e)
         {
-            Waiter.DeferedVisibility = true;
+            //Waiter.DeferedVisibility = true;
             ViewModel = new SyncKindomDataViewModel();
             this.DataContext = ViewModel;
-            Waiter.DeferedVisibility = false;
+            //Waiter.DeferedVisibility = false;
         }
 
         private void Open_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)

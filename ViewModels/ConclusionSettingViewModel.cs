@@ -1,4 +1,7 @@
 ﻿using DevExpress.Mvvm;
+using DevExpress.Xpf.Core;
+using KindomDataAPIServer.Common;
+using KindomDataAPIServer.KindomAPI;
 using KindomDataAPIServer.Models;
 using System;
 using System.Collections.Generic;
@@ -6,6 +9,8 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.UI.WebControls;
+using System.Windows;
 
 namespace KindomDataAPIServer.ViewModels
 {
@@ -16,12 +21,67 @@ namespace KindomDataAPIServer.ViewModels
         SedimentaryFacies
     }
 
+    public class FileNameObj
+    {
+        public virtual string FileName { get; set; }
+        public virtual List<string> Columns { get; set; } = new List<string>();
+
+    }
+
     public class ConclusionSettingViewModel
     {
         public ConclusionSettingViewModel()
         {
+            ConclusionFileNameObjItems = new ObservableCollection<ConclusionFileNameObj>();
+        }
+
+        public List<FileNameObj> ColumnNameDict = new List<FileNameObj>();
+
+        public virtual ObservableCollection<ConclusionFileNameObj> ConclusionFileNameObjItems { get; set; }
+        public virtual ConclusionFileNameObj SelectedConclusionFileNameItem { get; set; }
+
+        public virtual bool IsCheckAllConclusionFileNameObj { get; set; } = true;
+
+        protected void OnIsCheckAllConclusionFileNameObjChanged()
+        {
+            foreach (var item in ConclusionFileNameObjItems)
+            {
+                item.IsChecked = IsCheckAllConclusionFileNameObj;
+            }
+        }
+
+        public DelegateCommand AddCommand => new DelegateCommand(() =>
+        {
+            if (ColumnNameDict.Count == 0)
+            {
+                DXMessageBox.Show("There is no interval columns in current selected wells!");
+                return;
+            }
+            ConclusionFileNameObj conclusionFileNameObj = new ConclusionFileNameObj();
+            conclusionFileNameObj.FileName = ColumnNameDict.FirstOrDefault();
+            if (conclusionFileNameObj.FileName != null)
+            {
+                conclusionFileNameObj.ColumnName = conclusionFileNameObj.FileName.Columns.FirstOrDefault();
+            }
+            ConclusionFileNameObjItems.Add(conclusionFileNameObj);
+        });
+
+
+        public DelegateCommand DeleteCommand => new DelegateCommand(() =>
+        {
+            if (SelectedConclusionFileNameItem != null)
+            {
+                ConclusionFileNameObjItems.Remove(SelectedConclusionFileNameItem);
+            }
+            
+        });
+    }
+
+    public class ConclusionFileNameObjConclusionSetting
+    {
+        public ConclusionFileNameObjConclusionSetting()
+        {
             ConclusionMappingItems = new ObservableCollection<ConclusionMappingItem>();
-            ConclusionFileNameObjItems = new List<ConclusionFileNameObj>();
             this.NewConclusionName = "Payzone";
         }
         public virtual ExplanationType ExplanationType { get; set; } = ExplanationType.Payzon;
@@ -46,18 +106,6 @@ namespace KindomDataAPIServer.ViewModels
 
         public virtual ObservableCollection<ConclusionMappingItem> ConclusionMappingItems { get; set; }
 
-
-        public virtual List<ConclusionFileNameObj> ConclusionFileNameObjItems { get; set; }
-
-        public virtual bool IsCheckAllConclusionFileNameObj { get; set; } = true;
-
-        protected void OnIsCheckAllConclusionFileNameObjChanged()
-        {
-            foreach (var item in ConclusionFileNameObjItems)
-            {
-                item.IsChecked = IsCheckAllConclusionFileNameObj;
-            }
-        }
     }
 
     public class ConclusionFileNameObj : BindableBase
@@ -76,7 +124,20 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        public string FileName { get; set; }
+
+        private FileNameObj _FileName;
+        public FileNameObj FileName
+        {
+            get
+            {
+                return _FileName;
+            }
+            set
+            {
+
+                SetProperty(ref _FileName, value, nameof(FileName));
+            }
+        }
 
         private string _ColumnName;
         public string ColumnName
@@ -89,11 +150,10 @@ namespace KindomDataAPIServer.ViewModels
             {
 
                 SetProperty(ref _ColumnName, value, nameof(ColumnName));
-
             }
         }
 
-        public List<string> Columns { get; set; } = new List<string>();
+
     }
 
 }
