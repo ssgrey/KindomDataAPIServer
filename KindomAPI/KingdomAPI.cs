@@ -1392,6 +1392,10 @@ namespace KindomDataAPIServer.KindomAPI
 
         public Dictionary<string, List<string>> ColumnNameDict = new Dictionary<string, List<string>>();
 
+
+
+
+
         public List<ConclusionFileNameObj> GetConclusionFileNameObjs(ProjectResponse KingDomData)
         {
             ColumnNameDict = new Dictionary<string, List<string>>();
@@ -1558,6 +1562,86 @@ namespace KindomDataAPIServer.KindomAPI
 
 
             return FileNameObjs;
+        }
+
+
+
+        public List<string> GetConclusionNames(ProjectResponse KingDomData,ConclusionFileNameObj obj)
+        {
+            List<string> ConclusionNames = new List<string>();
+
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),//具体行记录
+                 x => new
+                 {
+                     borehole = x.Borehole,
+                     boreholeId = x.BoreholeId,
+                     wellUWI = x.Borehole.Uwi,
+                     data = x,
+                     TextValues = x.IntervalTextValues,
+                     NumValues = x.IntervalNumericValues,
+                     IntervalName = x.IntervalName.Name,
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId) && obj.FileName.FileName == x.IntervalName.Name,
+                 false).ToList();
+
+                var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
+                     x => new
+                     {
+                         data = x,
+                         FileNameID = x.IntervalNameId,
+                         FileName = x.IntervalName.Name,
+                         IntervalAttributeID = x.Id,
+                         IntervalAttributeName = x.Name
+                     },
+                       x => true,
+                     false).ToList();
+
+                foreach (var interval in IntervalRecords)
+                {
+                    if (interval.TextValues.Count > 0)
+                    {
+                        foreach (var intervalTextValue in interval.TextValues)
+                        {
+                            var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+
+                            if (attr != null && attr.FileName == obj.FileName.FileName && attr.IntervalAttributeName == obj.ColumnName)
+                            {
+                                if (!ConclusionNames.Contains(intervalTextValue.Value))
+                                {
+                                    ConclusionNames.Add(intervalTextValue.Value);
+                                }
+                            }
+                        }
+                    }
+
+                    if (interval.NumValues.Count > 0)
+                    {
+                        foreach (var intervalTextValue in interval.NumValues)
+                        {
+                            var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+                            if (attr != null && attr.FileName == obj.FileName.FileName && attr.IntervalAttributeName == obj.ColumnName)
+                            {
+                                if (!ConclusionNames.Contains(intervalTextValue.Value.ToString()))
+                                {
+                                    ConclusionNames.Add(intervalTextValue.Value.ToString());
+                                }
+                            }
+                        }
+                    }
+
+                }
+
+
+
+            }
+
+
+            return ConclusionNames;
         }
         /// <summary>
         /// 创建或更新井数据

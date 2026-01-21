@@ -30,12 +30,13 @@ namespace KindomDataAPIServer.ViewModels
 
     public class ConclusionSettingViewModel
     {
+        public event Action<ConclusionFileNameObj> ConclusionFileNameObjChanged;
         public ConclusionSettingViewModel()
         {
             ConclusionFileNameObjItems = new ObservableCollection<ConclusionFileNameObj>();
         }
 
-        public List<FileNameObj> ColumnNameDict = new List<FileNameObj>();
+        public virtual List<FileNameObj> ColumnNameDict { set; get; } = new List<FileNameObj>();
 
         public virtual ObservableCollection<ConclusionFileNameObj> ConclusionFileNameObjItems { get; set; }
         public virtual ConclusionFileNameObj SelectedConclusionFileNameItem { get; set; }
@@ -58,6 +59,7 @@ namespace KindomDataAPIServer.ViewModels
                 return;
             }
             ConclusionFileNameObj conclusionFileNameObj = new ConclusionFileNameObj();
+            conclusionFileNameObj.PropertyChanged += ConclusionFileNameObj_PropertyChanged;
             conclusionFileNameObj.FileName = ColumnNameDict.FirstOrDefault();
             if (conclusionFileNameObj.FileName != null)
             {
@@ -66,6 +68,13 @@ namespace KindomDataAPIServer.ViewModels
             ConclusionFileNameObjItems.Add(conclusionFileNameObj);
         });
 
+        private void ConclusionFileNameObj_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if(e.PropertyName == "ColumnName" && sender is ConclusionFileNameObj obj)
+            {
+                ConclusionFileNameObjChanged?.Invoke(obj);
+            }
+        }
 
         public DelegateCommand DeleteCommand => new DelegateCommand(() =>
         {
@@ -153,6 +162,20 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private ConclusionFileNameObjConclusionSetting _ConclusionSetting;
+        public ConclusionFileNameObjConclusionSetting ConclusionSetting
+        {
+            get
+            {
+                return _ConclusionSetting;
+            }
+            set
+            {
+
+                SetProperty(ref _ConclusionSetting, value, nameof(ConclusionSetting));
+            }
+        }
+        
 
     }
 

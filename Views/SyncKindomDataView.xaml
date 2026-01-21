@@ -384,8 +384,13 @@
                                                 </DataTemplate>
                                             </dxg:GridColumn.CellTemplate>
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="FileName" Width="100"  Header="FileName"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
+                                            <dxg:GridColumn  Width="100"  Header="FileName"  AllowColumnFiltering="False" AllowEditing="False">
+                                                <dxg:GridColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <dxe:ComboBoxEdit EditValue="{Binding RowData.Row.FileName.FileName,UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding ElementName=root,Path=DataContext.ConclusionSettingVM.ColumnNameDict,UpdateSourceTrigger=PropertyChanged}" Width="Auto" HorizontalAlignment="Stretch" ShowBorder="False"></dxe:ComboBoxEdit>
+                                                    </DataTemplate>
+                                                </dxg:GridColumn.CellTemplate>
+                                            </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="ColumnName" Width="120"  Header="Column"  AllowColumnFiltering="False" >
                                             <dxg:GridColumn.CellTemplate>
                                                 <DataTemplate>
@@ -408,7 +413,7 @@
                                 <GroupBox.Header>
                                     <Label Content="Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
-                                <views:ConclusionSettingView DataContext="{Binding ConclusionSettingVM}"></views:ConclusionSettingView>
+                                <views:ConclusionSettingView DataContext="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}"></views:ConclusionSettingView>
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>

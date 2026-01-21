@@ -59,7 +59,7 @@ namespace KindomDataAPIServer.ViewModels
             NewLogDataSetCommand = new DevExpress.Mvvm.AsyncCommand(NewLogDataSetCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
-
+            ConclusionSettingVM.ConclusionFileNameObjChanged += ConclusionSettingVM_ConclusionFileNameObjChanged;
             delayTimer = new DispatcherTimer();
             delayTimer.Interval = TimeSpan.FromSeconds(0.5);
             delayTimer.Tick += DelayTimer_Tick_RefreashConclusion;
@@ -67,7 +67,7 @@ namespace KindomDataAPIServer.ViewModels
             _ = Initial();
         }
 
-
+  
 
         private async Task Initial()
         {
@@ -658,29 +658,17 @@ namespace KindomDataAPIServer.ViewModels
             //RefreshConclusionMappingItems();
         }
 
-        private void Item_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private void ConclusionSettingVM_ConclusionFileNameObjChanged(ConclusionFileNameObj obj)
         {
-            RefreshConclusionMappingItems();
+            RefreshConclusionMappingItems(obj);
         }
 
-        public void RefreshConclusionMappingItems()
+
+        public void RefreshConclusionMappingItems(ConclusionFileNameObj obj)
         {
-            //ConclusionSettingVM.ConclusionMappingItems = new System.Collections.ObjectModel.ObservableCollection<ConclusionMappingItem>();
-
+            obj.ConclusionSetting = new ConclusionFileNameObjConclusionSetting();
+            List<string> ConclusionNames =  KingdomAPI.Instance.GetConclusionNames(KindomData, obj);
             ColorGenerator.ResetColorIndex();
-            List<string> ConclusionNames = new List<string>();
-
-            foreach (var item in ConclusionSettingVM.ConclusionFileNameObjItems)
-            {
-                if (item.IsChecked&& !string.IsNullOrEmpty(item.ColumnName))
-                {
-                   if(KingdomAPI.Instance.ColumnNameDict.TryGetValue(item.ColumnName,out var list))
-                    {
-                        ConclusionNames.AddRange(list);
-                    }
-                }
-            }
-            ConclusionNames = ConclusionNames.Distinct().ToList();
             foreach (var item in ConclusionNames)
             {
                 ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
@@ -688,7 +676,7 @@ namespace KindomDataAPIServer.ViewModels
                     Color = ColorGenerator.GetNextColor(),
                     PolygonName = item,
                 };
-                //ConclusionSettingVM.ConclusionMappingItems.Add(conclusionMappingItem);
+                obj.ConclusionSetting.ConclusionMappingItems.Add(conclusionMappingItem);
             }
         }
 
@@ -1020,7 +1008,7 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     LogManagerService.Instance.Log($"WellConclusions start synchronize！");
 
-                    List<DatasetItemDto> Conclusions = KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping, ConclusionSettingVM.ConclusionFileNameObjItems);
+                    List<DatasetItemDto> Conclusions = new List<DatasetItemDto>(); // KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping, ConclusionSettingVM.ConclusionFileNameObjItems);
 
                     if (Conclusions != null && Conclusions.Count > 0)
                     {

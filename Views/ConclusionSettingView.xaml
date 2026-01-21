@@ -17,7 +17,7 @@
     d:DesignHeight="700"
     d:DesignWidth="500" 
     mc:Ignorable="d">
-    <Grid Margin="5">
+    <Grid Margin="5" DataContext="{Binding ConclusionSetting}">
         <Grid.Resources>
             <converter:EnumToBooleanConverter x:Key="EnumToBooleanConverter"></converter:EnumToBooleanConverter>
         </Grid.Resources>
