@@ -21,10 +21,35 @@ namespace KindomDataAPIServer.ViewModels
         SedimentaryFacies
     }
 
-    public class FileNameObj
+    public class FileNameObj : BindableBase
     {
-        public virtual string FileName { get; set; }
-        public virtual List<string> Columns { get; set; } = new List<string>();
+        private string _FileName;
+        public string FileName
+        {
+            get
+            {
+                return _FileName;
+            }
+            set
+            {
+
+                SetProperty(ref _FileName, value, nameof(FileName));
+            }
+        }
+
+        private List<string> _Columns;
+        public List<string> Columns
+        {
+            get
+            {
+                return _Columns;
+            }
+            set
+            {
+
+                SetProperty(ref _Columns, value, nameof(Columns));
+            }
+        }
 
     }
 
