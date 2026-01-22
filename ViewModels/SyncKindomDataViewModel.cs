@@ -2,10 +2,12 @@
 using DevExpress.Mvvm.POCO;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpo.Logger;
+using DevExpress.XtraPrinting;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.KindomAPI;
 using KindomDataAPIServer.Models;
+using KindomDataAPIServer.Models.Settings;
 using KindomDataAPIServer.Views;
 using Microsoft.Win32;
 using Smt;
@@ -76,18 +78,12 @@ namespace KindomDataAPIServer.ViewModels
             {
                 LogManagerService.Instance.Log("start load config...");
 
-                var res7 = await wellDataService.get_sys_unit();
-                if (res7 != null)
-                {
-                    Utils.UnitTypes = res7;
-                    foreach (var unit in Utils.UnitTypes)
-                    {
-                        foreach (var unit2 in unit.UnitInfoList)
-                        {
-                            unit2.MeasureID = unit.UnitTypeID;
-                        }
-                    }
 
+                string pathToFileName = System.AppDomain.CurrentDomain.BaseDirectory + "Configs\\UnitTypes.json";
+                if (File.Exists(pathToFileName))
+                {
+                    string str = File.ReadAllText(pathToFileName);
+                    Utils.UnitTypes = JsonHelper.ConvertFrom<List<UnitType>>(str);
                     KingdomAPI.Instance.ChokeSizeUnit = Utils.ChokeUnitInfos.FirstOrDefault(o => o.Abbr == "1/64 in");
                     KingdomAPI.Instance.FlowingTubingPressureUnit = Utils.PressureUnitInfos.FirstOrDefault(o => o.Abbr == "Mpa");
                     KingdomAPI.Instance.BottomHoleTemperatureUnit = Utils.TemperatureUnitInfos.FirstOrDefault(o => o.Abbr == "degC");
@@ -95,6 +91,26 @@ namespace KindomDataAPIServer.ViewModels
                     KingdomAPI.Instance.PressureUnitInfos = Utils.PressureUnitInfos;
                     KingdomAPI.Instance.TemperatureUnitInfos = Utils.TemperatureUnitInfos;
                 }
+
+                //var res7 = await wellDataService.get_sys_unit();
+                //if (res7 != null)
+                //{
+                //    Utils.UnitTypes = res7;                  
+                //    foreach (var unit in Utils.UnitTypes)
+                //    {
+                //        foreach (var unit2 in unit.UnitInfoList)
+                //        {
+                //            unit2.MeasureID = unit.UnitTypeID;
+                //        }
+                //    }
+
+                //    KingdomAPI.Instance.ChokeSizeUnit = Utils.ChokeUnitInfos.FirstOrDefault(o => o.Abbr == "1/64 in");
+                //    KingdomAPI.Instance.FlowingTubingPressureUnit = Utils.PressureUnitInfos.FirstOrDefault(o => o.Abbr == "Mpa");
+                //    KingdomAPI.Instance.BottomHoleTemperatureUnit = Utils.TemperatureUnitInfos.FirstOrDefault(o => o.Abbr == "degC");
+                //    KingdomAPI.Instance.ChokeUnitInfos = Utils.ChokeUnitInfos;
+                //    KingdomAPI.Instance.PressureUnitInfos = Utils.PressureUnitInfos;
+                //    KingdomAPI.Instance.TemperatureUnitInfos = Utils.TemperatureUnitInfos;
+                //}
                 var res8 = await wellDataService.get_log_dic();
                 if (res8 != null)
                 {
@@ -549,6 +565,20 @@ namespace KindomDataAPIServer.ViewModels
 
 
 
+
+        private List<UnitMappingItem> _UnitMappingItems;
+        public List<UnitMappingItem> UnitMappingItems
+        {
+            get
+            {
+                return _UnitMappingItems;
+            }
+            set
+            {
+                SetProperty(ref _UnitMappingItems, value, nameof(UnitMappingItems));
+            }
+        }
+
         #endregion
 
         #endregion
@@ -622,7 +652,7 @@ namespace KindomDataAPIServer.ViewModels
             {
                 IsEnable = false;
                 KindomData = KingdomAPI.Instance.GetProjectData();
-                LoadConclusionFileNameObj();
+                LoadConclusionFileNameObjAndTestUnits();
 
                 foreach (var item in KindomData.Wells)
                 {
@@ -663,7 +693,7 @@ namespace KindomDataAPIServer.ViewModels
         private void DelayTimer_Tick_RefreashConclusion(object sender, EventArgs e)
         {
             delayTimer.Stop();
-            LoadConclusionFileNameObj();
+            LoadConclusionFileNameObjAndTestUnits();
         }
 
         private void ConclusionSettingCommandAction()
@@ -675,11 +705,13 @@ namespace KindomDataAPIServer.ViewModels
         /// <summary>
         /// 加载解释结论
         /// </summary>
-        public void LoadConclusionFileNameObj()
+        public void LoadConclusionFileNameObjAndTestUnits()
         {
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
                 ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
+
+                this.UnitMappingItems =  KingdomAPI.Instance.GetWellProductionTestDataUnits(KindomData);
             }));
 
         }

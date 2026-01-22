@@ -6,6 +6,7 @@ using Google.Protobuf;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.Models;
+using KindomDataAPIServer.Models.Settings;
 using KindomDataAPIServer.ViewModels;
 using Smt;
 using Smt.Entities;
@@ -98,6 +99,7 @@ namespace KindomDataAPIServer.KindomAPI
                 return depthUnit;
             }
         }
+
         public UnitInfo OilOrWaterUnit
         {
             get
@@ -115,6 +117,7 @@ namespace KindomDataAPIServer.KindomAPI
                 return Unit;
             }
         }
+
 
 
         public UnitInfo _OilOrWaterInfo;
@@ -1188,6 +1191,15 @@ namespace KindomDataAPIServer.KindomAPI
                    x => BoreholeIds.Contains(x.BoreholeId),
                  false).ToList();
 
+                var DeviationSurveys2 = context.Get(new Smt.Entities.ProductionTestHeader(),
+  x => new
+  {
+      boreholeId = x.BoreholeId,
+      data = x,
+  },
+    x => BoreholeIds.Contains(x.BoreholeId),
+  false).ToList();
+
                 var dicts = DeviationSurveys.GroupBy(o => o.boreholeId).ToDictionary(a => a.Key, a => a.ToList());
                 foreach (var item in dicts)//一口井一般一条试数据
                 {
@@ -1259,6 +1271,82 @@ namespace KindomDataAPIServer.KindomAPI
             }
 
             return (datas,datasOil);
+        }
+
+
+        public const string TestOilVolume = "Oil Volume";
+        public const string TestGasVolume = "Gas Volume";
+        public const string TestWaterVolume = "Water Volume";
+        public List<UnitMappingItem> GetWellProductionTestDataUnits(ProjectResponse KingDomData)
+        {
+            List<UnitMappingItem> UnitMappingItems = new List<UnitMappingItem>();
+            List<WellExport> Wells = KingDomData.Wells;
+            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+            using (var context = project.GetKingdom())
+            {
+                var TestInitialPotentials = context.Get(new Smt.Entities.TestInitialPotential(),
+                 x => new
+                 {
+                     boreholeId = x.BoreholeId,
+                     data = x,                  
+                 },
+                   x => BoreholeIds.Contains(x.BoreholeId),
+                 false).ToList();
+
+
+                foreach (var item in TestInitialPotentials)
+                {
+                    if (!string.IsNullOrEmpty(item.data.OilRate))
+                    {
+                       var res =  UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == item.data.OilRate && o.PropName == TestOilVolume);
+                        if (res == null)
+                        {
+                            UnitMappingItem unitMappingItem = new UnitMappingItem
+                            {
+                                KindomUnitName = item.data.OilRate,
+                                PropName = TestOilVolume
+                            };
+
+                            unitMappingItem.UnitInfos = Utils.OilOrWaterInfos;
+                            unitMappingItem.NewUnit = OilOrWaterUnit;
+                            UnitMappingItems.Add(unitMappingItem);
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(item.data.GasRate))
+                    {
+                        var res = UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == item.data.GasRate && o.PropName == TestGasVolume);
+                        if (res == null)
+                        {
+                            UnitMappingItem unitMappingItem = new UnitMappingItem
+                            {
+                                KindomUnitName = item.data.GasRate,
+                                PropName = TestGasVolume
+                            };
+                            unitMappingItem.UnitInfos = Utils.GasUnitInfos;
+                            unitMappingItem.NewUnit = GasUnit;
+                            UnitMappingItems.Add(unitMappingItem);
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(item.data.WaterRate))
+                    {
+                        var res = UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == item.data.WaterRate && o.PropName == TestWaterVolume);
+                        if (res == null)
+                        {
+                            UnitMappingItem unitMappingItem = new UnitMappingItem
+                            {
+                                KindomUnitName = item.data.WaterRate,
+                                PropName = TestWaterVolume
+                            };
+                            unitMappingItem.UnitInfos = Utils.OilOrWaterInfos;
+                            unitMappingItem.NewUnit = OilOrWaterUnit;
+                            UnitMappingItems.Add(unitMappingItem);
+                        }
+                    }
+                }              
+            }
+
+            return UnitMappingItems;
         }
 
         public Dictionary<string, CreatePayzoneRequest> CreateWellConclusionsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList,  List<ConclusionFileNameObj> ConclusionFileNameObjItems)

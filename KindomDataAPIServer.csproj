@@ -246,6 +246,7 @@
     <Compile Include="Models\Response.cs" />
     <Compile Include="Models\KindomResponseBase.cs" />
     <Compile Include="Models\ProjectResponse.cs" />
+    <Compile Include="Models\Settings\UnitMappingItem.cs" />
     <Compile Include="Models\WellRequest.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Startup.cs" />
@@ -322,6 +323,9 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="Configs\UnitTypes.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="KindomDataAPIServer.reg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

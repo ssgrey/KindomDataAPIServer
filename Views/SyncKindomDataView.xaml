@@ -13,7 +13,7 @@
     xmlns:utils="clr-namespace:KindomDataAPIServer.Common"
     xmlns:kindom ="clr-namespace:KindomDataAPIServer.KindomAPI"
     x:Name="root" Closed="root_Closed"  Icon="/datapool.ico"
-    Title="Kingdom Data Synchronization"  MinHeight="500" MinWidth="500" Height="800" Width="1200" >
+    Title="Kingdom Data Synchronization"  MinHeight="500" MinWidth="500" Height="800" Width="1420" >
     <dx:ThemedWindow.Resources>
         <Style TargetType="dxe:ColorEdit">
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -114,23 +114,23 @@
                                         </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="BoreholeName" Width="90"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellName" Width="90"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
+                                        <dxg:GridColumn FieldName="WellName" Width="130"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
                                         </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="WellNumber" Width="90"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="SurfaceX" Width="90"  Header="SurfaceX"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
+                                        <dxg:GridColumn FieldName="SurfaceX" Width="120"  Header="SurfaceX"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="SurfaceY" Width="90"  Header="SurfaceY"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
+                                        <dxg:GridColumn FieldName="SurfaceY" Width="120"  Header="SurfaceY"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Longitude" Width="90"  Header="Longitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
+                                        <dxg:GridColumn FieldName="Longitude" Width="120"  Header="Longitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Latitude" Width="90"  Header="Latitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
+                                        <dxg:GridColumn FieldName="Latitude" Width="120"  Header="Latitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Country" Width="90"  Header="Country"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCountry}">
+                                        <dxg:GridColumn FieldName="Country" Width="100"  Header="Country"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCountry}">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Region" Width="90"  Header="State"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowState}">
+                                        <dxg:GridColumn FieldName="Region" Width="100"  Header="State"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowState}">
                                         </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Districts" Width="90"  Header="County"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCounty}">
+                                        <dxg:GridColumn FieldName="Districts" Width="100"  Header="County"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCounty}">
                                         </dxg:GridColumn>
                                     </dxg:GridControl.Columns>
                                     <dxg:GridControl.View>
@@ -207,14 +207,13 @@
                                             <dxe:CheckEdit IsChecked="{Binding IsSyncWellLog,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
                                             <Label Content="Digital Logs"></Label>
                                         </StackPanel>
-
-                                        <StackPanel Orientation="Horizontal">
-                                            <dxe:CheckEdit IsChecked="{Binding IsSyncProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                            <Label Content="Production Data"></Label>
-                                        </StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <dxe:CheckEdit IsChecked="{Binding IsSyncIPProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
                                             <Label Content="Production Tests"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncProduction,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Production Data"></Label>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <dxe:CheckEdit IsChecked="{Binding IsSyncConclusion,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
@@ -238,7 +237,7 @@
                             </GroupBox>-->
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Formation Tops">
+                    <dx:DXTabItem Header="Formation Tops"  Visibility="{Binding IsSyncWellFormation,Converter={dxmvvm:BooleanToVisibilityConverter}}">
                         <Grid >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -277,7 +276,7 @@
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Digital Logs">
+                    <dx:DXTabItem Header="Digital Logs"  Visibility="{Binding IsSyncWellLog,Converter={dxmvvm:BooleanToVisibilityConverter}}">
                         <Grid >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -349,85 +348,22 @@
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Intervals">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="300"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <GroupBox Padding="0" Margin="0,0,5,0">
-                                <GroupBox.Header>
-                                    <Label Content="Conclusions" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="40"></RowDefinition>
-                                        <RowDefinition Height="*"></RowDefinition>
-                                    </Grid.RowDefinitions>
-                                    <StackPanel Orientation="Horizontal">
-                                        <dx:SimpleButton Height="26" Width="60" Content="Add" Command="{Binding ConclusionSettingVM.AddCommand}"></dx:SimpleButton>
-                                        <dx:SimpleButton Height="26" Width="60" Content="Delete" Margin="5,0,0,0" Command="{Binding ConclusionSettingVM.DeleteCommand}"></dx:SimpleButton>
-                                    </StackPanel>
-                                <dxg:GridControl Margin="0" Grid.Row="1" SelectionMode="Row" 
-                                         ItemsSource="{Binding ConclusionSettingVM.ConclusionFileNameObjItems}"  SelectedItem="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}" ShowBorder="True" AllowInitiallyFocusedRow="True"  >
-                                    <dxg:GridControl.Columns>
-                                        <!--<dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.HeaderTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=root,Path=DataContext.ConclusionSettingVM.IsCheckAllConclusionFileNameObj, Mode=TwoWay}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.HeaderTemplate>
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>-->
-                                            <dxg:GridColumn  Width="100"  Header="FileName"  AllowColumnFiltering="False" AllowEditing="False">
-                                                <dxg:GridColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <dxe:ComboBoxEdit EditValue="{Binding RowData.Row.FileName,UpdateSourceTrigger=PropertyChanged}" DisplayMember="FileName" ItemsSource="{Binding ElementName=root,Path=DataContext.ConclusionSettingVM.ColumnNameDict,UpdateSourceTrigger=PropertyChanged}" Width="Auto" HorizontalAlignment="Stretch" ShowBorder="False"></dxe:ComboBoxEdit>
-                                                    </DataTemplate>
-                                                </dxg:GridColumn.CellTemplate>
-                                            </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="ColumnName" Width="120"  Header="Column"  AllowColumnFiltering="False" >
-                                            <dxg:GridColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <dxe:ComboBoxEdit EditValue="{Binding RowData.Row.ColumnName,UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding RowData.Row.Columns,UpdateSourceTrigger=PropertyChanged}" Width="Auto" HorizontalAlignment="Stretch" ShowBorder="False"></dxe:ComboBoxEdit>
-                                                </DataTemplate>
-                                            </dxg:GridColumn.CellTemplate>
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="True" 
-                                  RowMinHeight="25"  ShowFilterPanelMode="Never"
-                                 NavigationStyle="Row"  
-                                 ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>
-                                </Grid>
-                            </GroupBox>
-                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="Auto">
-                                <GroupBox.Header>
-                                    <Label Content="Config" FontWeight="Bold" Width="Auto"/>
-                                </GroupBox.Header>
-                                <views:ConclusionSettingView DataContext="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}"></views:ConclusionSettingView>
-                            </GroupBox>
-                        </Grid>
-                    </dx:DXTabItem>
-                    <dx:DXTabItem Header="Production Tests">
+
+                    <dx:DXTabItem Header="Production Tests"  Visibility="{Binding IsSyncIPProduction,Converter={dxmvvm:BooleanToVisibilityConverter}}">
                         <Grid >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <GroupBox Grid.Column="0" Padding="0" Margin="0,0,5,0" Width="300">
+                            <GroupBox Grid.Column="0" Padding="0" Margin="0,0,5,0" Width="400">
                                 <GroupBox.Header>
-                                    <Label Content="Production Data Config" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="Production Tests Config" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
                                 <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"></RowDefinition>
+                                        <RowDefinition  Height="*"></RowDefinition>
+                                    </Grid.RowDefinitions>
                                     <StackPanel Orientation="Vertical" VerticalAlignment="Stretch" Height="Auto">
                                         <StackPanel.Resources>
                                             <Style TargetType="StackPanel">
@@ -447,11 +383,39 @@
                                             <dxe:ComboBoxEdit EditValue="{Binding KingdomAPIInstance.BottomHoleTemperatureUnit,UpdateSourceTrigger=PropertyChanged}" Width="100" DisplayMember="Abbr" Margin="5,0,0,0" ItemsSource="{Binding KingdomAPIInstance.TemperatureUnitInfos,UpdateSourceTrigger=PropertyChanged}"></dxe:ComboBoxEdit>
                                         </StackPanel>
                                     </StackPanel>
+                                    <GroupBox Grid.Row="1" Padding="0" Margin="0,0,5,0" >
+                                        <GroupBox.Header>
+                                            <Label Content="Unit Mapping" FontWeight="Bold" Width="Auto"/>
+                                        </GroupBox.Header>
+                                        <dxg:GridControl  Margin="0"  SelectionMode="Row" 
+                                     ItemsSource="{Binding  UnitMappingItems}"  ShowBorder="True" AllowInitiallyFocusedRow="True">
+                                            <dxg:GridControl.Columns>
+                                                <dxg:GridColumn FieldName="PropName" Width="*"  Header="Name"  AllowColumnFiltering="False" AllowEditing="False">
+                                                </dxg:GridColumn>
+                                                <dxg:GridColumn  FieldName="KindomUnitName" Header="Kindom Unit" Width="120">
+                                                </dxg:GridColumn>
+                                                <dxg:GridColumn   Header="Unit"  Width="120">
+                                                    <dxg:GridColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <dxe:ComboBoxEdit EditValue="{Binding RowData.Row.NewUnit,UpdateSourceTrigger=PropertyChanged}" Width="Auto" DisplayMember="Abbr" Margin="5,0,0,0" ItemsSource="{Binding RowData.Row.UnitInfos,UpdateSourceTrigger=PropertyChanged}" ShowBorder="False" HorizontalAlignment="Stretch"></dxe:ComboBoxEdit>
+                                                        </DataTemplate>
+                                                    </dxg:GridColumn.CellTemplate>
+                                                </dxg:GridColumn>
+                                            </dxg:GridControl.Columns>
+                                            <dxg:GridControl.View>
+                                                <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
+                                   RowMinHeight="25"  ShowFilterPanelMode="Never"
+                                  NavigationStyle="Row"  
+                                  ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
+                                                </dxg:TableView>
+                                            </dxg:GridControl.View>
+                                        </dxg:GridControl>
+                                    </GroupBox>
                                 </Grid>
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>
-                    <dx:DXTabItem Header="Production Data">
+                    <dx:DXTabItem Header="Production Data"  Visibility="{Binding IsSyncProduction,Converter={dxmvvm:BooleanToVisibilityConverter}}">
                         <Grid >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -482,6 +446,74 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>
+                            </GroupBox>
+                        </Grid>
+                    </dx:DXTabItem>
+                    <dx:DXTabItem Header="Intervals" Visibility="{Binding IsSyncConclusion,Converter={dxmvvm:BooleanToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="300"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <GroupBox Padding="0" Margin="0,0,5,0">
+                                <GroupBox.Header>
+                                    <Label Content="Conclusions" FontWeight="Bold" Width="Auto"/>
+                                </GroupBox.Header>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="40"></RowDefinition>
+                                        <RowDefinition Height="*"></RowDefinition>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Orientation="Horizontal">
+                                        <dx:SimpleButton Height="26" Width="60" Content="Add" Command="{Binding ConclusionSettingVM.AddCommand}"></dx:SimpleButton>
+                                        <dx:SimpleButton Height="26" Width="60" Content="Delete" Margin="5,0,0,0" Command="{Binding ConclusionSettingVM.DeleteCommand}"></dx:SimpleButton>
+                                    </StackPanel>
+                                    <dxg:GridControl Margin="0" Grid.Row="1" SelectionMode="Row" 
+                                    ItemsSource="{Binding ConclusionSettingVM.ConclusionFileNameObjItems}"  SelectedItem="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}" ShowBorder="True" AllowInitiallyFocusedRow="True"  >
+                                        <dxg:GridControl.Columns>
+                                            <!--<dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
+                                       <dxg:GridColumn.HeaderTemplate>
+                                           <DataTemplate>
+                                               <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=root,Path=DataContext.ConclusionSettingVM.IsCheckAllConclusionFileNameObj, Mode=TwoWay}"></CheckBox>
+                                           </DataTemplate>
+                                       </dxg:GridColumn.HeaderTemplate>
+                                       <dxg:GridColumn.CellTemplate>
+                                           <DataTemplate>
+                                               <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
+                                           </DataTemplate>
+                                       </dxg:GridColumn.CellTemplate>
+                                   </dxg:GridColumn>-->
+                                            <dxg:GridColumn  Width="*"  Header="FileName"  AllowColumnFiltering="False" AllowEditing="False">
+                                                <dxg:GridColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <dxe:ComboBoxEdit EditValue="{Binding RowData.Row.FileName,UpdateSourceTrigger=PropertyChanged}" DisplayMember="FileName" ItemsSource="{Binding ElementName=root,Path=DataContext.ConclusionSettingVM.ColumnNameDict,UpdateSourceTrigger=PropertyChanged}" Width="Auto" HorizontalAlignment="Stretch" ShowBorder="False"></dxe:ComboBoxEdit>
+                                                    </DataTemplate>
+                                                </dxg:GridColumn.CellTemplate>
+                                            </dxg:GridColumn>
+                                            <dxg:GridColumn FieldName="ColumnName" Width="*"  Header="Column"  AllowColumnFiltering="False" >
+                                                <dxg:GridColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <dxe:ComboBoxEdit EditValue="{Binding RowData.Row.ColumnName,UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding RowData.Row.Columns,UpdateSourceTrigger=PropertyChanged}" Width="Auto" HorizontalAlignment="Stretch" ShowBorder="False"></dxe:ComboBoxEdit>
+                                                    </DataTemplate>
+                                                </dxg:GridColumn.CellTemplate>
+                                            </dxg:GridColumn>
+                                        </dxg:GridControl.Columns>
+                                        <dxg:GridControl.View>
+                                            <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="True" 
+                             RowMinHeight="25"  ShowFilterPanelMode="Never"
+                            NavigationStyle="Row"  
+                            ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
+                                            </dxg:TableView>
+                                        </dxg:GridControl.View>
+                                    </dxg:GridControl>
+                                </Grid>
+                            </GroupBox>
+                            <GroupBox Grid.Column="2" Padding="0" Margin="0,0,5,0" Width="Auto">
+                                <GroupBox.Header>
+                                    <Label Content="Config" FontWeight="Bold" Width="Auto"/>
+                                </GroupBox.Header>
+                                <views:ConclusionSettingView DataContext="{Binding ConclusionSettingVM.SelectedConclusionFileNameItem}"></views:ConclusionSettingView>
                             </GroupBox>
                         </Grid>
                     </dx:DXTabItem>

@@ -10,7 +10,7 @@
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:converter ="clr-namespace:KindomDataAPIServer.Converters"
-    Width="550" Background="White"
+    Width="600" Background="White"
     Height="Auto"
     MinWidth="500"
     MinHeight="320"
@@ -130,21 +130,20 @@
                             </dxg:GridColumn>-->
                             <dxg:GridColumn
                                 FieldName="PolygonName"
-                                Header="名称"
+                                Header="名称" Width="*"
                                 HorizontalHeaderContentAlignment="Center"
                                 ReadOnly="True" />
                             <dxg:GridColumn
                                 AllowEditing="true"
-                                FieldName="Color"
+                                FieldName="Color" Width="*"
                                 Header="颜色"
-                                HorizontalHeaderContentAlignment="Center"
-                                >
+                                HorizontalHeaderContentAlignment="Center">
                                 <dxg:GridColumn.EditSettings>
                                     <dxe:PopupColorEditSettings />
                                 </dxg:GridColumn.EditSettings>
                             </dxg:GridColumn>
                             <dxg:GridColumn
-                                Width="200"
+                                Width="300"
                                 FieldName="SymbolLibraryName"
                                 Header="解释结论"
                                 HorizontalHeaderContentAlignment="Center">
