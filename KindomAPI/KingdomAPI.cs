@@ -50,7 +50,7 @@ namespace KindomDataAPIServer.KindomAPI
         #region Unit
 
 
-        private bool IsDepthFeet
+        public bool IsDepthFeet
         {
             get
             {
@@ -66,7 +66,7 @@ namespace KindomDataAPIServer.KindomAPI
 
         }
 
-        private bool IsXYFeet
+        public bool IsXYFeet
         {
             get
             {
@@ -553,14 +553,14 @@ namespace KindomDataAPIServer.KindomAPI
                     // },
                     // x => true,
                     // false).ToList();
-                    var IntervalRecords = context.Get(new Smt.Entities.IntervalName(),
-                     x => new
-                     {
-                         data = x,
-                         attrs = x.IntervalAttributes
-                     },
-                     x => true,
-                     false).ToList();
+                    //var IntervalRecords = context.Get(new Smt.Entities.IntervalName(),
+                    // x => new
+                    // {
+                    //     data = x,
+                    //     attrs = x.IntervalAttributes
+                    // },
+                    // x => true,
+                    // false).ToList();
 
                     //foreach (var intervalRecord in IntervalRecords)
                     //{
@@ -590,90 +590,7 @@ namespace KindomDataAPIServer.KindomAPI
                     //  x => true,
                     // false).ToList();
 
-                    //var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
-                    //         x => new
-                    //         {
-                    //             data = x,
-                    //         },
-                    //         x => true,
-                    //         false).ToList();
 
-                    //               var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
-
-                    //               var res2 = digitalLogs.FirstOrDefault(o => o.LogData.BoreholeId == res.BoreholeId);
-                    //               var ProductionEntitys = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-                    //                        x => new
-                    //                        {
-                    //                            data = x,
-                    //                        },
-                    //                        x => x.BoreholeId == res.BoreholeId,
-                    //                        false).ToList();
-                    //               var IntervalRecord = context.Get(new Smt.Entities.IntervalRecord(),
-                    //                    x => new
-                    //                    {
-                    //                        data = x,
-                    //                        intervalName = x.IntervalName,
-                    //                        texts = x.IntervalTextValues
-                    //                    },
-                    //                     x => x.BoreholeId == res.BoreholeId,
-                    //                    false).ToList();
-
-                    //               var IntervalAttribute = context.Get(new Smt.Entities.IntervalTextValue(),
-                    //x => new
-                    //{
-                    //    data = x,
-                    //    intervalAttr = x.IntervalAttribute,
-                    //    id = x.IntervalRecordId
-                    //},
-                    // x => true,
-                    //false).ToList();
-
-                    //               var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
-                    //x => new
-                    //{
-                    //    data = x,
-                    //},
-                    // x => true,
-                    //false).ToList();
-
-                    //               var TestProduction11 = context.Get(new Smt.Entities.TestInitialPotential(),
-                    //                    x => new
-                    //                    {
-                    //                        data = x,
-                    //                    },
-                    //                     x => x.BoreholeId == res.BoreholeId,
-                    //                    false).ToList();
-                    //                               var TestProduction3 = context.Get(new Smt.Entities.TestProductionPerforation(),
-                    //                     x => new
-                    //                     {
-                    //                         data = x,
-                    //                     },
-                    //                      x => true,
-                    //                     false).ToList();
-
-                    //                               var TestProduction4 = context.Get(new Smt.Entities.ProductionEntity(),
-                    //               x => new
-                    //               {
-                    //                   data = x,
-                    //               },
-                    //               x => true,
-                    //               false).ToList();
-
-                    //                var TestProduction5 = context.Get(new Smt.Entities.ProducingField(),
-                    //               x => new
-                    //               {
-                    //                   data = x,
-                    //               },
-                    //               x => true,
-                    //               false).ToList();
-
-                    //               var survey = context.Get(new Smt.Entities.IntervalRecord(),
-                    //               x => new
-                    //               {
-                    //                   data = x,
-                    //               },
-                    //               x => true,
-                    //               false).ToList();
 #endif
                     return new ProjectResponse
                     {
@@ -788,12 +705,25 @@ namespace KindomDataAPIServer.KindomAPI
                             var res = pbWellFormation.Items.FirstOrDefault(o => (o.Name == formItem.FormationTopName.Name || o.Name == formItem.FormationTopName.Abbreviation) && o.Top == formItem.FormationTop.Depth.Value);
                             if (res == null)
                             {
-                                pbWellFormation.Items.Add(new PbFormationItem()
+   
+                                if (IsDepthFeet)
                                 {
-                                    Name = formItem.FormationTopName.Name,
-                                    Top = formItem.FormationTop.Depth.Value,
-                                    Bottom = formItem.FormationTop.Depth.Value,                                   
-                                });
+                                    pbWellFormation.Items.Add(new PbFormationItem()
+                                    {
+                                        Name = formItem.FormationTopName.Name,
+                                        Top = formItem.FormationTop.Depth.Value.ToMeters(),
+                                        Bottom = formItem.FormationTop.Depth.Value.ToMeters(),
+                                    });
+                                }
+                                else
+                                {
+                                    pbWellFormation.Items.Add(new PbFormationItem()
+                                    {
+                                        Name = formItem.FormationTopName.Name,
+                                        Top = formItem.FormationTop.Depth.Value,
+                                        Bottom = formItem.FormationTop.Depth.Value,
+                                    });
+                                }
                             }
                         }
                     }
@@ -880,6 +810,16 @@ namespace KindomDataAPIServer.KindomAPI
                                     Dx = formItem.data.DX[i],
                                     Dy = formItem.data.DY[i]
                                 };
+                                if(IsDepthFeet)
+                                {
+                                    coordData.Md = coordData.Md.ToMeters();
+                                    coordData.Tvd = coordData.Tvd.ToMeters();
+                                }
+                                if(IsXYFeet)
+                                {
+                                    coordData.Dx = coordData.Dx.ToMeters();
+                                    coordData.Dy = coordData.Dy.ToMeters();
+                                }
 
                                 wellTrajData.CoordList.Add(coordData);
                                 AimuthData aimuthData = new AimuthData()
@@ -888,6 +828,10 @@ namespace KindomDataAPIServer.KindomAPI
                                     Azim = formItem.data.Azimuth[i],
                                     Devi = formItem.data.Inclination[i],
                                 };
+                                if(IsDepthFeet)
+                                {
+                                    aimuthData.Md = aimuthData.Md.ToMeters();
+                                }
                                 wellTrajData.AimuthList.Add(aimuthData);
                             }
                             datas.Add(wellTrajData);
@@ -1033,6 +977,11 @@ namespace KindomDataAPIServer.KindomAPI
                                     CurveName = formItem.LogCurveName.Name,
                                     DataSetId = dataSetId,                                   
                                 };
+                                if (IsDepthFeet)
+                                {
+                                    logObj.SampleRate = logObj.SampleRate.ToMeters();
+                                    logObj.StartDepth = logObj.StartDepth.ToMeters();
+                                }
 
                                 var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
                                 if (checkNameObj != null)
@@ -1151,33 +1100,41 @@ namespace KindomDataAPIServer.KindomAPI
             return datas;
         }
 
-        public (List<WellGasTestData>,List<WellOilTestData>) GetWellGasTestData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
+        public UnitInfo GetUnitInfoByKingdomName(List<UnitMappingItem> UnitMappingItems,string kindomName)
+        {
+
+            var mappingItem = UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == kindomName);
+            if (mappingItem != null)
+            {
+                return mappingItem.NewUnit;
+            }
+            return null;
+        }
+
+        public (List<WellGasTestData>,List<WellOilTestData>) GetWellGasTestData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<UnitMappingItem> UnitMappingItems)
         {
             List<WellGasTestData> datas = new List<WellGasTestData>();
             List<WellOilTestData> datasOil = new List<WellOilTestData>();
             List<WellExport> Wells = KingDomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
 
-            List<MetaInfo> OilTestDataMetaInfoList = new List<MetaInfo>();
             MetaInfo metaInfo = new MetaInfo();
             metaInfo.DisplayName = "chokeSize";
             metaInfo.PropertyName = "oilTestList.chokeSize";
             metaInfo.UnitId = ChokeSizeUnit.Id;
             metaInfo.MeasureId = ChokeSizeUnit.MeasureID;
-            OilTestDataMetaInfoList.Add(metaInfo);
+
             MetaInfo metaInfo2 = new MetaInfo();
             metaInfo2.DisplayName = "FlowingTubingPressure";
             metaInfo2.PropertyName = "oilTestList.flowPressure";
             metaInfo2.UnitId = FlowingTubingPressureUnit.Id;
             metaInfo2.MeasureId = FlowingTubingPressureUnit.MeasureID;
-            OilTestDataMetaInfoList.Add(metaInfo2);
 
             MetaInfo metaInfo3 = new MetaInfo();
             metaInfo3.DisplayName = "staticTemp";
             metaInfo3.PropertyName = "oilTestList.staticTemp";
             metaInfo3.UnitId = BottomHoleTemperatureUnit.Id;
             metaInfo3.MeasureId = BottomHoleTemperatureUnit.MeasureID;
-            OilTestDataMetaInfoList.Add(metaInfo3);
 
 
             using (var context = project.GetKingdom())
@@ -1190,15 +1147,6 @@ namespace KindomDataAPIServer.KindomAPI
                  },
                    x => BoreholeIds.Contains(x.BoreholeId),
                  false).ToList();
-
-                var DeviationSurveys2 = context.Get(new Smt.Entities.ProductionTestHeader(),
-  x => new
-  {
-      boreholeId = x.BoreholeId,
-      data = x,
-  },
-    x => BoreholeIds.Contains(x.BoreholeId),
-  false).ToList();
 
                 var dicts = DeviationSurveys.GroupBy(o => o.boreholeId).ToDictionary(a => a.Key, a => a.ToList());
                 foreach (var item in dicts)//一口井一般一条试数据
@@ -1214,7 +1162,10 @@ namespace KindomDataAPIServer.KindomAPI
                     datas.Add(wellGasTestData);
 
                     WellOilTestData wellOilTestData = new WellOilTestData();
-                    wellOilTestData.MetaInfoList = OilTestDataMetaInfoList;
+                    wellOilTestData.MetaInfoList = new List<MetaInfo>();
+                    wellOilTestData.MetaInfoList.Add(metaInfo);
+                    wellOilTestData.MetaInfoList.Add(metaInfo2);
+                    wellOilTestData.MetaInfoList.Add(metaInfo3);
                     wellOilTestData.WellId = wellWebID;
                     datasOil.Add(wellOilTestData);
 
@@ -1237,10 +1188,33 @@ namespace KindomDataAPIServer.KindomAPI
                                     Interval = duanName,
                                     Wpr = formItem.data.GasVolume.Value,                                  
                                 };
+                                var unit = GetUnitInfoByKingdomName(UnitMappingItems, formItem.data.GasRate);
+                                if (unit != null)
+                                {
+                                    MetaInfo metaInfoGas = new MetaInfo();
+                                    metaInfoGas.DisplayName = "wpr";
+                                    metaInfoGas.PropertyName = "gasTestList.wpr";
+                                    metaInfoGas.UnitId = unit.Id;
+                                    metaInfoGas.MeasureId = unit.MeasureID;
+                                    wellGasTestData.MetaInfoList.Add(metaInfoGas);
+                                }
+
                                 if (formItem.data.WaterVolume.HasValue)
                                 {
                                     gasTestData.Wp = formItem.data.WaterVolume.Value;
                                 }
+
+                                var waterUnit = GetUnitInfoByKingdomName(UnitMappingItems, formItem.data.WaterRate);
+                                if (waterUnit != null)
+                                {
+                                    MetaInfo metaInfoWater = new MetaInfo();
+                                    metaInfoWater.DisplayName = "wp";
+                                    metaInfoWater.PropertyName = "gasTestList.wp";
+                                    metaInfoWater.UnitId = waterUnit.Id;
+                                    metaInfoWater.MeasureId = waterUnit.MeasureID;
+                                    wellGasTestData.MetaInfoList.Add(metaInfoWater);
+                                }
+
                                 wellGasTestData.GasTestList.Add(gasTestData);
                             }
 
@@ -1252,14 +1226,36 @@ namespace KindomDataAPIServer.KindomAPI
                                     WellName = well?.WellName,
                                     TestWellSection = duanName,
                                     OilAmountPerDay = formItem.data.OilVolume.Value,
-                                    ChokeSize = formItem.data.TopChokeSize.HasValue ?  formItem.data.TopChokeSize.Value:0,
-                                    FlowPressure = formItem.data.FlowingTubingPressure.HasValue ?  formItem.data.FlowingTubingPressure.Value:0,
-                                    StaticTemp = formItem.data.BottomHoleTemperature.HasValue ?  formItem.data.BottomHoleTemperature.Value:0
+                                    ChokeSize = formItem.data.TopChokeSize.HasValue ? formItem.data.TopChokeSize.Value : 0,
+                                    FlowPressure = formItem.data.FlowingTubingPressure.HasValue ? formItem.data.FlowingTubingPressure.Value : 0,
+                                    StaticTemp = formItem.data.BottomHoleTemperature.HasValue ? formItem.data.BottomHoleTemperature.Value : 0
+                                };
+
+                                var oilUnit = GetUnitInfoByKingdomName(UnitMappingItems, formItem.data.OilRate);
+                                if (oilUnit != null)
+                                {
+                                    MetaInfo metaInfoOil = new MetaInfo();
+                                    metaInfoOil.DisplayName = "oilAmountPerDay";
+                                    metaInfoOil.PropertyName = "oilTestList.oilAmountPerDay";
+                                    metaInfoOil.UnitId = oilUnit.Id;
+                                    metaInfoOil.MeasureId = oilUnit.MeasureID;
+                                    wellOilTestData.MetaInfoList.Add(metaInfoOil);
                                 }
-                            ;
+                                
                                 if (formItem.data.WaterVolume.HasValue)
                                 {
                                     gasTestData.WaterAmountPerDay = formItem.data.WaterVolume.Value;
+                                }
+
+                                var waterUnit = GetUnitInfoByKingdomName(UnitMappingItems, formItem.data.WaterRate);
+                                if (waterUnit != null)
+                                { 
+                                    MetaInfo metaInfoWater = new MetaInfo();
+                                    metaInfoWater.DisplayName = "waterAmountPerDay";
+                                    metaInfoWater.PropertyName = "oilTestList.waterAmountPerDay";
+                                    metaInfoWater.UnitId = waterUnit.Id;
+                                    metaInfoWater.MeasureId = waterUnit.MeasureID;
+                                    wellOilTestData.MetaInfoList.Add(metaInfoWater);
                                 }
                                 wellOilTestData.OilTestList.Add(gasTestData);
                             }

@@ -745,7 +745,10 @@ namespace KindomDataAPIServer.ViewModels
 
 
         public PbViewMetaObjectList WellIDandNameList = null;
-
+        /// <summary>
+        /// 同步
+        /// </summary>
+        /// <returns></returns>
         public async Task SyncCommandAction()
         {
 
@@ -817,56 +820,61 @@ namespace KindomDataAPIServer.ViewModels
             {
 
                 ProgressValue = 0;
+                LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
 
-
-                    LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
-                    WellDataRequest wellDataRequest = new WellDataRequest();
-                    wellDataRequest.Items = new List<WellItemRequest>();
-                    KindomData.Wells.ForEach(well =>
+                #region 读取井列表
+                WellDataRequest wellDataRequest = new WellDataRequest();
+                wellDataRequest.Items = new List<WellItemRequest>();
+                KindomData.Wells.ForEach(well =>
+                {
+                    if (well.IsChecked == true)
                     {
-                        if (well.IsChecked == true)
+                        WellItemRequest item = new WellItemRequest()
                         {
-                            WellItemRequest item = new WellItemRequest()
+                            WellName = well.Uwi,
+                            Alias = well.WellName,
+                            WellNumber = well.WellNumber,
+                            WellType = 0,
+                            WellTrajectoryType = 0,
+                        };
+                        if (IsShowWellHeaderXY)
+                        {
+                            item.WellheadX = well.SurfaceX;
+                            item.WellheadY = well.SurfaceY;
+                            if (KingdomAPI.Instance.IsXYFeet)
                             {
-                                WellName = well.Uwi,
-                                Alias = well.WellName + "-" + well.BoreholeName,
-                                WellNumber = well.WellNumber,
-                                WellType = 0,
-                                WellTrajectoryType = 0,
-                            };
-                            if (IsShowWellHeaderXY)
-                            {
-                                item.WellheadX = well.SurfaceX;
-                                item.WellheadY = well.SurfaceY;
+                                item.WellheadX = item.WellheadX.ToMeters();
+                                item.WellheadY = item.WellheadY.ToMeters();
                             }
-                            //if (IsShowWellBottomXY)
-                            //{
-                            //    item.WellboreBottomX = well.BottomX;
-                            //    item.WellboreBottomY = well.BottomY;
-                            //}
-                            if (IsShowBL)
-                            {
-                                item.Latitude = well.Latitude;
-                                item.Longitude = well.Longitude;
-                            }
-                            if (IsShowCountry)
-                            {
-                                item.Country = well.Country;
-                            }
-
-                            if (IsShowState)
-                            {
-                                item.Region = well.Region;
-                            }
-                            if (IsShowCounty)
-                            {
-                                item.Districts = well.Districts;
-                            }
-
-                            wellDataRequest.Items.Add(item);
+                        }
+                        //if (IsShowWellBottomXY)
+                        //{
+                        //    item.WellboreBottomX = well.BottomX;
+                        //    item.WellboreBottomY = well.BottomY;
+                        //}
+                        if (IsShowBL)
+                        {
+                            item.Latitude = well.Latitude;
+                            item.Longitude = well.Longitude;
+                        }
+                        if (IsShowCountry)
+                        {
+                            item.Country = well.Country;
                         }
 
-                    });
+                        if (IsShowState)
+                        {
+                            item.Region = well.Region;
+                        }
+                        if (IsShowCounty)
+                        {
+                            item.Districts = well.Districts;
+                        }
+
+                        wellDataRequest.Items.Add(item);
+                    }
+
+                });
 
                 if (wellDataRequest.Items.Count == 0)
                 {
@@ -874,6 +882,8 @@ namespace KindomDataAPIServer.ViewModels
                     DXMessageBox.Show("The number of wells selected cannot be 0");
                     return;
                 }
+
+                #endregion
 
                 if (IsSyncWellHeader)
                 {
@@ -1004,7 +1014,7 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncIPProduction)
                 {
 
-                    (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList);
+                    (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems);
 
                     if (AllwellTestDatas.Item1.Count > 0)
                     {
@@ -1014,7 +1024,7 @@ namespace KindomDataAPIServer.ViewModels
                         WellGasTestRequest wellTrajRequest = null;
                         for (int i = 0; i < AllCount; i++)
                         {
-                            if (i % 3 == 0)
+                            if (i == 0)
                             {
                                 wellTrajRequest = new WellGasTestRequest();
                                 tempList.Add(wellTrajRequest);
@@ -1022,7 +1032,25 @@ namespace KindomDataAPIServer.ViewModels
                             }
                             else
                             {
-                                wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                                var newItem = AllwellTestDatas.Item1[i];
+                                bool isExist = false;
+                                foreach (var RequestItem in tempList)
+                                {
+                                    var FirstItem = RequestItem.Items.FirstOrDefault();
+                                    if (CompareMataInfo(FirstItem, newItem))//单位相同的一起处理
+                                    {
+                                        RequestItem.Items.Add(newItem);
+                                        isExist = true;
+                                    }
+                                }
+
+                                if(!isExist)
+                                {
+                                    wellTrajRequest = new WellGasTestRequest();
+                                    tempList.Add(wellTrajRequest);
+                                    wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
+                                }
+
                             }
                         }
                         for (int i = 0; i < tempList.Count; i++)
@@ -1050,7 +1078,7 @@ namespace KindomDataAPIServer.ViewModels
                         WellOilTestDataRequset wellTrajRequest = null;
                         for (int i = 0; i < AllCount; i++)
                         {
-                            if (i % 3 == 0)
+                            if (i == 0)
                             {
                                 wellTrajRequest = new WellOilTestDataRequset();
                                 tempList.Add(wellTrajRequest);
@@ -1058,8 +1086,25 @@ namespace KindomDataAPIServer.ViewModels
                             }
                             else
                             {
-                                wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                                var newItem = AllwellTestDatas.Item2[i];
+                                bool isExist = false;
+                                foreach (var RequestItem in tempList)
+                                {
+                                    var FirstItem = RequestItem.Items.FirstOrDefault();
+                                    if (CompareMataInfo(FirstItem, newItem))//单位相同的一起处理
+                                    {
+                                        RequestItem.Items.Add(newItem);
+                                        isExist = true;
+                                    }
+                                }
+                                if (!isExist)
+                                {
+                                    wellTrajRequest = new WellOilTestDataRequset();
+                                    tempList.Add(wellTrajRequest);
+                                    wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
+                                }
                             }
+
                         }
                         for (int i = 0; i < tempList.Count; i++)
                         {
@@ -1169,5 +1214,35 @@ namespace KindomDataAPIServer.ViewModels
  
             }
         }
+
+
+        private bool CompareMataInfo(WellGasTestData data1, WellGasTestData data2)
+        {
+            List<MetaInfo> a = data1.MetaInfoList;
+            List<MetaInfo> b = data2.MetaInfoList;
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i].MeasureId != b[i].MeasureId || a[i].UnitId != b[i].UnitId || a[i].DisplayName != b[i].DisplayName || a[i].PropertyName != b[i].PropertyName)
+                    return false;
+            }
+            return true;
+        }
+        private bool CompareMataInfo(WellOilTestData data1, WellOilTestData data2)
+        {
+            List<MetaInfo> a = data1.MetaInfoList;
+            List<MetaInfo> b = data2.MetaInfoList;
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i].MeasureId != b[i].MeasureId || a[i].UnitId != b[i].UnitId || a[i].DisplayName != b[i].DisplayName || a[i].PropertyName != b[i].PropertyName)
+                    return false;
+            }
+            return true;
+        }
+
+        
     }
 }

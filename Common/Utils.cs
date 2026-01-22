@@ -15,7 +15,7 @@ using Tet.Transport.Protobuf.Metaobjs;
 
 namespace KindomDataAPIServer.Common
 {
-    public class Utils
+    public static class Utils
     {
         public static ISplashScreenManagerService WaitIndicatorService
         {
@@ -29,7 +29,7 @@ namespace KindomDataAPIServer.Common
                 return ret;
             }
         }
-
+        public static double ToMeters(this double feet) => feet * 0.3048;
 
         public static List<UnitType> UnitTypes = new List<UnitType>();
         public static List<LogDictItem> LogDicts = new List<LogDictItem>();
