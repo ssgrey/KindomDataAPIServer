@@ -996,13 +996,14 @@ namespace KindomDataAPIServer.KindomAPI
                             }
                         }
                     }
-
-                    var res4 = await wellDataService.batch_create_well_log(logList);
-                    if (res4 != null)
+                    if (logList.LogList.Count > 0)
                     {
+                        var res4 = await wellDataService.batch_create_well_log(logList);
+                        if (res4 != null)
+                        {
 
+                        }
                     }
-
                     LogManagerService.Instance.Log($"welllog synchronize ({index}/{BoreholeIds.Count})");
                 }
                 index++;
@@ -1347,9 +1348,9 @@ namespace KindomDataAPIServer.KindomAPI
 
         public Dictionary<string, CreatePayzoneRequest> CreateWellConclusionsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList,  List<ConclusionFileNameObj> ConclusionFileNameObjItems)
         {
-            List<SymbolMappingDto> SymbolMappingPayzon = new List<SymbolMappingDto>();//测井解释
-            List<SymbolMappingDto> SymbolMappingLithology = new List<SymbolMappingDto>();//岩性
-            List<SymbolMappingDto> SymbolMappingFacies = new List<SymbolMappingDto>();//沉积相
+            //List<SymbolMappingDto> SymbolMappingPayzon = new List<SymbolMappingDto>();//测井解释
+            //List<SymbolMappingDto> SymbolMappingLithology = new List<SymbolMappingDto>();//岩性
+            //List<SymbolMappingDto> SymbolMappingFacies = new List<SymbolMappingDto>();//沉积相
 
             //构建请求体 根据设置行数
             Dictionary<string, CreatePayzoneRequest> requestDict = new Dictionary<string, CreatePayzoneRequest>();

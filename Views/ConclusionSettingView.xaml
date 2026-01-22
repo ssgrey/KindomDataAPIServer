@@ -78,11 +78,11 @@
                         </Style>
                     </StackPanel.Resources>
                     <StackPanel Grid.Row="1" Orientation="Horizontal">
-                        <Label Content="解释结论类型" />
+                        <Label Content="Type" />
                         <RadioButton
                             x:Name="radioButton4"
                             HorizontalAlignment="Left"
-                            Content="测井解释"
+                            Content="Payzone"
                             GroupName="RadioButtonGroup2"
                               IsChecked="{Binding ExplanationType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Payzon}"
                            />
@@ -90,19 +90,19 @@
                             x:Name="radioButton5"
                             Margin="5,0,0,0"
                             HorizontalAlignment="Left"
-                            Content="岩性"
+                            Content="Lithology"
                             GroupName="RadioButtonGroup2"
                               IsChecked="{Binding ExplanationType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Lithology}" />
                         <RadioButton
                             x:Name="radioButton6"
                             Margin="5,0,0,0"
                             HorizontalAlignment="Left"
-                            Content="沉积相"
+                            Content="Facies"
                             GroupName="RadioButtonGroup2"
                               IsChecked="{Binding ExplanationType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=SedimentaryFacies}"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Orientation="Horizontal">
-                        <Label Content="解释结论名称" />
+                        <Label Content="Name" />
                         <dxe:TextEdit Text="{Binding NewConclusionName,UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                 </StackPanel>
@@ -111,7 +111,7 @@
                     Grid.Row="1"
                     Grid.Column="0"
                     Margin="5"
-                    Header="符号映射关系">
+                    Header="Symbol Mapping">
                     <dxg:GridControl
                         x:Name="gcConclusionTable"
                         Grid.Row="1"
@@ -130,13 +130,13 @@
                             </dxg:GridColumn>-->
                             <dxg:GridColumn
                                 FieldName="PolygonName"
-                                Header="名称" Width="*"
+                                Header="Name" Width="*"
                                 HorizontalHeaderContentAlignment="Center"
                                 ReadOnly="True" />
                             <dxg:GridColumn
                                 AllowEditing="true"
                                 FieldName="Color" Width="*"
-                                Header="颜色"
+                                Header="Color"
                                 HorizontalHeaderContentAlignment="Center">
                                 <dxg:GridColumn.EditSettings>
                                     <dxe:PopupColorEditSettings />
@@ -145,7 +145,7 @@
                             <dxg:GridColumn
                                 Width="300"
                                 FieldName="SymbolLibraryName"
-                                Header="解释结论"
+                                Header="Symbol"
                                 HorizontalHeaderContentAlignment="Center">
                                 <dxg:GridColumn.CellTemplate>
                                     <DataTemplate>

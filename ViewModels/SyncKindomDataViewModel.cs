@@ -946,8 +946,8 @@ namespace KindomDataAPIServer.ViewModels
                             {
 
                             }
-                            LogManagerService.Instance.Log($"WellTrajs synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                            ProgressValue = 20 + ((i + 1) * 3 * 10) / AllwellTrajsCount;
+                            LogManagerService.Instance.Log($"WellTrajs synchronize ({(i + 1)}/{AllwellTrajsCount})");
+                            ProgressValue = 20 + ((i + 1) * 30) / AllwellTrajsCount;
                         }
 
                         LogManagerService.Instance.Log($"WellTrajs synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
@@ -1148,21 +1148,24 @@ namespace KindomDataAPIServer.ViewModels
   
                     for (int i = 0; i < listRequests.Count; i++)
                     {
-                        if (listRequests[i].DatasetType == 1)
+                        if (listRequests[i].Items.Count > 0)
                         {
-                            var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(listRequests[i]);
+                            if (listRequests[i].DatasetType == 1)
+                            {
+                                var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(listRequests[i]);
+                            }
+                            else if (listRequests[i].DatasetType == 2)
+                            {
+                                var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(listRequests[i]);
+                            }
+                            else if (listRequests[i].DatasetType == 3)
+                            {
+                                var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(listRequests[i]);
+                            }
                         }
-                        else if (listRequests[i].DatasetType == 2)
-                        {
-                            var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(listRequests[i]);
-                        }
-                        else if (listRequests[i].DatasetType == 3)
-                        {
-                            var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(listRequests[i]);
-                        }
-
-                        LogManagerService.Instance.Log($"Intervals synchronize ({(i + 1) * 3}/{allConclusionsCount})");
-                        ProgressValue = 80 + ((i + 1) * 3 * 20) / allConclusionsCount;
+                           
+                        LogManagerService.Instance.Log($"Intervals synchronize ({(i + 1)}/{allConclusionsCount})");
+                        ProgressValue = 80 + ((i + 1) * 20) / allConclusionsCount;
                     }                          
                 }
    
