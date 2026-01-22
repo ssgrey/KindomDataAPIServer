@@ -78,6 +78,17 @@ namespace KindomDataAPIServer.Views
 
         private void conclusionTableView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
+            ConclusionFileNameObjConclusionSetting setting = gcConclusionTable.DataContext as ConclusionFileNameObjConclusionSetting;
+
+            SymbolType symbolType = SymbolType.Payzon;
+            if(setting.ExplanationType == ExplanationType.Lithology)
+            {
+                symbolType = SymbolType.Lithology;
+            }
+            else if(setting.ExplanationType == ExplanationType.SedimentaryFacies)
+            {
+                symbolType = SymbolType.Facies;
+            }
             IList<GridCell> gridCells = this.conclusionTableView.GetSelectedCells();
             if (gridCells.Count > 0)
             {
@@ -86,7 +97,7 @@ namespace KindomDataAPIServer.Views
                 if (gridCell.Column.FieldName == "SymbolLibraryName")
                 {
 
-                    DPGeologySymbolsExplorer dPGeologySymbolsExplorer = new DPGeologySymbolsExplorer(Tet.GeoSymbol.DPSymbolUI.SymbolType.Lithology);
+                    DPGeologySymbolsExplorer dPGeologySymbolsExplorer = new DPGeologySymbolsExplorer(symbolType);
 
                    if(dPGeologySymbolsExplorer.ShowDialog() == true)
                     {

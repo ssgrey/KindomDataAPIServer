@@ -39,6 +39,9 @@ namespace KindomDataAPIServer.ViewModels
         public virtual List<FileNameObj> ColumnNameDict { set; get; } = new List<FileNameObj>();
 
         public virtual ObservableCollection<ConclusionFileNameObj> ConclusionFileNameObjItems { get; set; }
+        /// <summary>
+        /// 当前解释结论映射关系
+        /// </summary>
         public virtual ConclusionFileNameObj SelectedConclusionFileNameItem { get; set; }
 
         public virtual bool IsCheckAllConclusionFileNameObj { get; set; } = true;
@@ -66,6 +69,7 @@ namespace KindomDataAPIServer.ViewModels
                 conclusionFileNameObj.ColumnName = conclusionFileNameObj.FileName.Columns.FirstOrDefault();
             }
             ConclusionFileNameObjItems.Add(conclusionFileNameObj);
+            SelectedConclusionFileNameItem = conclusionFileNameObj;
         });
 
         private void ConclusionFileNameObj_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -88,8 +92,11 @@ namespace KindomDataAPIServer.ViewModels
 
     public class ConclusionFileNameObjConclusionSetting
     {
+        public virtual string GUID { get; set; }
+
         public ConclusionFileNameObjConclusionSetting()
         {
+            GUID = Guid.NewGuid().ToString();
             ConclusionMappingItems = new ObservableCollection<ConclusionMappingItem>();
             this.NewConclusionName = "Payzone";
         }

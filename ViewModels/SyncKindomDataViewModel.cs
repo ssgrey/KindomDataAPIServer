@@ -21,6 +21,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using Tet.GeoSymbol;
 using Tet.GeoSymbol.UI;
@@ -676,7 +677,11 @@ namespace KindomDataAPIServer.ViewModels
         /// </summary>
         public void LoadConclusionFileNameObj()
         {
-            ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
+            Application.Current.Dispatcher.Invoke(new Action(() => {
+                ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
+                ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
+            }));
+
         }
 
         /// <summary>
@@ -691,7 +696,7 @@ namespace KindomDataAPIServer.ViewModels
 
         public void RefreshConclusionMappingItems(ConclusionFileNameObj obj)
         {
-            obj.ConclusionSetting = new ConclusionFileNameObjConclusionSetting();
+            obj.ConclusionSetting = ViewModelSource.Create(()=> new ConclusionFileNameObjConclusionSetting());
             List<string> ConclusionNames =  KingdomAPI.Instance.GetConclusionNames(KindomData, obj);
             ColorGenerator.ResetColorIndex();
             foreach (var item in ConclusionNames)
@@ -718,27 +723,54 @@ namespace KindomDataAPIServer.ViewModels
                 return;
             }
 
-            List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
             if (IsSyncConclusion)
             {
-                //if (string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName))
-                //{
-                //    DXMessageBox.Show("ConclusionName cannot be null!");
-                //    return;
-                //}
-                //foreach (var ConclusionMappingItem in ConclusionSettingVM.ConclusionMappingItems)
-                //{
-                //    SymbolMappingDto temp = new SymbolMappingDto();
-                //    temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
-                //    temp.ConclusionName = ConclusionMappingItem.PolygonName;
-                //    temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
-                //    if (string.IsNullOrEmpty(ConclusionMappingItem.SymbolLibraryCode))
-                //    {
-                //        DXMessageBox.Show("Please set all conclusion item code!");
-                //        return;
-                //    }
-                //    SymbolMapping.Add(temp);
-                //}
+                if(ConclusionSettingVM.ConclusionFileNameObjItems.Count == 0)
+                {
+                    DXMessageBox.Show("Please set conclusion config!");
+                    return;
+                }
+
+                foreach (var obj in ConclusionSettingVM.ConclusionFileNameObjItems)
+                {
+                    if (obj.FileName == null)
+                    {
+                        DXMessageBox.Show("Please set all conclusion file name!");
+                        return;
+                    }
+
+                    if (string.IsNullOrEmpty(obj.ColumnName))
+                    {
+                        DXMessageBox.Show("Please set all conclusion column name!");
+                        return;
+                    }
+
+                    if (string.IsNullOrEmpty(obj.ConclusionSetting.NewConclusionName))
+                    {
+                        DXMessageBox.Show("Please set all conclusion ConclusionName name!");
+                        return;
+                    }
+
+                    foreach (var item in obj.ConclusionSetting.ConclusionMappingItems)
+                    {
+                        if (string.IsNullOrEmpty(item.SymbolLibraryCode))
+                        {
+                            DXMessageBox.Show("Please set all conclusion Symbol!");
+                            return;
+                        }
+                    }
+
+                }
+
+                var list = ConclusionSettingVM.ConclusionFileNameObjItems.Select(o => o.FileName.FileName + o.ColumnName).ToList();
+                int allCount = list.Count;
+                int disCount = list.Distinct().Count();
+
+                if (allCount!=1 && allCount != disCount)
+                {
+                    DXMessageBox.Show("Please ensure that there are no duplicate conclusion files and column names!");
+                    return;
+                }
             }
   
 
@@ -1020,7 +1052,7 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncWellLog)
                 {
                     LogManagerService.Instance.Log($"WellLogs start synchronize！");
-                    string resdataSetID = SelectedLogDataSet.Id;
+                    string resdataSetID = SelectedLogDataSet?.Id;
 
                     await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID);
                 }
@@ -1032,69 +1064,29 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncConclusion)
                 {
                     LogManagerService.Instance.Log($"WellConclusions start synchronize！");
+                    Dictionary<string, CreatePayzoneRequest> requests = KingdomAPI.Instance.CreateWellConclusionsToWeb(KindomData, WellIDandNameList, ConclusionSettingVM.ConclusionFileNameObjItems.ToList());
+                     var listRequests = requests.Values.ToList();
+                    int allConclusionsCount = requests.Count;
 
-                    List<DatasetItemDto> Conclusions = new List<DatasetItemDto>(); // KingdomAPI.Instance.GetWellConclusion(KindomData, WellIDandNameList, SymbolMapping, ConclusionSettingVM.ConclusionFileNameObjItems);
-
-                    if (Conclusions != null && Conclusions.Count > 0)
+  
+                    for (int i = 0; i < listRequests.Count; i++)
                     {
-                        string NewConclusionName = "";// string.IsNullOrEmpty(ConclusionSettingVM.NewConclusionName) ? "Conclusion" : ConclusionSettingVM.NewConclusionName;
-                        int AllwellTrajsCount = Conclusions.Count;
-                        List<CreatePayzoneRequest> tempList = new List<CreatePayzoneRequest>();
-                        CreatePayzoneRequest wellTrajRequest = null;
-                        for (int i = 0; i < AllwellTrajsCount; i++)
+                        if (listRequests[i].DatasetType == 1)
                         {
-                            if (i % 3 == 0)
-                            {
-                                wellTrajRequest = new CreatePayzoneRequest();
-
-                                //if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
-                                //{
-                                //    wellTrajRequest.DatasetType = 1;
-                                //}
-                                //else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
-                                //{
-                                //    wellTrajRequest.DatasetType = 2;
-                                //}
-                                //else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
-                                //{
-                                //    wellTrajRequest.DatasetType = 3;
-                                //}
-                                wellTrajRequest.DatasetName = NewConclusionName;
-                                wellTrajRequest.SymbolMapping = SymbolMapping;
-
-                                tempList.Add(wellTrajRequest);
-                                wellTrajRequest.Items.Add(Conclusions[i]);
-                            }
-                            else
-                            {
-                                wellTrajRequest.Items.Add(Conclusions[i]);
-                            }
+                            var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(listRequests[i]);
                         }
-                        for (int i = 0; i < tempList.Count; i++)
+                        else if (listRequests[i].DatasetType == 2)
                         {
-                            //if (ConclusionSettingVM.ExplanationType == ExplanationType.Payzon)
-                            //{
-                            //    var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(tempList[i]);
-                            //}
-                            //else if (ConclusionSettingVM.ExplanationType == ExplanationType.Lithology)
-                            //{
-                            //    var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(tempList[i]);
-                            //}
-                            //else if (ConclusionSettingVM.ExplanationType == ExplanationType.SedimentaryFacies)
-                            //{
-                            //    var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(tempList[i]);
-                            //}
-
-                            LogManagerService.Instance.Log($"WellConclusions synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                            ProgressValue = 80 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
+                            var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(listRequests[i]);
+                        }
+                        else if (listRequests[i].DatasetType == 3)
+                        {
+                            var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(listRequests[i]);
                         }
 
-                        LogManagerService.Instance.Log($"WellConclusions synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
-                    }
-                    else
-                    {
-                        LogManagerService.Instance.Log($"WellConclusions Count is 0");
-                    }
+                        LogManagerService.Instance.Log($"Intervals synchronize ({(i + 1) * 3}/{allConclusionsCount})");
+                        ProgressValue = 80 + ((i + 1) * 3 * 20) / allConclusionsCount;
+                    }                          
                 }
    
                 #endregion

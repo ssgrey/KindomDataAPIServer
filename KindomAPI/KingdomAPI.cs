@@ -11,9 +11,11 @@ using Smt;
 using Smt.Entities;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.Remoting.Contexts;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -557,41 +559,41 @@ namespace KindomDataAPIServer.KindomAPI
                      x => true,
                      false).ToList();
 
-                    foreach (var intervalRecord in IntervalRecords)
-                    {
-                        {
-                            foreach (var attr in intervalRecord.attrs)
-                            {
-                                var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
-                                        x => new
-                                        {
-                                            attrdata = x,
-                                            texts = x.IntervalTextValues
-                                        },
-                                        x => x.Id == attr.Id,
-                                        false).ToList();
-                            }
+                    //foreach (var intervalRecord in IntervalRecords)
+                    //{
+                    //    {
+                    //        foreach (var attr in intervalRecord.attrs)
+                    //        {
+                    //            var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
+                    //                    x => new
+                    //                    {
+                    //                        attrdata = x,
+                    //                        texts = x.IntervalTextValues
+                    //                    },
+                    //                    x => x.Id == attr.Id,
+                    //                    false).ToList();
+                    //        }
 
-                        }
-                    }
+                    //    }
+                    //}
 
-                    var IntervalAttribute = context.Get(new Smt.Entities.IntervalRecord(),
-                     x => new
-                     {
-                         data = x,
-                         texts = x.IntervalTextValues,
-                         bore = x.Borehole
-                     },
-                      x => true,
-                     false).ToList();
+                    //var IntervalAttribute = context.Get(new Smt.Entities.IntervalRecord(),
+                    // x => new
+                    // {
+                    //     data = x,
+                    //     texts = x.IntervalTextValues,
+                    //     bore = x.Borehole
+                    // },
+                    //  x => true,
+                    // false).ToList();
 
-                    var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
-                             x => new
-                             {
-                                 data = x,
-                             },
-                             x => true,
-                             false).ToList();
+                    //var trajy = context.Get(new Smt.Entities.DeviationSurvey(),
+                    //         x => new
+                    //         {
+                    //             data = x,
+                    //         },
+                    //         x => true,
+                    //         false).ToList();
 
                     //               var res = boreholes.FirstOrDefault(o => o.Uwi == "ZJ19H");
 
@@ -980,7 +982,9 @@ namespace KindomDataAPIServer.KindomAPI
         {
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
 
-            long dataSetId = long.Parse(resdataSetID);
+            long dataSetId = 0;
+            if(!string.IsNullOrEmpty(resdataSetID))
+                dataSetId =long.Parse(resdataSetID);
             List<WellExport> Wells = KingDomData.Wells;
             var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
@@ -1056,7 +1060,7 @@ namespace KindomDataAPIServer.KindomAPI
         public List<WellDailyProductionData> GetWellProductionData(ProjectResponse kindomData, PbViewMetaObjectList wellIDandNameList, bool isShowOil, bool isShowGas, bool isShowWater)
         {
             List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
-            List<WellExport> Wells = KingDomData.Wells;
+            List<WellExport> Wells = kindomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
 
             List<MetaInfo> MetaInfoList = new List<MetaInfo>();
@@ -1257,9 +1261,46 @@ namespace KindomDataAPIServer.KindomAPI
             return (datas,datasOil);
         }
 
-        public List<DatasetItemDto> GetWellConclusion(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<SymbolMappingDto> SymbolMapping, List<ConclusionFileNameObj> ConclusionFileNameObjItems)
-        {         
-            List<DatasetItemDto> datas = new List<DatasetItemDto>();
+        public Dictionary<string, CreatePayzoneRequest> CreateWellConclusionsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList,  List<ConclusionFileNameObj> ConclusionFileNameObjItems)
+        {
+            List<SymbolMappingDto> SymbolMappingPayzon = new List<SymbolMappingDto>();//测井解释
+            List<SymbolMappingDto> SymbolMappingLithology = new List<SymbolMappingDto>();//岩性
+            List<SymbolMappingDto> SymbolMappingFacies = new List<SymbolMappingDto>();//沉积相
+
+            //构建请求体 根据设置行数
+            Dictionary<string, CreatePayzoneRequest> requestDict = new Dictionary<string, CreatePayzoneRequest>();
+            foreach (var FileNameObj in ConclusionFileNameObjItems)
+            {
+                var setting = FileNameObj.ConclusionSetting;
+                CreatePayzoneRequest ConclusionRequest = new CreatePayzoneRequest();
+                if (setting.ExplanationType == ExplanationType.Payzon)
+                {
+                    ConclusionRequest.DatasetType = 1;
+                }
+                else if (setting.ExplanationType == ExplanationType.Lithology)
+                {
+                    ConclusionRequest.DatasetType = 2;
+                }
+                else if (setting.ExplanationType == ExplanationType.SedimentaryFacies)
+                {
+                    ConclusionRequest.DatasetType = 3;
+                }
+                ConclusionRequest.DatasetName = setting.NewConclusionName;
+                List<SymbolMappingDto> SymbolMapping = new List<SymbolMappingDto>();
+                foreach (var ConclusionMappingItem in setting.ConclusionMappingItems)
+                {
+                    SymbolMappingDto temp = new SymbolMappingDto();
+                    temp.Color = Utils.ColorToInt(ConclusionMappingItem.Color);
+                    temp.ConclusionName = ConclusionMappingItem.PolygonName;
+                    temp.SymbolLibraryCode = ConclusionMappingItem.SymbolLibraryCode;
+                    SymbolMapping.Add(temp);
+                }
+                ConclusionRequest.SymbolMapping = SymbolMapping;
+                ConclusionRequest.Items = new List<DatasetItemDto>();
+                requestDict.Add(setting.GUID, ConclusionRequest);
+            }
+
+
             List<WellExport> Wells = KingDomData.Wells;
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
             
@@ -1279,7 +1320,7 @@ namespace KindomDataAPIServer.KindomAPI
 
             using (var context = project.GetKingdom())
             {
-                var DeviationSurveys = context.Get(new Smt.Entities.IntervalRecord(),
+                var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),
                  x => new
                  {
                      borehole = x.Borehole,
@@ -1298,71 +1339,160 @@ namespace KindomDataAPIServer.KindomAPI
                          x => new
                          {
                              data = x,
+                             id = x.Id
                          },
                            x => true,
                          false).ToList();
 
-                var dicts = DeviationSurveys.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//按井分组
+                var dicts = IntervalRecords.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//按井分组
                 foreach (var item in dicts)
                 {
                     long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
                     if (wellWebID == -1)
                         continue;
-                    DatasetItemDto datasetItemDto = new DatasetItemDto();
-                    datasetItemDto.MetaInfoList = MetaInfoList;
-                    datasetItemDto.WellId = wellWebID;                   
+                    //DatasetItemDto datasetItemDtoPayzon = new DatasetItemDto();
+                    //datasetItemDtoPayzon.MetaInfoList = MetaInfoList;
+                    //datasetItemDtoPayzon.WellId = wellWebID;
+
+                    //DatasetItemDto datasetItemDtoLithology = new DatasetItemDto();
+                    //datasetItemDtoLithology.MetaInfoList = MetaInfoList;
+                    //datasetItemDtoLithology.WellId = wellWebID;
+
+
+                    //DatasetItemDto datasetItemDtoFacies = new DatasetItemDto();
+                    //datasetItemDtoFacies.MetaInfoList = MetaInfoList;
+                    //datasetItemDtoFacies.WellId = wellWebID;
+                    
                     foreach (var dictItem in item.Value)
                     {
                         if (dictItem.data != null)
                         {
-                            FileNameObj objItem = null;//ConclusionFileNameObjItems.FirstOrDefault(o => o.FileName == dictItem.intervalName);
-                            if (objItem!=null)
+                            foreach (var textValue in dictItem.TextValues)
                             {
-                                var IntervalAttributeColumn =  IntervalAttributes.FirstOrDefault(o => o.data.Name == objItem.FileName);
-                                if (IntervalAttributeColumn == null)
-                                    continue;
-                                string consolusionName = "";
-                               var textValue = dictItem.TextValues.FirstOrDefault(o => o.IntervalAttributeId == IntervalAttributeColumn.data.Id);
-                                if(textValue == null)
+                                var attr = IntervalAttributes.FirstOrDefault(o => o.data.Id == textValue.IntervalAttributeId);
+                                var setting = GetConclusionSetting(ConclusionFileNameObjItems, dictItem.intervalName, attr.data.Name);
+                                if (setting != null)
                                 {
-                                    var  numValue = dictItem.numValues.FirstOrDefault(o => o.IntervalAttributeId == IntervalAttributeColumn.data.Id);
-                                    if (numValue!=null)
+                                    DatasetItemDto dto = requestDict[setting.GUID].Items.FirstOrDefault(o => o.WellId == wellWebID);
+                                    if (dto == null)
                                     {
-                                        consolusionName = numValue.Value.ToString();
+                                        dto = new DatasetItemDto()
+                                        {
+                                            MetaInfoList = MetaInfoList,
+                                            WellId = wellWebID
+                                        };
+                                        requestDict[setting.GUID].Items.Add(dto);
+                                    }
+                                    ConclusionDto conclusionDto = new ConclusionDto()
+                                    {
+                                        ConclusionName = textValue.Value,
+                                        Color = Utils.ColorToInt(Colors.Red),
+                                        Top = dictItem.data.StartDepth,
+                                        Bottom = dictItem.data.EndDepth,
+                                    };
+                                    conclusionDto.SymbolLibraryCode = GetConclusionSymbolCode(setting.ConclusionMappingItems, textValue.Value);
+                                    if (!string.IsNullOrEmpty(conclusionDto.SymbolLibraryCode))
+                                    {
+                                        dto.ConclusionList.Add(conclusionDto);
+                                    }
+                                    else
+                                    {
+                                        LogManagerService.Instance.Log("No corresponding symbol found" + textValue.Value);
+                                    }
+
+                                }
+                                else
+                                {
+                                    LogManagerService.Instance.Log("No corresponding settings found" + dictItem.intervalName + "-" + attr.data.Name);
+                                }
+                            }
+
+                            foreach (var numValue in dictItem.numValues)
+                            {
+                                var attr = IntervalAttributes.FirstOrDefault(o => o.data.Id == numValue.IntervalAttributeId);
+                                var setting = GetConclusionSetting(ConclusionFileNameObjItems, dictItem.intervalName, attr.data.Name);
+                                if (setting != null)
+                                {
+                                    DatasetItemDto dto = requestDict[setting.GUID].Items.FirstOrDefault(o => o.WellId == wellWebID);
+                                    if (dto == null)
+                                    {
+                                        dto = new DatasetItemDto()
+                                        {
+                                            MetaInfoList = MetaInfoList,
+                                            WellId = wellWebID
+                                        };
+                                        requestDict[setting.GUID].Items.Add(dto);
+                                    }
+                                    ConclusionDto conclusionDto = new ConclusionDto()
+                                    {
+                                        ConclusionName = numValue.Value.ToString(),
+                                        Color = Utils.ColorToInt(Colors.Red),
+                                        Top = dictItem.data.StartDepth,
+                                        Bottom = dictItem.data.EndDepth,
+                                    };
+                                    conclusionDto.SymbolLibraryCode = GetConclusionSymbolCode(setting.ConclusionMappingItems, numValue.Value.ToString());
+                                    if (!string.IsNullOrEmpty(conclusionDto.SymbolLibraryCode))
+                                    {
+                                        dto.ConclusionList.Add(conclusionDto);
+                                    }
+                                    else
+                                    {
+                                        LogManagerService.Instance.Log("No corresponding symbol found" + numValue.Value.ToString());
                                     }
                                 }
                                 else
                                 {
-                                    consolusionName = textValue.Value.ToString();
+                                    LogManagerService.Instance.Log("No corresponding settings found" + dictItem.intervalName + "-" + attr.data.Name);
                                 }
-                                if (string.IsNullOrEmpty(consolusionName))
-                                    continue;
-                                ConclusionDto conclusionDto = new ConclusionDto();
-                                conclusionDto.ConclusionName = consolusionName;
-                                conclusionDto.Color = Utils.ColorToInt(Colors.Red);
-                                conclusionDto.Top = dictItem.data.StartDepth;
-                                conclusionDto.Bottom = dictItem.data.EndDepth;
 
-                                var res =  SymbolMapping.FirstOrDefault(o => o.ConclusionName == consolusionName);
-                                if (res != null)
-                                    conclusionDto.SymbolLibraryCode = res.SymbolLibraryCode;
-                                datasetItemDto.ConclusionList.Add(conclusionDto);
                             }
                         }
-                    }
-
-                    if (datasetItemDto.ConclusionList.Count > 0)
-                    {
-                        datas.Add(datasetItemDto);
                     }
 
                 }
             }
 
-            return datas;
+            return requestDict;
         }
 
 
+       public string GetConclusionSymbolCode(ObservableCollection<ConclusionMappingItem> SymbolMapping, string conclusionName)
+        {
+            var res = SymbolMapping.FirstOrDefault(o => o.PolygonName == conclusionName);
+            if (res != null)
+                return res.SymbolLibraryCode;
+            return "";
+        }
+
+
+        public List<SymbolMappingDto> GetSymbolMapping(ConclusionFileNameObjConclusionSetting setting)
+        {
+            List<SymbolMappingDto> symbolMappingDtos = new List<SymbolMappingDto>();
+            foreach (var item in setting.ConclusionMappingItems)
+            {
+                SymbolMappingDto symbolMappingDto = new SymbolMappingDto()
+                {
+                    Color = Utils.ColorToInt(item.Color),
+                    ConclusionName = item.PolygonName,
+                    SymbolLibraryCode = item.SymbolLibraryCode
+                };
+                symbolMappingDtos.Add(symbolMappingDto);
+            }
+            return symbolMappingDtos;
+        }
+        /// 
+        /// </summary>
+        /// <param name="ConclusionFileNameObjItems"></param>
+        /// <param name="fileName">文件名</param>
+        /// <param name="columnName">列名</param>
+        /// <returns></returns>
+        public ConclusionFileNameObjConclusionSetting GetConclusionSetting(List<ConclusionFileNameObj> ConclusionFileNameObjItems, string fileName, string columnName)
+        {
+             var setting  =  ConclusionFileNameObjItems.FirstOrDefault(o => o.FileName.FileName == fileName && o.ColumnName == columnName);
+            if(setting != null)
+                return setting.ConclusionSetting;
+            return null;
+        }
 
         public List<string> GetConclusionNames(ProjectResponse KingDomData)
         {
@@ -1402,9 +1532,6 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
         public Dictionary<string, List<string>> ColumnNameDict = new Dictionary<string, List<string>>();
-
-
-
 
 
         public List<ConclusionFileNameObj> GetConclusionFileNameObjs(ProjectResponse KingDomData)

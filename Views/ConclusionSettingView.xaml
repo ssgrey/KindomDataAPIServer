@@ -103,7 +103,7 @@
                     </StackPanel>
                     <StackPanel Grid.Row="1" Orientation="Horizontal">
                         <Label Content="解释结论名称" />
-                        <dxe:TextEdit Text="{Binding NewConclusionName}" />
+                        <dxe:TextEdit Text="{Binding NewConclusionName,UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                 </StackPanel>
 
@@ -184,6 +184,7 @@
                                 RowMinHeight="35"
                                 ShowGroupPanel="False"
                                 ShowIndicator="False"
+                                VerticalScrollbarVisibility="Auto"
                                 UseLegacyFilterEditor="True"
                                 UseLegacyFilterPanel="True" />
                         </dxg:GridControl.View>
