@@ -105,6 +105,7 @@ namespace KindomDataAPIServer.Models
         public double SurfaceY { get; set; }
         public double BottomX { get; set; }
         public double BottomY { get; set; }
+        public double Kb { get; set; }
         public string Country { get; set; }
         /// <summary>
         /// 区域

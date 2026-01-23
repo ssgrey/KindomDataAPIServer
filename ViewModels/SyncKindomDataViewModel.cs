@@ -393,6 +393,19 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private bool _IsShowKB = true;
+        public bool IsShowKB
+        {
+            get
+            {
+                return _IsShowKB;
+            }
+            set
+            {
+                SetProperty(ref _IsShowKB, value, nameof(IsShowKB));
+            }
+        }
+        
         private bool _IsShowCountry = true;
         public bool IsShowCountry
         {
@@ -847,11 +860,15 @@ namespace KindomDataAPIServer.ViewModels
                                 item.WellheadY = item.WellheadY.ToMeters();
                             }
                         }
-                        //if (IsShowWellBottomXY)
-                        //{
-                        //    item.WellboreBottomX = well.BottomX;
-                        //    item.WellboreBottomY = well.BottomY;
-                        //}
+                        if (IsShowKB)
+                        {
+                            item.Kb = well.Kb;
+                            if (KingdomAPI.Instance.IsDepthFeet)
+                            {
+                                item.Kb = item.Kb.ToMeters();
+                            }
+                        }
+
                         if (IsShowBL)
                         {
                             item.Latitude = well.Latitude;

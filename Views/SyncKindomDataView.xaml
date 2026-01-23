@@ -126,6 +126,8 @@
                                         </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="Latitude" Width="120"  Header="Latitude"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowBL}">
                                         </dxg:GridColumn>
+                                        <dxg:GridColumn FieldName="Kb" Width="120"  Header="KB"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowKB}">
+                                        </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="Country" Width="100"  Header="Country"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowCountry}">
                                         </dxg:GridColumn>
                                         <dxg:GridColumn FieldName="Region" Width="100"  Header="State"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowState}">
@@ -164,6 +166,10 @@
                                         <StackPanel Orientation="Horizontal">
                                             <dxe:CheckEdit IsChecked="{Binding IsShowBL,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
                                             <Label Content="Longitude/Latitude"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsShowKB,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Kb"></Label>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <dxe:CheckEdit IsChecked="{Binding IsShowCountry,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>

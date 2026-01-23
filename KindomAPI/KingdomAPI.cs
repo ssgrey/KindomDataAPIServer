@@ -452,6 +452,7 @@ namespace KindomDataAPIServer.KindomAPI
                         Country = b.Well.Country.Name,
                         State = b.Well.State.Name,
                         County = b.Well.County.Name,
+                        Kb = b.Well.KBElevation
                     },
                         _ => true,
                         false).ToList();
@@ -504,6 +505,7 @@ namespace KindomDataAPIServer.KindomAPI
                             SurfaceY = bh.SurfaceY.HasValue ? bh.SurfaceY.Value : 0,
                             Latitude = bh.Latitude.HasValue ? bh.Latitude.Value : 0,
                             Longitude = bh.Longitude.HasValue ? bh.Longitude.Value : 0,
+                            Kb = bh.Kb.HasValue ? bh.Kb.Value : 0,
                             Country = bh.Country,
                             Region = bh.State,
                             Districts = bh.County,

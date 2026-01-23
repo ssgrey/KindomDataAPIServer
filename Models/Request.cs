@@ -133,6 +133,10 @@ namespace KindomDataAPIServer.Models
         /// </summary>
         [JsonProperty("producingField")]
         public string ProducingField { get; set; }
+
+        [JsonProperty("kb")]
+        public double Kb { get; set; }
+
     }
 
 
