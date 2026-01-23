@@ -1131,7 +1131,7 @@ namespace KindomDataAPIServer.ViewModels
                     LogManagerService.Instance.Log($"WellLogs start synchronize！");
                     string resdataSetID = SelectedLogDataSet?.Id;
 
-                    await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID);
+                    await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this);
                 }
                 ProgressValue = 80;
                 #endregion

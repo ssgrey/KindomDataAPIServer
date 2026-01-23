@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DevExpress.Xpf.Core;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -30,8 +31,6 @@ namespace KindomDataAPIServer.Common
             var logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} | {message}";
             try
             {
-                EnsureLogFileIsToday();
-                File.AppendAllText(_logFilePath, logEntry + Environment.NewLine, Encoding.UTF8);
                 if(TextBox != null)
                 {
                     TextBox.Dispatcher.Invoke(() =>
@@ -41,8 +40,10 @@ namespace KindomDataAPIServer.Common
                         TextBox.ScrollToEnd();
                     });
                 }
+                EnsureLogFileIsToday();
+                File.AppendAllText(_logFilePath, logEntry + Environment.NewLine, Encoding.UTF8);
             }
-            catch
+            catch(Exception ex)
             {
                 // 可根据需要处理异常
             }
@@ -78,8 +79,9 @@ namespace KindomDataAPIServer.Common
                     File.WriteAllText(_logFilePath, $"[{DateTime.Now:yyyy-MM-dd}] 日志文件已创建{Environment.NewLine}", Encoding.UTF8);
                 }
             }
-            catch
+            catch(Exception ex)
             {
+                //DXMessageBox.Show("日志文件初始化失败: " + ex.Message + ex.StackTrace);
                 // 可根据需要处理异常
             }
         }

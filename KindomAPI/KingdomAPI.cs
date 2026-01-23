@@ -930,7 +930,7 @@ namespace KindomDataAPIServer.KindomAPI
             return logList;
         }
 
-        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, string resdataSetID)
+        public async Task CreateWellLogsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, string resdataSetID, SyncKindomDataViewModel syncKindomDataViewModel)
         {
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
 
@@ -1009,6 +1009,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                         }
                     }
+                    syncKindomDataViewModel.ProgressValue =60 + (double)index / BoreholeIds.Count * 20;
                     LogManagerService.Instance.Log($"welllog synchronize ({index}/{BoreholeIds.Count})");
                 }
                 index++;
