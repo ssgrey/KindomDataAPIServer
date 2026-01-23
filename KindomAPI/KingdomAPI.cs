@@ -1109,6 +1109,121 @@ namespace KindomDataAPIServer.KindomAPI
             return datas;
         }
 
+        public async Task CreateWellProductionDataToWeb(ProjectResponse kindomData, PbViewMetaObjectList wellIDandNameList, bool isShowOil, bool isShowGas, bool isShowWater, SyncKindomDataViewModel syncKindomDataViewModel)
+        {
+            try
+            {
+                var wellDataService = ServiceLocator.GetService<IDataWellService>();
+
+                List<WellExport> Wells = kindomData.Wells;
+                List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+
+                List<MetaInfo> MetaInfoList = new List<MetaInfo>();
+                MetaInfo metaInfo = new MetaInfo();
+                metaInfo.DisplayName = "油体积";
+                metaInfo.PropertyName = "dailyList.oilVol";
+                metaInfo.UnitId = OilOrWaterUnit.Id;
+                metaInfo.MeasureId = OilOrWaterUnit.MeasureID;
+                MetaInfoList.Add(metaInfo);
+                MetaInfo metaInfo2 = new MetaInfo();
+                metaInfo2.DisplayName = "气体积";
+                metaInfo2.PropertyName = "dailyList.gasVol";
+                metaInfo2.UnitId = GasUnit.Id;
+                metaInfo2.MeasureId = GasUnit.MeasureID;
+                MetaInfoList.Add(metaInfo2);
+
+                MetaInfo metaInfo3 = new MetaInfo();
+                metaInfo3.DisplayName = "水体积";
+                metaInfo3.PropertyName = "dailyList.waterVol";
+                metaInfo3.UnitId = OilOrWaterUnit.Id;
+                metaInfo3.MeasureId = OilOrWaterUnit.MeasureID;
+                MetaInfoList.Add(metaInfo3);
+
+
+                using (var context = project.GetKingdom())
+                {
+                    int index = 1;
+                    int allCount = BoreholeIds.Count;
+                    foreach (var boreID in BoreholeIds)
+                    {
+                        var kindomDatas = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                         x => new
+                         {
+                             borehole = x.Borehole,
+                             boreholeId = x.BoreholeId,
+                             wellUWI = x.Borehole.Uwi,
+                             data = x,
+                         },
+                           x => x.BoreholeId == boreID,
+                         false).ToList();
+
+                        if (kindomDatas.Count > 0)
+                        {
+                            string WellUWI = kindomDatas.FirstOrDefault().wellUWI;
+                            long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, wellIDandNameList);
+                            if (wellWebID == -1)
+                                continue;
+
+                            List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
+                            WellDailyProductionData productionData = new WellDailyProductionData();
+                            productionData.WellId = wellWebID;
+                            productionData.MetaInfoList = MetaInfoList;
+                            foreach (var item in kindomDatas)
+                            {
+                                if (item.data.StartDate == null || item.data.EndDate == null)
+                                    continue;
+                                TimeSpan timespan = item.data.EndDate.Value - item.data.StartDate.Value;
+                                int totalDays = timespan.Days + 1;
+                                for (int i = 0; i < totalDays; i++)
+                                {
+                                    DailyData dailyData = new DailyData()
+                                    {
+                                        MeasureDate = item.data.StartDate.Value.AddDays(i).ToShortDateString()
+                                    };
+
+                                    if (isShowOil)
+                                    {
+                                        dailyData.OilVol = item.data.OilProductionVolume == null ? 0 : item.data.OilProductionVolume.Value / totalDays;
+                                    }
+                                    if (isShowGas)
+                                    {
+                                        dailyData.GasVol = item.data.GasProductionVolume == null ? 0 : item.data.GasProductionVolume.Value / totalDays;
+
+                                    }
+                                    if (isShowWater)
+                                    {
+                                        dailyData.WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays;
+                                    }
+                                    productionData.DailyList.Add(dailyData);
+                                }
+                            }
+                            datas.Add(productionData);
+
+                            if (datas.Count > 0)
+                            {
+                                WellProductionDataRequest Request = new WellProductionDataRequest();
+                                Request.Items = datas;
+                                var res4 = await wellDataService.batch_create_well_production_with_meta_infos(Request);
+                                if (res4 != null)
+                                {
+
+                                }
+                            }
+
+                            LogManagerService.Instance.Log($"Well Production Datas synchronize ({index}/{allCount})");
+                            syncKindomDataViewModel.ProgressValue = 30 + (index * 20) / allCount;
+                        }
+                        index++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("CreateWellProductionDataToWeb error:" + ex.Message + ex.StackTrace);
+            }
+        }
+
+
         public UnitInfo GetUnitInfoByKingdomName(List<UnitMappingItem> UnitMappingItems,string kindomName)
         {
 

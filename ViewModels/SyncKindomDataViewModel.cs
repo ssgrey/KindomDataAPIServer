@@ -983,44 +983,49 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
 
-                    List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList, IsShowOil,IsShowGas,IsShowWater);
+                    await KingdomAPI.Instance.CreateWellProductionDataToWeb(KindomData, WellIDandNameList, IsShowOil, IsShowGas, IsShowWater, this);
+                  
+                    //List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList, IsShowOil,IsShowGas,IsShowWater);
 
-                    if (AllwellProductionDatas.Count > 0)
-                    {
-                        int AllwellTrajsCount = AllwellProductionDatas.Count;
-                        List<WellProductionDataRequest> tempList = new List<WellProductionDataRequest>();
-                        WellProductionDataRequest wellTrajRequest = null;
-                        for (int i = 0; i < AllwellTrajsCount; i++)
-                        {
-                            if (i % 3 == 0)
-                            {
-                                wellTrajRequest = new WellProductionDataRequest();
-                                tempList.Add(wellTrajRequest);
-                                wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
-                            }
-                            else
-                            {
-                                wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
-                            }
-                        }
-                        for (int i = 0; i < tempList.Count; i++)
-                        {
-                            var res4 = await wellDataService.batch_create_well_production_with_meta_infos(tempList[i]);
-                            if (res4 != null)
-                            {
+                    //if (AllwellProductionDatas.Count > 0)
+                    //{
+                    //    int AllwellTrajsCount = AllwellProductionDatas.Count;
+                    //    List<WellProductionDataRequest> tempList = new List<WellProductionDataRequest>();
+                    //    WellProductionDataRequest wellTrajRequest = null;
+                    //    for (int i = 0; i < AllwellTrajsCount; i++)
+                    //    {
+                    //        if (i % 3 == 0)
+                    //        {
+                    //            wellTrajRequest = new WellProductionDataRequest();
+                    //            tempList.Add(wellTrajRequest);
+                    //            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                    //        }
+                    //        else
+                    //        {
+                    //            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
+                    //        }
+                    //    }
+                    //    for (int i = 0; i < tempList.Count; i++)
+                    //    {
+                    //        var res4 = await wellDataService.batch_create_well_production_with_meta_infos(tempList[i]);
+                    //        if (res4 != null)
+                    //        {
 
-                            }
+                    //        }
 
-                            LogManagerService.Instance.Log($"Well Production Datas synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                            ProgressValue = 30 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
-                        }
+                    //        LogManagerService.Instance.Log($"Well Production Datas synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
+                    //        ProgressValue = 30 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
+                    //    }
 
-                        LogManagerService.Instance.Log($"Well Production Datas synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
-                    }
-                    else
-                    {
-                        LogManagerService.Instance.Log($"Well Production Data Count is 0");
-                    }
+                    //    LogManagerService.Instance.Log($"Well Production Datas synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
+                    //}
+                    //else
+                    //{
+                    //    LogManagerService.Instance.Log($"Well Production Data Count is 0");
+                    //}
+
+                    LogManagerService.Instance.Log($"Well Production Datas synchronize over！");
+
                 }
                 #endregion
 
@@ -1149,6 +1154,9 @@ namespace KindomDataAPIServer.ViewModels
                     string resdataSetID = SelectedLogDataSet?.Id;
 
                     await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this);
+
+                    LogManagerService.Instance.Log($"WellLogs synchronize over！");
+
                 }
                 ProgressValue = 80;
                 #endregion

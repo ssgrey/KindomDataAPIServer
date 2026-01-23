@@ -35,11 +35,11 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top" >
                             <Label Content="DB Username" Width="80"></Label>
-                            <dxe:TextEdit  Text="{Binding DBUserName,UpdateSourceTrigger=PropertyChanged}" NullText="can be empty"  Width="180" Height="24" ></dxe:TextEdit>
+                            <dxe:TextEdit  Text="{Binding DBUserName,UpdateSourceTrigger=PropertyChanged}" NullText="Can be empty"  Width="180" Height="24" ></dxe:TextEdit>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top" >
                             <Label Content="DB Password" Width="80"></Label>
-                            <dxe:PasswordBoxEdit  Text="{Binding DBPassword,UpdateSourceTrigger=PropertyChanged}" NullText="can be empty"  Width="180" Height="24" ></dxe:PasswordBoxEdit>
+                            <dxe:PasswordBoxEdit  Text="{Binding DBPassword,UpdateSourceTrigger=PropertyChanged}" NullText="Can be empty"  Width="180" Height="24" ></dxe:PasswordBoxEdit>
                         </StackPanel>
 
                     </StackPanel>
