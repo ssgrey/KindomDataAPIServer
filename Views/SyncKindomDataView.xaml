@@ -537,7 +537,7 @@
                 <ColumnDefinition Width="300"></ColumnDefinition>
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" >
-                <Label x:Name="vlabel" FontSize="10" Content="1.0.3" Margin="5,0,0,0" VerticalContentAlignment="Center"></Label>
+                <Label x:Name="vlabel" FontSize="10" Content="1.0.4" Margin="5,0,0,0" VerticalContentAlignment="Center"></Label>
             </StackPanel>
             <dxe:ProgressBarEdit Grid.Column="1" x:Name="progressBar"  Margin="10,5,10,5"
                 Height="20"  ContentDisplayMode="Value"  IsPercent="False"  DisplayFormatString=" {0:f0}%"

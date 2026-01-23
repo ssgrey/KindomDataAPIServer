@@ -21,7 +21,10 @@ namespace KindomDataAPIServer
                 ServiceLocator.ConfigureServices();
                 // 自定义启动逻辑
                 App app = new App();
-                app.Run(new SyncKindomDataView(args));
+
+                SyncKindomDataView syncKindomDataView = new SyncKindomDataView(args, app);
+                syncKindomDataView.ShowDialog();
+               // app.Run(syncKindomDataView);
             }
             catch (Exception ex)
             {

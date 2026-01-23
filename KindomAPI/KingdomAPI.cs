@@ -278,14 +278,19 @@ namespace KindomDataAPIServer.KindomAPI
                     project.SetPassword("");
                 }
 
-                var logons = project.AuthorizedLogOnAuthorNames ?? Enumerable.Empty<string>();
+                //var logons = project.AuthorizedLogOnAuthorNames ?? Enumerable.Empty<string>();
+                var logons = GetProjectAuthors() ?? Enumerable.Empty<string>();
                 var logonList = logons.Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
 
                 return logonList;
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"LoginDB failed: {ex.Message}");
+                LogManagerService.Instance.Log($"LoginDB failed: {ex.Message + ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                      LogManagerService.Instance.Log($"LoginDB InnerException failed: {ex.InnerException.Message + ex.InnerException.StackTrace}");
+                }
             }
             return null;
         }

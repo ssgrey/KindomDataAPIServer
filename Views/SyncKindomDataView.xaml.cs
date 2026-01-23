@@ -31,9 +31,11 @@ namespace KindomDataAPIServer.Views
     {
         LogView logView = null;
         SyncKindomDataViewModel ViewModel = null;
-        public SyncKindomDataView(string[] args)
+        App myApp = null;
+        public SyncKindomDataView(string[] args,App app)
         {
             InitializeComponent();
+            myApp = app;
             Ini(args);
             this.Loaded += SyncKindomDataView_Loaded;
         }
@@ -129,8 +131,6 @@ namespace KindomDataAPIServer.Views
             LogManagerService.Instance.TextBox = null;
             logView.Close();       
             logView = null;
-            GC.Collect();
-            Application.Current.Shutdown();
             this.Close();
         }
 
