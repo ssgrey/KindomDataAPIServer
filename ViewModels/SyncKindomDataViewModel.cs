@@ -723,7 +723,6 @@ namespace KindomDataAPIServer.ViewModels
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
                 ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
-
                 this.UnitMappingItems =  KingdomAPI.Instance.GetWellProductionTestDataUnits(KindomData);
             }));
 
@@ -741,17 +740,24 @@ namespace KindomDataAPIServer.ViewModels
 
         public void RefreshConclusionMappingItems(ConclusionFileNameObj obj)
         {
-            obj.ConclusionSetting = ViewModelSource.Create(()=> new ConclusionFileNameObjConclusionSetting());
-            List<string> ConclusionNames =  KingdomAPI.Instance.GetConclusionNames(KindomData, obj);
-            ColorGenerator.ResetColorIndex();
-            foreach (var item in ConclusionNames)
+            try
             {
-                ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
+                obj.ConclusionSetting = ViewModelSource.Create(() => new ConclusionFileNameObjConclusionSetting());
+                List<string> ConclusionNames = KingdomAPI.Instance.GetConclusionNames(KindomData, obj);
+                ColorGenerator.ResetColorIndex();
+                foreach (var item in ConclusionNames)
                 {
-                    Color = ColorGenerator.GetNextColor(),
-                    PolygonName = item,
-                };
-                obj.ConclusionSetting.ConclusionMappingItems.Add(conclusionMappingItem);
+                    ConclusionMappingItem conclusionMappingItem = new ConclusionMappingItem()
+                    {
+                        Color = ColorGenerator.GetNextColor(),
+                        PolygonName = item,
+                    };
+                    obj.ConclusionSetting.ConclusionMappingItems.Add(conclusionMappingItem);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("RefreshConclusionMappingItems failed !" + ex.StackTrace + ex.Message);
             }
         }
 

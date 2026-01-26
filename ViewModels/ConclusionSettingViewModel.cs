@@ -103,6 +103,10 @@ namespace KindomDataAPIServer.ViewModels
             {
                 ConclusionFileNameObjChanged?.Invoke(obj);
             }
+            else if (e.PropertyName == "FileName" && sender is ConclusionFileNameObj obj2)
+            {
+                obj2.ColumnName = obj2.FileName.Columns.FirstOrDefault();
+            }
         }
 
         public DelegateCommand DeleteCommand => new DelegateCommand(() =>
