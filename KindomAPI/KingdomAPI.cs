@@ -1018,6 +1018,52 @@ namespace KindomDataAPIServer.KindomAPI
             }    
         }
 
+
+        public void CreateWellLogsToKindom()
+        {
+            using (var context = project.GetKingdom())
+            {
+                string wellUWI = "ZJ19H";
+                var borehole = context.Get(new Borehole(),
+                        x => new
+                        {
+                            boreholeId = x.Id,
+                        },
+                        x => x.Uwi == wellUWI,
+                        false).ToList();
+                if (borehole.Count == 0)
+                    return;
+
+                var logTypes = context.Get(new LogType(),
+        x => new
+        {
+            data = x,
+        },
+        x => true,
+        false).ToList();
+                int id = borehole.FirstOrDefault().boreholeId;
+
+                LogData logData = new LogData(CRUDOption.CreateOrUpdate);
+                logData.BoreholeId = id;
+                logData.LogCurveName = new LogCurveName() { Name = "GRCC", EntityCRUDOption = CRUDOption.CreateOrUpdate};
+                logData.StartDepth = 0;
+                logData.DepthSampleRate = 2;
+                float[] values = new float[4];
+                values[0] = 10;
+                values[1] = 20;
+                values[2] = 30;
+                values[3] = 10;
+                float[] depths = new float[4];
+                depths[0] = 0;
+                depths[1] = 2;
+                depths[2] = 4;
+                depths[3] = 6;
+                logData.SetLogDepthsAndValues(depths, values);
+                context.AddObject(logData);
+                context.SaveChanges();
+            }
+        }
+
         public List<WellDailyProductionData> GetWellProductionData(ProjectResponse kindomData, PbViewMetaObjectList wellIDandNameList, bool isShowOil, bool isShowGas, bool isShowWater)
         {
             List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
@@ -2085,9 +2131,20 @@ namespace KindomDataAPIServer.KindomAPI
                 LogData logData = new LogData(CRUDOption.CreateOrUpdate)
                 {
                     Borehole = borehole,
-                    LogCurveName = new LogCurveName { Name = "RHOB", EntityCRUDOption = CRUDOption.CreateOrUpdate },
+                    LogCurveName = new LogCurveName
+                    {
+                        Name = "RHOB23",
+                         Abbreviation = "RHOB23",
+                        EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                        LogType = new LogType(CRUDOption.CreateOrUpdate)
+                        {
+                            Name = "test",
+                             Abbreviation = "test",
+                        }
+                    },
+
                     DepthSampleRate = 0.125,
-                    StartDepth = 0,                 
+                    StartDepth = 0,
                 };
 
                 FormationTopPick formationTopPick = new FormationTopPick(CRUDOption.CreateOrUpdate)
@@ -2102,7 +2159,7 @@ namespace KindomDataAPIServer.KindomAPI
                 using (var context = project.GetKingdom())
                 {
                     context.AddObject(logData);
-                    context.AddObject(formationTopPick);
+                    //context.AddObject(formationTopPick);
                     context.SaveChanges();
                 }
             }

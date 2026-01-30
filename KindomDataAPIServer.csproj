@@ -239,6 +239,7 @@
     <Compile Include="DataService\WellDataService.cs" />
     <Compile Include="KindomAPI\KingdomAPI.cs" />
     <Compile Include="Models\ApiConfig .cs" />
+    <Compile Include="Models\protobuf\KWellLog.cs" />
     <Compile Include="Models\protobuf\MetaObject.cs" />
     <Compile Include="Models\protobuf\WellFormation.cs" />
     <Compile Include="Models\protobuf\WellLogObject.cs" />
@@ -247,10 +248,12 @@
     <Compile Include="Models\KindomResponseBase.cs" />
     <Compile Include="Models\ProjectResponse.cs" />
     <Compile Include="Models\Settings\UnitMappingItem.cs" />
+    <Compile Include="Models\WellCheckItem.cs" />
     <Compile Include="Models\WellRequest.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="Models\Settings\ConclusionMappingItem.cs" />
+    <Compile Include="ViewModels\DownLoadDataViewModel.cs" />
     <Compile Include="ViewModels\ConclusionSettingViewModel.cs" />
     <Compile Include="ViewModels\SyncKindomDataViewModel.cs" />
     <Compile Include="Views\ConclusionSettingView.xaml.cs">
@@ -329,6 +332,7 @@
     <None Include="KindomDataAPIServer.reg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="Models\protobuf\KWellLog.proto" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -356,5 +360,6 @@
       <Name>Tet.GeoSymbol</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

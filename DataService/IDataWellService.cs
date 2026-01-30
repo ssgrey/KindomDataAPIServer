@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tet.Kindom;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
 
@@ -38,5 +39,7 @@ namespace KindomDataAPIServer.DataService
         Task<WellOperationResult> batch_create_well_lithology_with_meta_infos(CreatePayzoneRequest wellDataRequest);
 
         Task<WellOperationResult> batch_create_well_facies_with_meta_infos(CreatePayzoneRequest wellDataRequest);
+
+        Task<KWellLogList> export_curve_batch_protobuf(GetWellLogRequest request);
     }
 }

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package Tet.Kindom;
+
+message KWellLog{
+    string  wellid=1;
+    string  wellname=2;
+    string curvename =3;
+    string curvetype=4;
+    string unit=5;
+   double sample_rate=6;
+   double minimum=7;
+   double maximum=8;
+   double average=9;
+   double start_depth=10;
+   double end_depth=11;
+   repeated double samples=12; 
+}
+
+message KWellLogList{
+   repeated KWellLog Items =1;
+}

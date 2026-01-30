@@ -50,6 +50,8 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
         public ICommand SyncCommand { get; set; }
+        public ICommand Sync2Command { get; set; }
+        
         public ICommand NewLogDataSetCommand { get; set; }
         public ICommand ConclusionSettingCommand { get; set; }
 
@@ -59,6 +61,8 @@ namespace KindomDataAPIServer.ViewModels
         {
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
+            Sync2Command = new DevExpress.Mvvm.AsyncCommand(Sync2CommandAction);
+          
             NewLogDataSetCommand = new DevExpress.Mvvm.AsyncCommand(NewLogDataSetCommandAction);
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
@@ -70,7 +74,7 @@ namespace KindomDataAPIServer.ViewModels
             _ = Initial();
         }
 
-  
+
 
         private async Task Initial()
         {
@@ -310,6 +314,26 @@ namespace KindomDataAPIServer.ViewModels
 
             }
         }
+
+
+
+        private bool _IsSyncToWeb = true;
+        public bool IsSyncToWeb
+        {
+            get
+            {
+                return _IsSyncToWeb;
+            }
+            set
+            {
+
+                SetProperty(ref _IsSyncToWeb, value, nameof(IsSyncToWeb));
+
+            }
+        }
+
+
+
         private double _ProgressValue;
         public double ProgressValue
         {
@@ -1219,6 +1243,29 @@ namespace KindomDataAPIServer.ViewModels
             {
                  IsEnable = true;
             }
+        }
+
+        private async Task Sync2CommandAction()
+        {
+            IsEnable = false;
+            await Task.Run(() =>
+            {
+                try
+                {
+                    //KingdomAPI.Instance.CreateWellLogsToKindom();
+                    KingdomAPI.Instance.CreateOrUpdateWellLog("ZJ19H");
+
+                    
+                }
+                catch(Exception ex) 
+                {
+                    LogManagerService.Instance.Log(ex.Message + ex.Message);
+                }
+                finally
+                {
+                    IsEnable = true;
+                }
+            });
         }
 
         public async Task NewLogDataSetCommandAction()

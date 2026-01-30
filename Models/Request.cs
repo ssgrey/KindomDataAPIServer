@@ -354,4 +354,10 @@ namespace KindomDataAPIServer.Models
         public int Color { get; set; }
         public string SymbolLibraryCode { get; set; }
     }
+
+
+    public class GetWellLogRequest
+    {
+
+    }
 }

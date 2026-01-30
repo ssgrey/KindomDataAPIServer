@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using Tet.Kindom;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
 
@@ -340,6 +341,39 @@ namespace KindomDataAPIServer.DataService
                 throw;
             }
         }
+
+
+        public async Task<KWellLogList> export_curve_batch_protobuf(GetWellLogRequest request)
+        {
+            try
+            {
+                var url = _apiClient.BuildUrl("dp/api/export/curve/batch/protobuf");
+                var json = JsonHelper.ToJson(request);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var httpResult = await _apiClient.Client.PostAsync(url, content);
+                LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
+                if (httpResult.IsSuccessStatusCode)
+                {
+                    Stream stream = await httpResult.Content.ReadAsStreamAsync();
+                    KWellLogList obj = ProtoHelper.FromStream<KWellLogList>(stream);
+                    return obj;
+                }
+                else
+                {
+                    throw new HttpRequestException($"HTTP请求失败: {httpResult.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"export_curve_batch_protobuf filed: {ex.Message + ex.StackTrace}");
+                throw;
+            }
+        }
+
+        
+
+
 
 
     }
