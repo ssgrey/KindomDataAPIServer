@@ -72,8 +72,30 @@
                         <dxb:BarButtonItem Content="Exit" ItemClick="Exit_Click" />
                     </dxb:BarSubItem>
                     <dxb:BarSubItem Content="Tool" >
-                        <dxb:BarButtonItem Content="Synchronize" Command="{Binding SyncCommand}" />
-                        <dxb:BarButtonItem Content="Synchronize2" Command="{Binding Sync2Command}" />
+                        <dxb:BarButtonItem Content="Synchronize To Web" Command="{Binding SyncCommand}" >
+                            <dxb:BarButtonItem.Style>
+                                <Style TargetType="dxb:BarButtonItem">
+                                    <Setter Property="IsVisible" Value="True"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSyncToWeb}" Value="true">
+                                            <Setter Property="IsVisible" Value="False"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </dxb:BarButtonItem.Style>
+                        </dxb:BarButtonItem>
+                        <dxb:BarButtonItem Content="Synchronize To Kingdom" Command="{Binding Sync2Command}" >
+                            <dxb:BarButtonItem.Style>
+                                <Style TargetType="dxb:BarButtonItem">
+                                    <Setter Property="IsVisible" Value="False"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSyncToWeb}" Value="true">
+                                            <Setter Property="IsVisible" Value="True"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </dxb:BarButtonItem.Style>
+                        </dxb:BarButtonItem>
                     </dxb:BarSubItem>
                     <dxb:BarSubItem Content="Help" >
                         <dxb:BarButtonItem Content="Log" ItemClick="Log_ItemClick"/>
