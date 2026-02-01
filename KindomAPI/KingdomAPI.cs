@@ -2,12 +2,14 @@
 using DevExpress.Spreadsheet.Functions;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Grid.Hierarchy;
+using DevExpress.Xpo.Logger;
 using Google.Protobuf;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.Models;
 using KindomDataAPIServer.Models.Settings;
 using KindomDataAPIServer.ViewModels;
+using log4net;
 using Smt;
 using Smt.Entities;
 using System;
@@ -2115,6 +2117,101 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
+        public async Task CreateWellLogsToKindom(List<WellLogData> wellLogDatas, List<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
+        {
+            try
+            {
+                var wellDataService = ServiceLocator.GetService<IDataWellService>();
+
+                wellLogDatas = wellLogDatas.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o.wellId && a.IsChecked) != null).ToList();
+                int allWellCount = wellLogDatas.Count;
+                int index = 1;
+                foreach (var wellLogData in wellLogDatas)
+                {
+                    Borehole borehole = null;
+                    var wellItem = wellCheckItems.FirstOrDefault(o => o.ID == wellLogData.wellId);
+                    using (var context = project.GetKingdom())
+                    {
+                        borehole = context.Get<Borehole>(o => o.Uwi == wellItem.Name, false).FirstOrDefault();
+                    };
+                    if(borehole==null)
+                    {
+                        LogManagerService.Instance.Log($"Well UWI {wellItem.Name} not found in Kingdom.");
+                        continue;
+                    }
+                    var logList = await wellDataService.export_curve_batch_protobuf(new List<WellLogData>() { wellLogData });
+                    foreach (var log in logList.Items)
+                    {
+                        Unit unit = null;
+                        using (var context = project.GetKingdom())
+                        {
+                            unit = context.Get<Unit>(o => o.Name == log.Unit, false).FirstOrDefault();
+                        };
+
+
+                        LogData logData = new LogData(CRUDOption.CreateOrUpdate)
+                        {
+                            Borehole = borehole,
+                            LogCurveName = new LogCurveName
+                            {
+                                Name = log.Curvename,
+                                Abbreviation = log.Curvename,
+                                EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                                LogType = new LogType(CRUDOption.CreateOrUpdate)
+                                {
+                                    Name = log.Curvetype,
+                                    Abbreviation = log.Curvetype,
+
+                                }
+                            },
+                            DepthSampleRate = log.SampleRate,
+                            StartDepth = log.StartDepth,
+                        };
+                        if (unit == null)
+                        {
+                            unit = new Unit
+                            {
+                                Name = log.Unit,
+                                EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                            };
+                            logData.Unit = unit;
+                        }
+                        else
+                        {
+                            logData.UnitId = unit.Id;
+                        }
+
+
+                        int dataCount = log.Samples.Count;
+                        List<float> depths = new List<float>();
+                        List<float> values = new List<float>();
+                        for (int i = 0; i < dataCount; i++)
+                        {
+                            if (log.Samples[i] != -999)
+                            {
+                                depths.Add((float)(log.StartDepth + i * log.SampleRate));
+                                values.Add((float)log.Samples[i]);
+                            }
+                        }
+                        logData.SetLogDepthsAndValues(depths.ToArray(), values.ToArray());
+                        using (var context = project.GetKingdom())
+                        {
+                            context.AddObject(logData);
+                            context.SaveChanges();
+                        }
+                    }
+
+                    syncKindomDataViewModel.ProgressValue += 100.0 * index / wellLogDatas.Count;
+                    index++;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"CreateWellLogsToKindom failed: {ex.Message + ex.StackTrace}");
+            }
+        }
+
+
         public bool CreateOrUpdateWellLog(string wellUWI)
         {
             try
@@ -2147,13 +2244,6 @@ namespace KindomDataAPIServer.KindomAPI
                     StartDepth = 0,
                 };
 
-                FormationTopPick formationTopPick = new FormationTopPick(CRUDOption.CreateOrUpdate)
-                {
-                    Borehole = borehole,
-                    FormationTopName = new FormationTopName { Name = "TestFormation", EntityCRUDOption = CRUDOption.CreateOrUpdate },
-                    Depth = 333,
-                };
-               
                 var data = ReadFirstTwoColumns();
                 logData.SetLogDepthsAndValues(data.firstColumn, data.secondColumn);
                 using (var context = project.GetKingdom())

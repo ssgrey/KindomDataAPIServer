@@ -82,7 +82,17 @@
                 </dxb:MainMenuControl>
 
             </dxb:BarContainerControl>
-            <Grid Grid.Row="1" Margin="2" IsEnabled="{Binding IsEnable}" Visibility="Collapsed">
+            <Grid Grid.Row="1" Margin="2" IsEnabled="{Binding IsEnable}">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSyncToWeb}" Value="false">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
                 <dx:DXTabControl >
                     <dx:DXTabItem Header="Well Information">
                         <Grid Grid.Row="1" x:Name="dataGrid" >
@@ -527,7 +537,7 @@
                 </dx:DXTabControl>
             </Grid>
 
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1"  IsEnabled="{Binding IsEnable}" >
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
@@ -537,7 +547,7 @@
                         <Setter Property="Visibility" Value="Visible"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsSyncToWeb}" Value="false">
-                                <Setter Property="Visibility" Value="Visible"/>
+                                <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -590,9 +600,20 @@
                             </dxg:GridControl.View>
                         </dxg:GridControl>
                     </GroupBox>
-                    <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0" Width="200" Visibility="{Binding IsDownloadWellLog,Converter={dxmvvm:BooleanToVisibilityConverter}}">
+                    <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0" Width="230" >
                         <GroupBox.Header>
-                            <Label Content="Web WellLog Wells" FontWeight="Bold" Width="Auto"/>
+                            <Label FontWeight="Bold" Width="Auto">
+                                <Label.Style>
+                                    <Style TargetType="Label">
+                                        <Setter Property="Content" Value="Web WellLog Wells"></Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDownloadWellLog}" Value="false">
+                                                <Setter Property="Content" Value="Web Interval Wells"></Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Label.Style>
+                            </Label>
                         </GroupBox.Header>
                         <Grid>
                             <Grid.RowDefinitions>
@@ -606,8 +627,8 @@
                                     </Style>
                                 </StackPanel.Resources>
                                 <StackPanel Orientation="Horizontal">
-                                    <Label Content="Project:"></Label>
-                                    <Label Content=""></Label>
+                                    <Label Content="Web Project:" Width="Auto"></Label>
+                                    <Label Content="{Binding WebProjectName}" Margin="5,0,0,0"></Label>
                                 </StackPanel>
                             </StackPanel>
 
@@ -616,12 +637,12 @@
                                     <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
                                 <dxg:GridControl  Margin="0"  SelectionMode="Row" 
-                              ItemsSource="{Binding KindomData.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
+                              ItemsSource="{Binding DownLoadDataVM.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
                                        <dxg:GridColumn.HeaderTemplate>
                                            <DataTemplate>
-                                               <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=root,Path=DataContext.ConclusionSettingVM.IsCheckAllConclusionFileNameObj, Mode=TwoWay}"></CheckBox>
+                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=root,Path=DataContext.DownLoadDataVM.IsCheckAllWell, Mode=TwoWay}"></CheckBox>
                                            </DataTemplate>
                                        </dxg:GridColumn.HeaderTemplate>
                                        <dxg:GridColumn.CellTemplate>
@@ -630,7 +651,7 @@
                                            </DataTemplate>
                                        </dxg:GridColumn.CellTemplate>
                                    </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="WellName" Width="*"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
+                                        <dxg:GridColumn FieldName="Name" Width="*"  Header="Well Name"  AllowColumnFiltering="False" AllowEditing="False">
                                         </dxg:GridColumn>
                                     </dxg:GridControl.Columns>
                                     <dxg:GridControl.View>

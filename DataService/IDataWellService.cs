@@ -40,6 +40,6 @@ namespace KindomDataAPIServer.DataService
 
         Task<WellOperationResult> batch_create_well_facies_with_meta_infos(CreatePayzoneRequest wellDataRequest);
 
-        Task<KWellLogList> export_curve_batch_protobuf(GetWellLogRequest request);
+        Task<KWellLogList> export_curve_batch_protobuf(List<WellLogData> request);
     }
 }

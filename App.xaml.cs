@@ -1,4 +1,7 @@
-﻿using System;
+﻿using KindomDataAPIServer.Common;
+using KindomDataAPIServer.DataService;
+using KindomDataAPIServer.Views;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;

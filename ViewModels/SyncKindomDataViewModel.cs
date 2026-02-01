@@ -10,6 +10,7 @@ using KindomDataAPIServer.Models;
 using KindomDataAPIServer.Models.Settings;
 using KindomDataAPIServer.Views;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 using Smt;
 using Smt.IO.LAS;
 using System;
@@ -37,10 +38,23 @@ namespace KindomDataAPIServer.ViewModels
     {
         ISplashScreenManagerService waiter;
        public ConclusionSettingViewModel ConclusionSettingVM { set; get; }
+        public DownLoadDataViewModel _DownLoadDataVM;
+        public DownLoadDataViewModel DownLoadDataVM
+        {
+            get
+            {
+                return _DownLoadDataVM;
+            }
+            set
+            {
+                SetProperty(ref _DownLoadDataVM, value, nameof(DownLoadDataVM));
 
+            }
+        }
         public bool IsInitial { get; set; } = false;
         IDataWellService wellDataService = null;
 
+        public ApiConfig  ApiConfig { get; set; }    
 
         public KingdomAPI KingdomAPIInstance
         {
@@ -57,8 +71,9 @@ namespace KindomDataAPIServer.ViewModels
 
         private DispatcherTimer delayTimer;
 
-        public SyncKindomDataViewModel()
+        public SyncKindomDataViewModel(ApiConfig ApiConfig)
         {
+            this.ApiConfig = ApiConfig;
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
             Sync2Command = new DevExpress.Mvvm.AsyncCommand(Sync2CommandAction);
@@ -67,13 +82,71 @@ namespace KindomDataAPIServer.ViewModels
             ConclusionSettingCommand = new DevExpress.Mvvm.DelegateCommand(ConclusionSettingCommandAction);
             ConclusionSettingVM = ViewModelSource.Create(() => new ConclusionSettingViewModel());
             ConclusionSettingVM.ConclusionFileNameObjChanged += ConclusionSettingVM_ConclusionFileNameObjChanged;
+
             delayTimer = new DispatcherTimer();
             delayTimer.Interval = TimeSpan.FromSeconds(0.5);
             delayTimer.Tick += DelayTimer_Tick_RefreashConclusion;
             IsInitial = true;
+            _ = iniByArgs();
             _ = Initial();
         }
 
+        public async Task iniByArgs()
+        {
+            IsEnable = false;
+            try
+            {
+                if (ApiConfig.type == 0)
+                {
+                    IsSyncToWeb = false;
+
+                }
+                else
+                {
+                    IsSyncToWeb = true;
+                    WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
+                    if (ApiConfig.type == 1)
+                    {
+                        DownLoadDataVM = new DownLoadDataViewModel(true);
+                        DownLoadDataVM.Wells = new List<WellCheckItem>();
+                        foreach (var item in ApiConfig.welllogdata)
+                        {
+                            WellCheckItem wellCheckItem = new WellCheckItem()
+                            {
+                                ID = item.wellId,
+                                Name = Utils.GetWellNameOrUWIByWellID(item.wellId, WellIDandNameList),
+                                IsChecked = true,
+                            };
+                            DownLoadDataVM.Wells.Add(wellCheckItem);
+                        }
+                    }
+                    else if (ApiConfig.type == 2)
+                    {
+                        DownLoadDataVM = new DownLoadDataViewModel(false);
+
+                        DownLoadDataVM.Wells = new List<WellCheckItem>();
+                        foreach (var item in ApiConfig.resultdata.wellIds)
+                        {
+                            WellCheckItem wellCheckItem = new WellCheckItem()
+                            {
+                                ID = item,
+                                Name = Utils.GetWellNameOrUWIByWellID(item, WellIDandNameList),
+                                IsChecked = true,
+                            };
+                            DownLoadDataVM.Wells.Add(wellCheckItem);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("iniByArgs failed !" + ex.StackTrace + ex.Message);
+            }
+            finally
+            {
+                IsEnable = true;
+            }
+        }
 
 
         private async Task Initial()
@@ -281,6 +354,21 @@ namespace KindomDataAPIServer.ViewModels
             {
 
                 SetProperty(ref _DBPassword, value, nameof(DBPassword));
+
+            }
+        }
+
+        private string _WebProjectName;
+        public string WebProjectName
+        {
+            get
+            {
+                return _WebProjectName;
+            }
+            set
+            {
+
+                SetProperty(ref _WebProjectName, value, nameof(WebProjectName));
 
             }
         }
@@ -744,6 +832,8 @@ namespace KindomDataAPIServer.ViewModels
         /// </summary>
         public void LoadConclusionFileNameObjAndTestUnits()
         {
+            if (Application.Current == null)
+                return;
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
                 ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
@@ -797,7 +887,7 @@ namespace KindomDataAPIServer.ViewModels
 
             if(KindomData == null)
             {
-                DXMessageBox.Show("Please load data first!");
+                DXMessageBox.Show("Please load kingdom project data first!");
                 return;
             }
 
@@ -1229,8 +1319,8 @@ namespace KindomDataAPIServer.ViewModels
 
 
                 ProgressValue = 100;
-                LogManagerService.Instance.Log($"Kindom data synchronize over!.");
-                DXMessageBox.Show("Kindom data synchronize over!");
+                LogManagerService.Instance.Log($"Kindom data synchronize to web over!.");
+                DXMessageBox.Show("Kindom data synchronize to web over!");
 
             }
             catch (Exception ex)
@@ -1247,25 +1337,36 @@ namespace KindomDataAPIServer.ViewModels
 
         private async Task Sync2CommandAction()
         {
-            IsEnable = false;
-            await Task.Run(() =>
-            {
-                try
-                {
-                    //KingdomAPI.Instance.CreateWellLogsToKindom();
-                    KingdomAPI.Instance.CreateOrUpdateWellLog("ZJ19H");
 
-                    
-                }
-                catch(Exception ex) 
+            if (KindomData == null)
+            {
+                DXMessageBox.Show("Please load kingdom project data first!");
+                return;
+            }
+
+            IsEnable = false;
+
+            try
+            {
+                ProgressValue = 0;
+                if (DownLoadDataVM.IsDownloadWellLog)
                 {
-                    LogManagerService.Instance.Log(ex.Message + ex.Message);
+                    List<WellLogData> getWellLogRequest = ApiConfig.welllogdata;
+                    await KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this);
                 }
-                finally
-                {
-                    IsEnable = true;
-                }
-            });
+                ProgressValue = 100;
+                LogManagerService.Instance.Log($"Web data synchronize to kindom over!");
+                DXMessageBox.Show("Web data synchronize to kindom over!");
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log(ex.Message + ex.Message);
+            }
+            finally
+            {
+                IsEnable = true;
+            }
+
         }
 
         public async Task NewLogDataSetCommandAction()

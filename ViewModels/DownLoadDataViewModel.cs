@@ -50,6 +50,27 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private bool _IsCheckAllWell = true;
+        public bool IsCheckAllWell
+        {
+            get
+            {
+                return _IsCheckAllWell;
+            }
+            set
+            {
+
+                SetProperty(ref _IsCheckAllWell, value, nameof(IsCheckAllWell));
+                if (Wells != null)
+                {
+                    foreach (var item in Wells)
+                    {
+                        item.IsChecked = _IsCheckAllWell;
+                    }
+                }
+            }
+        }
+
 
         public DelegateCommand DownloadToKingdomCommand => new DelegateCommand(() =>
         {

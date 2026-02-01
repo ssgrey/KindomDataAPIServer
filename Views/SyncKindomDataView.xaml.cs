@@ -3,6 +3,7 @@ using DevExpress.XtraSpreadsheet.Model;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.DataService;
 using KindomDataAPIServer.KindomAPI;
+using KindomDataAPIServer.Models;
 using KindomDataAPIServer.ViewModels;
 using Smt;
 using System;
@@ -31,11 +32,11 @@ namespace KindomDataAPIServer.Views
     {
         LogView logView = null;
         SyncKindomDataViewModel ViewModel = null;
-        App myApp = null;
-        public SyncKindomDataView(string[] args,App app)
+        ApiConfig apiData = null;
+        public SyncKindomDataView(string[] args)
         {
             InitializeComponent();
-            myApp = app;
+
             Ini(args);
             this.Loaded += SyncKindomDataView_Loaded;
         }
@@ -52,32 +53,32 @@ namespace KindomDataAPIServer.Views
 
                     LogManagerService.Instance.LogDebug("Web args:" +  decodedArgs);
 
-                    var apiData = Utils.ParseUri(decodedArgs);
+                    apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
-                    client.SetHeaders(apiData.Token, apiData.Tetproj);
-                    if (apiData.Port.Contains("30015"))
+                    client.SetHeaders(apiData.token, apiData.tetproj);
+                    if (apiData.port.Contains("30015"))
                     {
-                        client.SetBaseUrl($"http://{apiData.Ip}:{apiData.Port}/tet/");
+                        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
                     }
                     else
                     {
-                        client.SetBaseUrl($"https://{apiData.Ip}/tet/");
+                        client.SetBaseUrl($"https://{apiData.ip}/tet/");
                     }
                 }
                 else
                 {
                     string decodedArgs = File.ReadAllText("tempArgs.txt");
                     string joinedArgs = string.Join(" ", args);
-                    var apiData = Utils.ParseUri(decodedArgs);
+                    apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
-                    client.SetHeaders(apiData.Token, apiData.Tetproj);
-                    if (apiData.Port.Contains("30015"))
+                    client.SetHeaders(apiData.token, apiData.tetproj);
+                    if (apiData.port.Contains("30015"))
                     {
-                        client.SetBaseUrl($"http://{apiData.Ip}:{apiData.Port}/tet/");
+                        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
                     }
                     else
                     {
-                        client.SetBaseUrl($"https://{apiData.Ip}:{apiData.Port}/tet/");
+                        client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
                     }
                 }
             }
@@ -91,7 +92,7 @@ namespace KindomDataAPIServer.Views
         private void SyncKindomDataView_Loaded(object sender, RoutedEventArgs e)
         {
             //Waiter.DeferedVisibility = true;
-            ViewModel = new SyncKindomDataViewModel();
+            ViewModel = new SyncKindomDataViewModel(apiData);
             this.DataContext = ViewModel;
             //Waiter.DeferedVisibility = false;
         }

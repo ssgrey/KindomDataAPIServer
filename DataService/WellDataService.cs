@@ -343,11 +343,11 @@ namespace KindomDataAPIServer.DataService
         }
 
 
-        public async Task<KWellLogList> export_curve_batch_protobuf(GetWellLogRequest request)
+        public async Task<KWellLogList> export_curve_batch_protobuf(List<WellLogData> request)
         {
             try
             {
-                var url = _apiClient.BuildUrl("dp/api/export/curve/batch/protobuf");
+                var url = _apiClient.BuildUrl("datawizard/api/intelligent_logging/export/curve/batch/protobuf");
                 var json = JsonHelper.ToJson(request);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 

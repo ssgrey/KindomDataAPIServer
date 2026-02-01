@@ -276,6 +276,19 @@ namespace KindomDataAPIServer.Common
             }
             return -1;
         }
+
+        public static string GetWellNameOrUWIByWellID(string wellID, PbViewMetaObjectList WellIDandNameList)
+        {
+            if (WellIDandNameList != null && !string.IsNullOrEmpty(wellID))
+            {
+                var obj = WellIDandNameList.MetaObjects.FirstOrDefault(o => o.Id == wellID);
+                if (obj != null)
+                {
+                    return obj.Name;
+                }
+            }
+            return "";
+        }
     }
 }
 
