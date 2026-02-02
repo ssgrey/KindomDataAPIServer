@@ -100,7 +100,6 @@ namespace KindomDataAPIServer.ViewModels
                 if (ApiConfig.type == 0)
                 {
                     IsSyncToWeb = false;
-
                 }
                 else
                 {
@@ -119,14 +118,35 @@ namespace KindomDataAPIServer.ViewModels
                                 IsChecked = true,
                             };
                             DownLoadDataVM.Wells.Add(wellCheckItem);
-
+                          
                             foreach (var log in item.curveOptions)
                             {
-                                wellCheckItem.Children.Add(new WellCheckItem()
+                                var res = wellCheckItem.Children.FirstOrDefault(o => o.ID == log.datasetId);
+                                if (res == null)
                                 {
-                                    Name = log.name,
-                                    IsChecked = true,
-                                });
+                                    wellCheckItem.Children.Add(new WellCheckItem()
+                                    {
+                                        Name = log.datasetType,
+                                        ID = log.datasetId,
+                                        IsChecked = true,
+                                    });
+                                }
+                            }
+
+                            foreach (var child in wellCheckItem.Children)
+                            {
+                                foreach (var log in item.curveOptions)
+                                {
+                                    if (child.ID == log.datasetId)
+                                    {
+                                        WellCheckItem logItem = new WellCheckItem()
+                                        {
+                                            Name = log.name,
+                                            IsChecked = true,
+                                        };
+                                        child.Children.Add(logItem);
+                                    }
+                                }
                             }
                         }
                     }
@@ -1353,6 +1373,38 @@ namespace KindomDataAPIServer.ViewModels
                 DXMessageBox.Show("Please load kingdom project data first!");
                 return;
             }
+
+            if (DownLoadDataVM.Wells.Count == 0)
+            {
+                DXMessageBox.Show("Please select wells to synchronize!");
+                return;
+            }
+
+            if (DownLoadDataVM.IsDownloadWellLog)
+            {
+                foreach (var item in DownLoadDataVM.Wells)
+                {
+                    List<string> curvenames = new List<string>();
+                    foreach (var dataSet in item.Children)
+                    {
+                       foreach (var curve in dataSet.Children)
+                        {
+                            if (curve.IsChecked == true)
+                            {
+                                if (curvenames.Contains(curve.Name))
+                                {
+                                    DXMessageBox.Show($"Well {item.Name} has duplicate curve name {curve.Name}, please uncheck the repeat welllog which in different dataset!");
+                                    return;
+                                }
+                                curvenames.Add(curve.Name);
+                            }
+
+                        }
+                    }
+                }
+            }
+
+
 
             IsEnable = false;
 

@@ -2119,13 +2119,21 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
-        public async Task CreateWellLogsToKindom(List<WellLogData> wellLogDatas, ObservableCollection<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
+        public async Task CreateWellLogsToKindom(List<WellLogData> wellLogDatas_src, ObservableCollection<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
         {
             try
             {
+                List<WellLogData> wellLogDatas = new List<WellLogData>();
+                foreach (var item in wellLogDatas_src)
+                {
+                    var newItem = item.Clone();
+                    wellLogDatas.Add(newItem);
+                }
+
+
                 var wellDataService = ServiceLocator.GetService<IDataWellService>();
 
-                wellLogDatas = wellLogDatas.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o.wellId && a.IsChecked) != null).ToList();
+                wellLogDatas = wellLogDatas.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o.wellId && a.IsChecked!=false) != null).ToList();
                 int allWellCount = wellLogDatas.Count;
                 if(allWellCount == 0)
                 {
@@ -2148,49 +2156,66 @@ namespace KindomDataAPIServer.KindomAPI
                         LogManagerService.Instance.Log($"Well UWI {wellItem.Name} not found in Kingdom.");
                         continue;
                     }
+                    List<CurveOption> curveOptions = new List<CurveOption>();
+                    foreach (var item in wellLogData.curveOptions)
+                    {
+                        foreach (var dataSet in wellItem.Children)
+                        {
+                            if (dataSet.ID == item.datasetId)
+                            {
+                                foreach (var logItem in dataSet.Children)
+                                {
+                                    if(logItem.Name == item.name)
+                                    {
+                                        curveOptions.Add(item);
+                                    }
+                                }
+                            }
+                        }  
+                    }
+
+                    wellLogData.curveOptions = curveOptions;
+
                     var logList = await wellDataService.export_curve_batch_protobuf(new List<WellLogData>() { wellLogData });
+
+                    List<string> curvenames = new List<string>();
+
                     foreach (var log in logList.Items)
                     {
-                        Unit unit = null;
-                        using (var context = project.GetKingdom())
+                        if (curvenames.Contains(log.Curvename))
                         {
-                            unit = context.Get<Unit>(o => o.Name == log.Unit, false).FirstOrDefault();
-                        };
+                            LogManagerService.Instance.Log($"Well UWI {wellItem.Name} already has log curve {log.Curvename} imported, skipping duplicate.");
+                            continue;
+                        }
+                        curvenames.Add(log.Curvename);
 
+                        if (LogExist(log.Curvename, borehole.Id))
+                        {
+                            if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Ignore)
+                            {
+                                continue;
+                            }
+                            else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Rename)
+                            {
+                                log.Curvename = log.Curvename + "_A";
+                            }
+                            else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Overwrite)
+                            {
 
+                            }
+                        }
+                        int unitID = GetOrCreateUnit(log.Unit);
+                        int logTypeID = GetOrCreateLogTypeID(log.Curvetype);
+                        int logNameID = GetOrCreateLogNameID(log.Curvename, logTypeID);
                         LogData logData = new LogData(CRUDOption.CreateOrUpdate)
                         {
                             Borehole = borehole,
-                            LogCurveName = new LogCurveName
-                            {
-                                Name = log.Curvename,
-                                Abbreviation = log.Curvename,
-                                EntityCRUDOption = CRUDOption.CreateOrUpdate,
-                                LogType = new LogType(CRUDOption.CreateOrUpdate)
-                                {
-                                    Name = log.Curvetype,
-                                    Abbreviation = log.Curvetype,
-
-                                }
-                            },
+                            LogCurveNameId = logNameID,
                             DepthSampleRate = log.SampleRate,
                             StartDepth = log.StartDepth,
+                             UnitId = unitID,
                         };
-                        if (unit == null)
-                        {
-                            unit = new Unit
-                            {
-                                Name = log.Unit,
-                                EntityCRUDOption = CRUDOption.CreateOrUpdate,
-                            };
-                            logData.Unit = unit;
-                        }
-                        else
-                        {
-                            logData.UnitId = unit.Id;
-                        }
-
-
+                    
                         int dataCount = log.Samples.Count;
                         List<float> depths = new List<float>();
                         List<float> values = new List<float>();
@@ -2227,7 +2252,7 @@ namespace KindomDataAPIServer.KindomAPI
             {
                 resultdata = resultdata.Clone();
 
-                resultdata.wellIds = resultdata.wellIds.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o && a.IsChecked) != null).ToList();
+                resultdata.wellIds = resultdata.wellIds.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o && a.IsChecked != false) != null).ToList();
                 int allWellCount = resultdata.wellIds.Count;
                 if (allWellCount == 0)
                 {
@@ -2384,6 +2409,102 @@ namespace KindomDataAPIServer.KindomAPI
 
             return item.Id;
         }
+
+        private int GetOrCreateUnit(string  UnitName)
+        {
+            Unit item = null;
+            using (var context = project.GetKingdom())
+            {
+                item = context.Get<Unit>(o => o.Name == UnitName, false).FirstOrDefault();
+            };
+
+            if (item == null)
+            {
+                item = new Unit
+                {
+                    Name = UnitName,
+                    EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                };
+
+                using (var context = project.GetKingdom())
+                {
+                    context.AddObject(item);
+                    context.SaveChanges();
+                    item = context.Get<Unit>(o => o.Name == UnitName, false).FirstOrDefault();
+                }
+            }
+            return item.Id;
+        }
+
+
+        private int GetOrCreateLogTypeID(string Name)
+        {
+            LogType item = null;
+            using (var context = project.GetKingdom())
+            {
+                item = context.Get<LogType>(o => o.Name == Name, false).FirstOrDefault();
+            }
+            ;
+
+            if (item == null)
+            {
+                item = new LogType
+                {
+                    Name = Name,
+                    EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                };
+
+                using (var context = project.GetKingdom())
+                {
+                    context.AddObject(item);
+                    context.SaveChanges();
+                    item = context.Get<LogType>(o => o.Name == Name, false).FirstOrDefault();
+                }
+            }
+            return item.Id;
+        }
+
+        private int GetOrCreateLogNameID(string Name,int logTypeID)
+        {
+            LogCurveName item = null;
+            using (var context = project.GetKingdom())
+            {
+                item = context.Get<LogCurveName>(o => o.Name == Name, false).FirstOrDefault();
+            }
+    ;
+
+            if (item == null)
+            {
+                item = new LogCurveName
+                {
+                    Name = Name,
+                    Abbreviation = Name,
+                    EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                     LogTypeId = logTypeID,
+                };
+
+                using (var context = project.GetKingdom())
+                {
+                    context.AddObject(item);
+                    context.SaveChanges();
+                    item = context.Get<LogCurveName>(o => o.Name == Name, false).FirstOrDefault();
+                }
+            }
+            return item.Id;
+        }
+
+        private bool LogExist(string Name, int boreID)
+        {
+            LogData item = null;
+            using (var context = project.GetKingdom())
+            {
+                item = context.Get<LogData>(o => o.LogCurveName.Name == Name && o.BoreholeId == boreID, false).FirstOrDefault();
+            }
+            if (item != null)
+                return true;
+            return false;
+        }
+
 
         public bool CreateOrUpdateWellLog(string wellUWI)
         {

@@ -225,6 +225,7 @@
     <Compile Include="Common\JsonHelper.cs" />
     <Compile Include="Common\LogManagerService.cs" />
     <Compile Include="Common\MeasureUnit.cs" />
+    <Compile Include="Common\Options.cs" />
     <Compile Include="Common\ProtoHelper.cs" />
     <Compile Include="Common\Utils.cs" />
     <Compile Include="Controllers\DirectoryController.cs" />

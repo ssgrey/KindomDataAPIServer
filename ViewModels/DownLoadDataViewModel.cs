@@ -86,7 +86,20 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private FileWriteMode _FileWriteMode = FileWriteMode.Overwrite;
+        public FileWriteMode FileWriteMode
+        {
+            get
+            {
+                return _FileWriteMode;
+            }
+            set
+            {
 
+                SetProperty(ref _FileWriteMode, value, nameof(FileWriteMode));
+            }
+        }
+        
         public DelegateCommand DownloadToKingdomCommand => new DelegateCommand(() =>
         {
 

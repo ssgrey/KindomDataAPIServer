@@ -39,6 +39,13 @@ namespace KindomDataAPIServer.Models
         public string separator { get; set; }
         public string caseId { get; set; }
         public string tvus { get; set; }
+
+
+        public WellLogData Clone()
+        {
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(this);
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<WellLogData>(json);
+        }
     }
 
     public class CurveOption

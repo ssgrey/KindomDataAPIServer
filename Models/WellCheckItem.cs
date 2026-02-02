@@ -10,8 +10,8 @@ namespace KindomDataAPIServer.Models
 {
     public class WellCheckItem : BindableBase
     {
-        private bool _IsChecked = true;
-        public bool IsChecked
+        private bool? _IsChecked = true;
+        public bool? IsChecked
         {
             get
             {
