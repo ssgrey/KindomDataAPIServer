@@ -236,7 +236,20 @@ namespace KindomDataAPIServer.DataService
             }
 
         }
-        
+
+        public async Task<List<ResultRowResponse>> get_explain_well_log_list(ResultData resultdata)
+        {
+            try
+            {
+                _apiClient.SetHeaders_case_id(resultdata.caseId, " en-US");
+                return await _apiClient.PostAsync<ResultData, List<ResultRowResponse>>("datawizard/api/intelligent_logging/explain/get_explain_well_log_list", resultdata);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"get_explain_well_log_list: {ex.Message + ex.StackTrace}");
+                throw ex;
+            }
+        }
 
         public async Task<WellOperationResult>  batch_create_well_formation(PbWellFormationList pbWellFormationList)
         {

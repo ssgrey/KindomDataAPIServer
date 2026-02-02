@@ -98,6 +98,7 @@ namespace KindomDataAPIServer.DataService
 
                 var url = BuildUrl(endpoint);
                 var json = JsonHelper.ToJson(data);
+               //json = File.ReadAllText("tempjsonArgs2.txt");
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var response = await Client.PostAsync(url, content);
                 LogManagerService.Instance.LogDebug(url + "    " + response.StatusCode);
@@ -190,7 +191,36 @@ namespace KindomDataAPIServer.DataService
                 Client.DefaultRequestHeaders.Remove("tetproj");
             }
         }
+        public void SetHeaders_case_id(string case_id, string tetlocale)
+        {
+            if (!string.IsNullOrEmpty(case_id))
+            {
+                if (Client.DefaultRequestHeaders.Contains("Case_id"))
+                {
+                    Client.DefaultRequestHeaders.Remove("Case_id");
+                }
+                Client.DefaultRequestHeaders.Add("Case_id", $"{case_id}");//Bearer 
+            }
+            else
+            {
+                Client.DefaultRequestHeaders.Remove("Case_id");
+            }
 
+            if (!string.IsNullOrEmpty(tetlocale))
+            {
+                if (Client.DefaultRequestHeaders.Contains("Tet-locale"))
+                {
+                    Client.DefaultRequestHeaders.Remove("Tet-locale");
+                }
+                Client.DefaultRequestHeaders.Add("Tet-locale", $"{tetlocale}");//Bearer 
+            }
+            else
+            {
+                Client.DefaultRequestHeaders.Remove("Tet-locale");
+            }
+        }
+
+        
 
         public void SetBaseUrl(string baseUrl)
         {

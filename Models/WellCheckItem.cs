@@ -1,6 +1,7 @@
 ﻿using DevExpress.Mvvm;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,5 +25,7 @@ namespace KindomDataAPIServer.Models
 
         public string Name { get; set; }
         public string ID { get; set; }
+
+        public ObservableCollection<WellCheckItem> Children { get; set; } = new ObservableCollection<WellCheckItem>();       
     }
 }

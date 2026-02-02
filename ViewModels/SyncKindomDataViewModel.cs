@@ -104,6 +104,7 @@ namespace KindomDataAPIServer.ViewModels
                 else
                 {
                     IsSyncToWeb = true;
+                    DownLoadDataVM.WebProjectName = ApiConfig.projectname;
                     WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
                     if (ApiConfig.type == 1)
                     {
@@ -118,6 +119,15 @@ namespace KindomDataAPIServer.ViewModels
                                 IsChecked = true,
                             };
                             DownLoadDataVM.Wells.Add(wellCheckItem);
+
+                            foreach (var log in item.curveOptions)
+                            {
+                                wellCheckItem.Children.Add(new WellCheckItem()
+                                {
+                                    Name = log.name,
+                                    IsChecked = true,
+                                });
+                            }
                         }
                     }
                     else if (ApiConfig.type == 2)
@@ -1353,6 +1363,11 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     List<WellLogData> getWellLogRequest = ApiConfig.welllogdata;
                     await KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this);
+                }
+                else
+                {
+                    ResultData resultdata = ApiConfig.resultdata;
+                    await KingdomAPI.Instance.CreateWellIntervalsToKindom(resultdata,DownLoadDataVM.Wells, this);
                 }
                 ProgressValue = 100;
                 LogManagerService.Instance.Log($"Web data synchronize to kindom over!");

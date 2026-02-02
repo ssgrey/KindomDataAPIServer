@@ -194,4 +194,25 @@ namespace KindomDataAPIServer.Models
         public string CurveList { get; set; }
         public bool IsBuiltIn { get; set; }
     }
+
+
+    public class ResultRowResponse
+    {
+        public RowData row { get; set; }
+    }
+
+    public class RowData
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string WellName { get; set; }
+        public double Top { get; set; }
+        public double Bottom { get; set; }
+        public string Result { get; set; }
+        public double ThickNess { get; set; }
+        public double ANHYVariance { get; set; }
+        public double ANHYMin { get; set; }
+        public double COALVariance { get; set; }
+        public double COALMin { get; set; }
+    }
 }

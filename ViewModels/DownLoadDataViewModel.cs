@@ -32,6 +32,21 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private string _WebProjectName;
+        public string WebProjectName
+        {
+            get
+            {
+                return _WebProjectName;
+            }
+            set
+            {
+
+                SetProperty(ref _WebProjectName, value, nameof(WebProjectName));
+
+            }
+        }
+        
         public DownLoadDataViewModel(bool isDownloadWellLog)
         {
             IsDownloadWellLog = isDownloadWellLog;

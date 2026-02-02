@@ -627,9 +627,9 @@
                             <Label FontWeight="Bold" Width="Auto">
                                 <Label.Style>
                                     <Style TargetType="Label">
-                                        <Setter Property="Content" Value="Web WellLog Wells"></Setter>
+                                        <Setter Property="Content" Value="Web WellLog"></Setter>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDownloadWellLog}" Value="false">
+                                            <DataTrigger Binding="{Binding DownLoadDataVM.IsDownloadWellLog}" Value="false">
                                                 <Setter Property="Content" Value="Web Interval Wells"></Setter>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -649,8 +649,8 @@
                                     </Style>
                                 </StackPanel.Resources>
                                 <StackPanel Orientation="Horizontal">
-                                    <Label Content="Web Project:" Width="Auto"></Label>
-                                    <Label Content="{Binding WebProjectName}" Margin="5,0,0,0"></Label>
+                                    <Label Content="Project:" Width="Auto"></Label>
+                                    <Label Content="{Binding DownLoadDataVM.WebProjectName}" Margin="5,0,0,0"></Label>
                                 </StackPanel>
                             </StackPanel>
 
@@ -658,7 +658,18 @@
                                 <GroupBox.Header>
                                     <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
-                                <dxg:GridControl  Margin="0"  SelectionMode="Row" 
+
+                                <dxg:TreeViewControl x:Name="treeView"
+                                     ItemsSource="{Binding DownLoadDataVM.Wells}"
+                                     ShowBorder="False"
+                                     ShowCheckboxes="True"
+                                     AllowRecursiveNodeChecking="True"
+                                     ChildNodesPath="Children"
+                                     AutoExpandAllNodes="True"
+                                     TreeDerivationMode="ChildNodesSelector"
+                                     TreeViewFieldName="Name" >
+                                </dxg:TreeViewControl>
+                                <!--<dxg:GridControl  Margin="0"  SelectionMode="Row" 
                               ItemsSource="{Binding DownLoadDataVM.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
@@ -683,7 +694,7 @@
                       ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
                                         </dxg:TableView>
                                     </dxg:GridControl.View>
-                                </dxg:GridControl>
+                                </dxg:GridControl>-->
                             </GroupBox>
                         </Grid>
                     </GroupBox>

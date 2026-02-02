@@ -1,4 +1,5 @@
-﻿using DevExpress.Mvvm;
+﻿using DevExpress.ClipboardSource.SpreadsheetML;
+using DevExpress.Mvvm;
 using DevExpress.Spreadsheet.Functions;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Grid.Hierarchy;
@@ -2079,6 +2080,7 @@ namespace KindomDataAPIServer.KindomAPI
 
             return ConclusionNames;
         }
+
         /// <summary>
         /// 创建或更新井数据
         /// </summary>
@@ -2125,6 +2127,13 @@ namespace KindomDataAPIServer.KindomAPI
 
                 wellLogDatas = wellLogDatas.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o.wellId && a.IsChecked) != null).ToList();
                 int allWellCount = wellLogDatas.Count;
+                if(allWellCount == 0)
+                {
+                    LogManagerService.Instance.Log("No well logs selected for import.");
+                    syncKindomDataViewModel.ProgressValue = 100;
+                    return;
+                }
+
                 int index = 1;
                 foreach (var wellLogData in wellLogDatas)
                 {
@@ -2211,6 +2220,170 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
+
+        public async Task CreateWellIntervalsToKindom(ResultData resultdata, List<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
+        {
+            try
+            {
+                resultdata = resultdata.Clone();
+
+                resultdata.wellIds = resultdata.wellIds.Where(o => wellCheckItems.FirstOrDefault(a => a.ID == o && a.IsChecked) != null).ToList();
+                int allWellCount = resultdata.wellIds.Count;
+                if (allWellCount == 0)
+                {
+                    LogManagerService.Instance.Log("No well logs selected for import.");
+                    syncKindomDataViewModel.ProgressValue = 100;
+                    return;
+                }
+
+                var wellDataService = ServiceLocator.GetService<IDataWellService>();
+
+                int index = 1;
+                List<string> wellIDList = resultdata.wellIds.ToList();
+
+                foreach (var wellID in wellIDList)
+                {
+                    Borehole borehole = null;
+                    var wellItem = wellCheckItems.FirstOrDefault(o => o.ID == wellID);
+                    using (var context = project.GetKingdom())
+                    {
+                        borehole = context.Get<Borehole>(o => o.Uwi == wellItem.Name, false).FirstOrDefault();
+                    }
+                    ;
+                    if (borehole == null)
+                    {
+                        LogManagerService.Instance.Log($"Well UWI {wellItem.Name} not found in Kingdom.");
+                        continue;
+                    }
+                    resultdata.wellIds = new List<string>() { wellID };
+                    var resData = await wellDataService.get_explain_well_log_list(resultdata);
+
+                    if (resData.Count == 0)
+                        continue;
+                    IntervalName IntervalName =  GetOrCreateIntervalName(resData[0].row.Name);
+                    int arrtID = GetOrCreateIntervalAttribute(IntervalName);
+
+                    //foreach (var data in resData)
+                    //{
+
+                    //    IntervalRecord intervalRecord = new IntervalRecord()
+                    //    {
+                    //        Borehole = borehole,
+                    //        StartDepth = data.row.Top,
+                    //        EndDepth = data.row.Bottom,
+                    //    };
+                    //    intervalRecord.IntervalTextValues.Add(new IntervalTextValue()
+                    //    {
+                    //        IntervalAttributeId = arrtID,
+                    //        Value = data.row.Result,
+                    //    });
+                    //    IntervalName.IntervalRecords.Add(intervalRecord);
+                    //}
+                    List<IntervalRecord> intervalRecords = new List<IntervalRecord>();
+                    foreach (var data in resData)
+                    {
+
+                        IntervalRecord intervalRecord = new IntervalRecord()
+                        {
+                            Borehole = borehole,
+                            StartDepth = data.row.Top,
+                            EndDepth = data.row.Bottom,
+                            IntervalNameId = IntervalName.Id,
+                             EntityCRUDOption = CRUDOption.CreateOrUpdate
+                        };
+                        intervalRecord.IntervalTextValues.Add(new IntervalTextValue()
+                        {
+                            IntervalAttributeId = arrtID,
+                            Value = data.row.Result,
+                             EntityCRUDOption = CRUDOption.CreateOrUpdate
+                        });
+
+                         var record = intervalRecords.FirstOrDefault(o => o.NaturalKeyValues == intervalRecord.NaturalKeyValues);
+                        if(record==null)
+                        {
+                            intervalRecords.Add(intervalRecord);
+                        }
+                        else
+                        {
+
+                        }
+                    }
+
+                    using (var context = project.GetKingdom())
+                    {
+                        context.AddObjects(intervalRecords);
+                        context.SaveChanges();
+                    }
+
+                    syncKindomDataViewModel.ProgressValue += 100.0 * index / allWellCount;
+                    index++;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"CreateWellIntervalsToKindom failed: {ex.Message + ex.StackTrace}");
+            }
+
+
+        }
+
+        private IntervalName GetOrCreateIntervalName(string intervalName)
+        {
+            IntervalName item = null;
+            using (var context = project.GetKingdom())
+            {
+                item = context.Get<IntervalName>(o => o.Name == intervalName, false).FirstOrDefault();
+            };
+
+            if (item == null)
+            {
+                IntervalName IntervalName = new IntervalName
+                {
+                    Name = intervalName,
+                    EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                };
+
+                using (var context = project.GetKingdom())
+                {
+                    context.AddObject(IntervalName);
+                    context.SaveChanges();
+                    item = context.Get<IntervalName>(o => o.Name == intervalName, false).FirstOrDefault();
+                }
+            }
+
+            return item;
+        }
+
+        private int GetOrCreateIntervalAttribute(IntervalName IntervalName)
+        {
+            IntervalAttribute item = null;
+            using (var context = project.GetKingdom())
+            {
+                item = context.Get<IntervalAttribute>(o => o.Name == "Symbol"&& o.IntervalNameId == IntervalName.Id, false).FirstOrDefault();
+            };
+
+            if (item == null)
+            {
+                IntervalAttribute attr = new IntervalAttribute
+                {
+                    Name = "Symbol",
+                    IntervalName = IntervalName,
+                    IntervalAttributeType = AttributeType.Text, 
+                    ColumnIndex = 3,
+                    EntityCRUDOption = CRUDOption.CreateOrUpdate,
+                };
+
+                using (var context = project.GetKingdom())
+                {
+                    context.AddObject(attr);
+                    context.SaveChanges();
+                    item = context.Get<IntervalAttribute>(o => o.Name == "Symbol" && o.IntervalNameId == IntervalName.Id, false).FirstOrDefault();
+                }
+            }
+
+            return item.Id;
+        }
 
         public bool CreateOrUpdateWellLog(string wellUWI)
         {

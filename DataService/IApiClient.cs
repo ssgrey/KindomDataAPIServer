@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.UI.WebControls;
 
 namespace KindomDataAPIServer.DataService
 {
@@ -22,6 +23,8 @@ namespace KindomDataAPIServer.DataService
 
         // 配置相关
         void SetHeaders(string token, string projID);
+        void SetHeaders_case_id(string case_id,string tetlocale);
+        
         void SetBaseUrl(string baseUrl);
         void SetTimeout(TimeSpan timeout);
 

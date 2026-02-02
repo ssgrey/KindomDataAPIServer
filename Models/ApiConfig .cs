@@ -71,5 +71,22 @@ namespace KindomDataAPIServer.Models
         public List<string> curveNames { get; set; }
         public List<string> indicator { get; set; }
         public string datasetName { get; set; }
+
+        public ResultData Clone()
+        {
+            var clone = (ResultData)MemberwiseClone();
+
+            // 对于引用类型的集合，需要创建新的集合实例并复制元素
+            if (wellIds != null)
+                clone.wellIds = new List<string>(wellIds);
+
+            if (curveNames != null)
+                clone.curveNames = new List<string>(curveNames);
+
+            if (indicator != null)
+                clone.indicator = new List<string>(indicator);
+
+            return clone;
+        }
     }
 }
