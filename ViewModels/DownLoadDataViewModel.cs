@@ -52,8 +52,8 @@ namespace KindomDataAPIServer.ViewModels
             IsDownloadWellLog = isDownloadWellLog;
         }
 
-        private List<WellCheckItem> _Wells;
-        public List<WellCheckItem> Wells
+        private ObservableCollection<WellCheckItem> _Wells;
+        public ObservableCollection<WellCheckItem> Wells
         {
             get
             {

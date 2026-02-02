@@ -15,6 +15,7 @@ using Smt;
 using Smt.IO.LAS;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -104,12 +105,11 @@ namespace KindomDataAPIServer.ViewModels
                 else
                 {
                     IsSyncToWeb = true;
-                    DownLoadDataVM.WebProjectName = ApiConfig.projectname;
                     WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
                     if (ApiConfig.type == 1)
                     {
                         DownLoadDataVM = new DownLoadDataViewModel(true);
-                        DownLoadDataVM.Wells = new List<WellCheckItem>();
+                        DownLoadDataVM.Wells = new ObservableCollection<WellCheckItem>();
                         foreach (var item in ApiConfig.welllogdata)
                         {
                             WellCheckItem wellCheckItem = new WellCheckItem()
@@ -133,8 +133,7 @@ namespace KindomDataAPIServer.ViewModels
                     else if (ApiConfig.type == 2)
                     {
                         DownLoadDataVM = new DownLoadDataViewModel(false);
-
-                        DownLoadDataVM.Wells = new List<WellCheckItem>();
+                        DownLoadDataVM.Wells = new ObservableCollection<WellCheckItem>();
                         foreach (var item in ApiConfig.resultdata.wellIds)
                         {
                             WellCheckItem wellCheckItem = new WellCheckItem()
@@ -146,6 +145,7 @@ namespace KindomDataAPIServer.ViewModels
                             DownLoadDataVM.Wells.Add(wellCheckItem);
                         }
                     }
+                    DownLoadDataVM.WebProjectName = ApiConfig.projectname;
                 }
             }
             catch (Exception ex)

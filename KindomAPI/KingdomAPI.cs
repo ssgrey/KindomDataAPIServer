@@ -2119,7 +2119,7 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
-        public async Task CreateWellLogsToKindom(List<WellLogData> wellLogDatas, List<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
+        public async Task CreateWellLogsToKindom(List<WellLogData> wellLogDatas, ObservableCollection<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
         {
             try
             {
@@ -2221,7 +2221,7 @@ namespace KindomDataAPIServer.KindomAPI
         }
 
 
-        public async Task CreateWellIntervalsToKindom(ResultData resultdata, List<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
+        public async Task CreateWellIntervalsToKindom(ResultData resultdata, ObservableCollection<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
         {
             try
             {
