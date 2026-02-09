@@ -64,7 +64,7 @@ namespace KindomDataAPIServer.KindomAPI
                         return true;
                     }
                 }
-                return true;
+                return false;
             }
 
         }
@@ -80,7 +80,7 @@ namespace KindomDataAPIServer.KindomAPI
                         return true;
                     }
                 }
-                return true;
+                return false;
             }
 
         }
