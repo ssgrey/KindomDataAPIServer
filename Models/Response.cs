@@ -215,4 +215,6 @@ namespace KindomDataAPIServer.Models
         public double COALVariance { get; set; }
         public double COALMin { get; set; }
     }
+
+
 }

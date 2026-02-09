@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace KindomDataAPIServer.Models
 {
-    
+
     public class ApiConfig
     {
         public string token { get; set; }
@@ -16,16 +16,43 @@ namespace KindomDataAPIServer.Models
         public string port { get; set; }
         public string projectname { get; set; }
         public int type { get; set; }
+        public string caseId { get; set; }
+
+        /// <summary>
+        /// 网页传参
+        /// </summary>
+        public ConfigRequest welllogdata { get; set; }
+        public ConfigRequest resultdata { get; set; }
+
+
+
 
         //导出曲线参数  
-        public string caseId { get; set; }
-        public List<WellLogData> welllogdata { get; set; }
+        public List<WellLogData> welllogdataList { get; set; }
 
         //返回解释结论参数
+        public ResultConfig ResultConfig { get; set; }
+
+
+        public ResultData resultDataCongfig { get; set; }
+    }
+
+    public class ApiConfig2
+    {
+        public string token { get; set; }
+        public string tetproj { get; set; }
+        public string ip { get; set; }
+        public string port { get; set; }
+        public string projectname { get; set; }
+        public int type { get; set; }
+        public string caseId { get; set; }
+
+        //导出曲线参数  
+        public List<WellLogData> welllogdata { get; set; }
+
         public List<TableHeader> tableHeader { get; set; }
         public string unitSystem { get; set; }
         public ResultData resultdata { get; set; }
-
     }
 
     public class WellLogData
@@ -55,6 +82,9 @@ namespace KindomDataAPIServer.Models
         public int precision { get; set; }
         public string datasetId { get; set; }
         public string datasetType { get; set; }
+        public string dataSetName { get; set; }
+
+
     }
 
     public class WellLogInfo
@@ -95,5 +125,11 @@ namespace KindomDataAPIServer.Models
 
             return clone;
         }
+    }
+    public class ResultConfig
+    {
+        public List<TableHeader> tableHeader { get; set; }
+        public string unitSystem { get; set; }
+        public ResultData resultdata { get; set; }
     }
 }

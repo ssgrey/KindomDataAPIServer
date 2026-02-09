@@ -55,8 +55,12 @@ namespace KindomDataAPIServer.ViewModels
         public bool IsInitial { get; set; } = false;
         IDataWellService wellDataService = null;
 
-        public ApiConfig  ApiConfig { get; set; }    
-
+        public ApiConfig  ApiConfig { get; set; }
+        /// <summary>
+        /// 二次接口返回的参数 
+        /// </summary>
+        public ApiConfig2 ApiConfig2 { get; set; }
+      
         public KingdomAPI KingdomAPIInstance
         {
             get
@@ -104,12 +108,29 @@ namespace KindomDataAPIServer.ViewModels
                 else
                 {
                     IsSyncToWeb = true;
-                    WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
+
+                    ConfigRequest configRequest = ApiConfig.type == 1 ? ApiConfig.welllogdata : ApiConfig.resultdata;
+                    //先同时启动两个任务（不 await）
+                    var paraStrTask = wellDataService.get_style_content_by_category(configRequest);
+                    var wellListTask = wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(
+                        new string[] { "WellInformation" }
+                    );
+
+                    // 等待两个任务都完成
+                    await Task.WhenAll(paraStrTask, wellListTask);
+
+                    // 再取结果
+                    ApiConfig2 = await paraStrTask;
+                    WellIDandNameList = await wellListTask;
+
+                    //异步删除参数文件
+                    //_ = wellDataService.del_style_file(ApiConfig.welllogdata.ToDelConfigRequest());
+
                     if (ApiConfig.type == 1)
                     {
                         DownLoadDataVM = new DownLoadDataViewModel(true);
                         DownLoadDataVM.Wells = new ObservableCollection<WellCheckItem>();
-                        foreach (var item in ApiConfig.welllogdata)
+                        foreach (var item in ApiConfig2.welllogdata)
                         {
                             WellCheckItem wellCheckItem = new WellCheckItem()
                             {
@@ -126,7 +147,7 @@ namespace KindomDataAPIServer.ViewModels
                                 {
                                     wellCheckItem.Children.Add(new WellCheckItem()
                                     {
-                                        Name = log.datasetType,
+                                        Name = log.dataSetName,
                                         ID = log.datasetId,
                                         IsChecked = true,
                                     });
@@ -154,7 +175,7 @@ namespace KindomDataAPIServer.ViewModels
                     {
                         DownLoadDataVM = new DownLoadDataViewModel(false);
                         DownLoadDataVM.Wells = new ObservableCollection<WellCheckItem>();
-                        foreach (var item in ApiConfig.resultdata.wellIds)
+                        foreach (var item in ApiConfig2.resultdata.wellIds)
                         {
                             WellCheckItem wellCheckItem = new WellCheckItem()
                             {
@@ -862,8 +883,6 @@ namespace KindomDataAPIServer.ViewModels
         /// </summary>
         public void LoadConclusionFileNameObjAndTestUnits()
         {
-            if (Application.Current == null)
-                return;
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
                 ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
@@ -1413,12 +1432,12 @@ namespace KindomDataAPIServer.ViewModels
                 ProgressValue = 0;
                 if (DownLoadDataVM.IsDownloadWellLog)
                 {
-                    List<WellLogData> getWellLogRequest = ApiConfig.welllogdata;
+                    List<WellLogData> getWellLogRequest = ApiConfig2.welllogdata;
                     await KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this);
                 }
                 else
                 {
-                    ResultData resultdata = ApiConfig.resultdata;
+                    ResultData resultdata = ApiConfig2.resultdata;
                     await KingdomAPI.Instance.CreateWellIntervalsToKindom(resultdata,DownLoadDataVM.Wells, this);
                 }
                 ProgressValue = 100;

@@ -2142,9 +2142,13 @@ namespace KindomDataAPIServer.KindomAPI
                     return;
                 }
 
-                int index = 1;
+                int index = 0;
+                int SaveCurveCount = 0;
+                int ValidWellCount = 0;
                 foreach (var wellLogData in wellLogDatas)
                 {
+                    index++;
+                    LogManagerService.Instance.Log($"Processing well log for well ID {wellLogData.wellId} ({index}/{allWellCount})...");
                     Borehole borehole = null;
                     var wellItem = wellCheckItems.FirstOrDefault(o => o.ID == wellLogData.wellId);
                     using (var context = project.GetKingdom())
@@ -2179,7 +2183,14 @@ namespace KindomDataAPIServer.KindomAPI
                     var logList = await wellDataService.export_curve_batch_protobuf(new List<WellLogData>() { wellLogData });
 
                     List<string> curvenames = new List<string>();
-
+                    if(logList.Items.Count == 0)
+                    {
+                        LogManagerService.Instance.Log($"No log curves found for well UWI {wellItem.Name}, skipping.");
+                    }
+                    else
+                    {
+                        ValidWellCount++;
+                    }
                     foreach (var log in logList.Items)
                     {
                         if (curvenames.Contains(log.Curvename))
@@ -2233,11 +2244,13 @@ namespace KindomDataAPIServer.KindomAPI
                             context.AddObject(logData);
                             context.SaveChanges();
                         }
+                        SaveCurveCount++;
                     }
 
-                    syncKindomDataViewModel.ProgressValue += 100.0 * index / wellLogDatas.Count;
-                    index++;
+                    syncKindomDataViewModel.ProgressValue = 100.0 * index / wellLogDatas.Count;
                 }
+
+                LogManagerService.Instance.Log($"Finished importing well logs. {ValidWellCount} wells with valid logs, {SaveCurveCount} log curves saved to Kingdom.");
             }
             catch (Exception ex)
             {
@@ -2263,11 +2276,15 @@ namespace KindomDataAPIServer.KindomAPI
 
                 var wellDataService = ServiceLocator.GetService<IDataWellService>();
 
-                int index = 1;
+                int index = 0;
+                int SaveIntervalCount = 0;
+                int ValidWellCount = 0;
                 List<string> wellIDList = resultdata.wellIds.ToList();
-
                 foreach (var wellID in wellIDList)
                 {
+                    index++;
+                    LogManagerService.Instance.Log($"Processing well log for well ID {wellID} ({index}/{allWellCount})...");
+
                     Borehole borehole = null;
                     var wellItem = wellCheckItems.FirstOrDefault(o => o.ID == wellID);
                     using (var context = project.GetKingdom())
@@ -2285,25 +2302,11 @@ namespace KindomDataAPIServer.KindomAPI
 
                     if (resData.Count == 0)
                         continue;
+                    else
+                        ValidWellCount++;
                     IntervalName IntervalName =  GetOrCreateIntervalName(resData[0].row.Name);
                     int arrtID = GetOrCreateIntervalAttribute(IntervalName);
 
-                    //foreach (var data in resData)
-                    //{
-
-                    //    IntervalRecord intervalRecord = new IntervalRecord()
-                    //    {
-                    //        Borehole = borehole,
-                    //        StartDepth = data.row.Top,
-                    //        EndDepth = data.row.Bottom,
-                    //    };
-                    //    intervalRecord.IntervalTextValues.Add(new IntervalTextValue()
-                    //    {
-                    //        IntervalAttributeId = arrtID,
-                    //        Value = data.row.Result,
-                    //    });
-                    //    IntervalName.IntervalRecords.Add(intervalRecord);
-                    //}
                     List<IntervalRecord> intervalRecords = new List<IntervalRecord>();
                     foreach (var data in resData)
                     {
@@ -2333,17 +2336,17 @@ namespace KindomDataAPIServer.KindomAPI
 
                         }
                     }
-
+                    SaveIntervalCount += intervalRecords.Count;
                     using (var context = project.GetKingdom())
                     {
                         context.AddObjects(intervalRecords);
                         context.SaveChanges();
                     }
 
-                    syncKindomDataViewModel.ProgressValue += 100.0 * index / allWellCount;
-                    index++;
+                    syncKindomDataViewModel.ProgressValue = 100.0 * index / allWellCount;
                 }
 
+                LogManagerService.Instance.Log($"Finished importing well intervals. {ValidWellCount} wells with valid intervals, {SaveIntervalCount} intervals saved to Kingdom.");
             }
             catch (Exception ex)
             {
@@ -2440,11 +2443,15 @@ namespace KindomDataAPIServer.KindomAPI
         private int GetOrCreateLogTypeID(string Name)
         {
             LogType item = null;
+
+            if(string.IsNullOrWhiteSpace(Name))
+            {
+                Name = "Other";
+            }
             using (var context = project.GetKingdom())
             {
                 item = context.Get<LogType>(o => o.Name == Name, false).FirstOrDefault();
-            }
-            ;
+            };
 
             if (item == null)
             {

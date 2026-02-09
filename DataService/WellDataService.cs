@@ -93,6 +93,32 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
+        public async Task<ApiConfig2> get_style_content_by_category(ConfigRequest request)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<ConfigRequest, ApiConfig2>("dp/api/styleconfig/get_style_content_by_category", request);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"get_style_content_by_category: {ex.Message + ex.StackTrace}");
+                throw ex;
+            }
+        }
+
+        public async Task<bool> del_style_file(DelConfigRequest request)
+        {
+            try
+            {
+                return await _apiClient.PostAsync<DelConfigRequest, bool> ("dp/api/styleconfig/del_style_file", request);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"del_style_file: {ex.Message + ex.StackTrace}");
+                throw ex;
+            }
+        }
+
         public async Task<WellOperationResult> batch_create_well_header(WellDataRequest wellDataRequest)
          {
             try

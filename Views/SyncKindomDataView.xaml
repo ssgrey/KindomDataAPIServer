@@ -576,25 +576,25 @@
                 </Grid.Style>
                 <Grid Grid.Row="0" >
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="600"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <GroupBox Padding="0" Margin="0,0,5,0">
+                    <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0">
                         <GroupBox.Header>
                             <Label Content="Kindom Wells" FontWeight="Bold" Width="Auto"/>
                         </GroupBox.Header>
                         <dxg:GridControl  x:Name="tableWell2" Margin="0"  SelectionMode="Row" 
                                ItemsSource="{Binding KindomData.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
                             <dxg:GridControl.Columns>
-                                <dxg:GridColumn FieldName="Uwi"  Width="100"  Header="Uwi"  AllowColumnFiltering="False" AllowEditing="False">
+                                <dxg:GridColumn FieldName="Uwi"  Width="120"  Header="Uwi"  AllowColumnFiltering="False" AllowEditing="False">
                                 </dxg:GridColumn>
-                                <dxg:GridColumn FieldName="BoreholeName" Width="*"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
+                                <dxg:GridColumn FieldName="BoreholeName" Width="150"  Header="BoreholeName"  AllowColumnFiltering="False" AllowEditing="False">
                                 </dxg:GridColumn>
-                                <dxg:GridColumn FieldName="WellName" Width="*"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
+                                <dxg:GridColumn FieldName="WellName" Width="150"  Header="WellName"  AllowColumnFiltering="False" AllowEditing="False">
                                 </dxg:GridColumn>
-                                <dxg:GridColumn FieldName="WellNumber" Width="*"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
+                                <dxg:GridColumn FieldName="WellNumber" Width="150"  Header="WellNumber"  AllowColumnFiltering="False" AllowEditing="False">
                                 </dxg:GridColumn>
                                 <!--<dxg:GridColumn FieldName="SurfaceX" Width="120"  Header="SurfaceX"  AllowColumnFiltering="False" AllowEditing="False" Visible="{Binding ElementName=root,Path=DataContext.IsShowWellHeaderXY}">
                                 </dxg:GridColumn>
@@ -622,7 +622,7 @@
                             </dxg:GridControl.View>
                         </dxg:GridControl>
                     </GroupBox>
-                    <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0" Width="300" >
+                    <GroupBox Grid.Column="0" Padding="0" Margin="0,0,5,0" Width="300" >
                         <GroupBox.Header>
                             <Label FontWeight="Bold" Width="Auto">
                                 <Label.Style>
@@ -672,45 +672,67 @@
                                 <GroupBox.Header>
                                     <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
+                                <Grid>
+                                    <dxg:TreeViewControl x:Name="treeView" 
+                                ItemsSource="{Binding DownLoadDataVM.Wells}"
+                                ShowBorder="False"
+                                ShowCheckboxes="True"
+                                AllowRecursiveNodeChecking="True"
+                                ChildNodesPath="Children"
+                                AutoExpandAllNodes="True"
+                                ShowRootIndent="True" 
+                                 CheckBoxFieldName="IsChecked"
+                                TreeDerivationMode="ChildNodesSelector"
+                                TreeViewFieldName="Name" >
+                                        <dxg:TreeViewControl.Style>
+                                            <Style TargetType="dxg:TreeViewControl">
+                                                <Setter Property="Visibility" Value="Collapsed"></Setter>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DownLoadDataVM.IsDownloadWellLog}" Value="true">
+                                                        <Setter Property="Visibility" Value="Visible"></Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </dxg:TreeViewControl.Style>
+                                    </dxg:TreeViewControl>
 
-                                <dxg:TreeViewControl x:Name="treeView" 
-                                     ItemsSource="{Binding DownLoadDataVM.Wells}"
-                                     ShowBorder="False"
-                                     ShowCheckboxes="True"
-                                     AllowRecursiveNodeChecking="True"
-                                     ChildNodesPath="Children"
-                                     AutoExpandAllNodes="True"
-                                     ShowRootIndent="True" 
-                                      CheckBoxFieldName="IsChecked"
-                                     TreeDerivationMode="ChildNodesSelector"
-                                     TreeViewFieldName="Name" >
-                                </dxg:TreeViewControl>
-                                <!--<dxg:GridControl  Margin="0"  SelectionMode="Row" 
+                                    <dxg:GridControl  Margin="0"  SelectionMode="Row" 
                               ItemsSource="{Binding DownLoadDataVM.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
-                                    <dxg:GridControl.Columns>
-                                        <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
-                                       <dxg:GridColumn.HeaderTemplate>
-                                           <DataTemplate>
-                                                    <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=root,Path=DataContext.DownLoadDataVM.IsCheckAllWell, Mode=TwoWay}"></CheckBox>
-                                           </DataTemplate>
-                                       </dxg:GridColumn.HeaderTemplate>
-                                       <dxg:GridColumn.CellTemplate>
-                                           <DataTemplate>
-                                               <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
-                                           </DataTemplate>
-                                       </dxg:GridColumn.CellTemplate>
-                                   </dxg:GridColumn>
-                                        <dxg:GridColumn FieldName="Name" Width="*"  Header="Well Name"  AllowColumnFiltering="False" AllowEditing="False">
-                                        </dxg:GridColumn>
-                                    </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View>
-                                        <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
+                                        <dxg:GridControl.Style>
+                                            <Style TargetType="dxg:GridControl">
+                                                <Setter Property="Visibility" Value="Collapsed"></Setter>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DownLoadDataVM.IsDownloadWellLog}" Value="false">
+                                                        <Setter Property="Visibility" Value="Visible"></Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </dxg:GridControl.Style>
+                                        <dxg:GridControl.Columns>
+                                            <dxg:GridColumn  Width="27"  AllowColumnFiltering="False" >
+                                                <dxg:GridColumn.HeaderTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox HorizontalAlignment="Center" IsChecked="{Binding ElementName=root,Path=DataContext.DownLoadDataVM.IsCheckAllWell, Mode=TwoWay}"></CheckBox>
+                                                    </DataTemplate>
+                                                </dxg:GridColumn.HeaderTemplate>
+                                                <dxg:GridColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox HorizontalAlignment="Center" IsChecked="{Binding RowData.Row.IsChecked}"></CheckBox>
+                                                    </DataTemplate>
+                                                </dxg:GridColumn.CellTemplate>
+                                            </dxg:GridColumn>
+                                            <dxg:GridColumn FieldName="Name" Width="*"  Header="Well Name"  AllowColumnFiltering="False" AllowEditing="False">
+                                            </dxg:GridColumn>
+                                        </dxg:GridControl.Columns>
+                                        <dxg:GridControl.View>
+                                            <dxg:TableView VerticalScrollbarVisibility="Auto" HorizontalScrollbarVisibility="Auto" ShowIndicator="False" 
                        RowMinHeight="25"  ShowFilterPanelMode="Never"
                       NavigationStyle="Row"  
                       ShowGroupPanel="False"  AllowSorting="False"  AllowColumnMoving="False">
-                                        </dxg:TableView>
-                                    </dxg:GridControl.View>
-                                </dxg:GridControl>-->
+                                            </dxg:TableView>
+                                        </dxg:GridControl.View>
+                                    </dxg:GridControl>
+                                </Grid>
                             </GroupBox>
                         </Grid>
                     </GroupBox>

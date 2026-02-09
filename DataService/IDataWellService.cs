@@ -17,6 +17,11 @@ namespace KindomDataAPIServer.DataService
         Task<List<UnitType>> get_sys_unit();
         Task<List<LogDictItem>> get_log_dic();
         Task<List<UnitType>> get_sys_unit_by_measureid(List<int> typeIDs);
+
+        Task<ApiConfig2> get_style_content_by_category(ConfigRequest request);
+
+        Task<bool> del_style_file(DelConfigRequest request);
+
         Task<WellOperationResult> batch_create_well_header(WellDataRequest wellDataRequest);
         Task<List<ResultRowResponse>> get_explain_well_log_list(ResultData resultdata);
 

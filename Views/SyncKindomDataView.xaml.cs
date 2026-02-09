@@ -31,12 +31,12 @@ namespace KindomDataAPIServer.Views
     public partial class SyncKindomDataView : ThemedWindow
     {
         LogView logView = null;
-        SyncKindomDataViewModel ViewModel = null;
+        public SyncKindomDataViewModel ViewModel { set; get; }
         ApiConfig apiData = null;
-        public SyncKindomDataView(string[] args)
+        public SyncKindomDataView(string[] args, ApiConfig config)
         {
             InitializeComponent();
-
+            apiData = config;
             Ini(args);
             this.Loaded += SyncKindomDataView_Loaded;
         }
@@ -51,36 +51,36 @@ namespace KindomDataAPIServer.Views
                     string decodedArgs = System.Uri.UnescapeDataString(args[0]);
                     string joinedArgs = string.Join(" ", args);
 
-                    LogManagerService.Instance.LogDebug("Web args:" +  decodedArgs);
+                    LogManagerService.Instance.LogDebug("Web args:" + decodedArgs);
 
-                    apiData = Utils.ParseUri(decodedArgs);
-                    var client = ServiceLocator.GetService<IApiClient>();
-                    client.SetHeaders(apiData.token, apiData.tetproj);
-                    if (apiData.port.Contains("30015"))
-                    {
-                        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
-                    }
-                    else
-                    {
-                        client.SetBaseUrl($"https://{apiData.ip}/tet/");
-                    }
+                    //apiData = Utils.ParseUri(decodedArgs);
+                    //var client = ServiceLocator.GetService<IApiClient>();
+                    //client.SetHeaders(apiData.token, apiData.tetproj);
+                    //if (apiData.port.Contains("30015"))
+                    //{
+                    //    client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
+                    //}
+                    //else
+                    //{
+                    //    client.SetBaseUrl($"https://{apiData.ip}/tet/");
+                    //}
                 }
-                else
-                {
-                    string decodedArgs = File.ReadAllText("tempArgs.txt");
-                    string joinedArgs = string.Join(" ", args);
-                    apiData = Utils.ParseUri(decodedArgs);
-                    var client = ServiceLocator.GetService<IApiClient>();
-                    client.SetHeaders(apiData.token, apiData.tetproj);
-                    if (apiData.port.Contains("30015"))
-                    {
-                        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
-                    }
-                    else
-                    {
-                        client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
-                    }
-                }
+                //else
+                //{
+                //    string decodedArgs = File.ReadAllText("tempArgs.txt");
+                //    string joinedArgs = string.Join(" ", args);
+                //    apiData = Utils.ParseUri(decodedArgs);
+                //    var client = ServiceLocator.GetService<IApiClient>();
+                //    client.SetHeaders(apiData.token, apiData.tetproj);
+                //    if (apiData.port.Contains("30015"))
+                //    {
+                //        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
+                //    }
+                //    else
+                //    {
+                //        client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
+                //    }
+                //}
             }
             catch (Exception ex)
             {

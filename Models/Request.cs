@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace KindomDataAPIServer.Models
 {
-    using System.Collections.Generic;
+    using IHS.Kingdom.WellQuery.Models.Category;
     using Newtonsoft.Json;
+    using System.Collections.Generic;
 
     public class WellDataRequest
     {
@@ -359,5 +360,30 @@ namespace KindomDataAPIServer.Models
     public class GetWellLogRequest
     {
 
+    }
+
+    public class ConfigRequest
+    {
+        public string name { get; set; }
+        public string category { get; set; }
+        public string subcategory { get; set; }
+        public DelConfigRequest ToDelConfigRequest()
+        {
+            return new DelConfigRequest
+            {
+                Name = this.name,
+                Category = this.category,
+                Subcategory = this.subcategory,
+            };
+        }
+    }
+
+
+    public class DelConfigRequest
+    {
+        public string Name { get; set; }
+        public string Category { get; set; }
+        public string Subcategory { get; set; }
+        //public int styleFileId { get; set; }
     }
 }
