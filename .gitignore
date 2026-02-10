@@ -1,5 +1,10 @@
 /obj
 /bin
+/KindomDataAPIServer/obj
+/KindomDataAPIServer/packages
+/packages
+/Tet.GeoSymbol/obj
+/Tet.GeoSymbol/bin
 /.vs
 /.vs/KindomDataAPIServer/FileContentIndex
 /.vs/KindomDataAPIServer/v17

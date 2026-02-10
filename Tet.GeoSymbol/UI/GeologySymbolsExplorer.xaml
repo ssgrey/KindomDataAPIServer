@@ -1,0 +1,46 @@
+﻿<UserControl x:Class="Tet.GeoSymbol.UI.GeologySymbolsExplorer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm" xmlns:ViewModels="clr-namespace:Tet.GeoSymbol.UI"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800">
+<UserControl.DataContext>
+    <ViewModels:GeologySymbolsExplorerViewModel/>
+</UserControl.DataContext>
+ <Grid>
+        <DockPanel  LastChildFill="True">
+            <DockPanel.Resources>
+                <HierarchicalDataTemplate DataType= "{x:Type ViewModels:SymbolCatalog}"
+                                ItemsSource = "{Binding Path=Children}">
+                    <TextBlock Text="{Binding Path=Name}"/>
+                </HierarchicalDataTemplate>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded"  Value="True" />
+                </Style>
+            </DockPanel.Resources>
+            <TreeView x:Name="catalogTreeView" DockPanel.Dock="Left"  MinWidth="300" ItemsSource="{Binding Path=SymbolCatalogs}" SelectedItemChanged="OnSelectedSymbolCatalogChanged">
+            </TreeView>
+            <ListView Margin="5,0,0,0" ItemsSource="{Binding Path=CurrentCatalogSymbolDataList}" SelectedItem="{Binding SelectedGeoSymbolData}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="{Binding ItemColumns}" HorizontalAlignment="Stretch" Rows="{Binding ItemRows}" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <Image  Source="{Binding Image}" HorizontalAlignment="Left" />
+                          <StackPanel Orientation="Vertical" VerticalAlignment="Center"  Margin="9,0,0,0">
+                                <TextBlock Text="{Binding ID}"     />
+                                <TextBlock Text="{Binding Title}"  />
+                                <TextBlock Text="{Binding Name}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </DockPanel>
+ </Grid>
+</UserControl>
