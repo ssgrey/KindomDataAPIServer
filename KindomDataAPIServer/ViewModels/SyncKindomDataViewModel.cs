@@ -16,6 +16,7 @@ using Smt.IO.LAS;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -1456,6 +1457,8 @@ namespace KindomDataAPIServer.ViewModels
             try
             {
                 ProgressValue = 0;
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
                 if (DownLoadDataVM.IsDownloadWellLog)
                 {
                     List<WellLogData> getWellLogRequest = ApiConfig2.welllogdata;
@@ -1467,7 +1470,11 @@ namespace KindomDataAPIServer.ViewModels
                     await KingdomAPI.Instance.CreateWellIntervalsToKindom(resultdata,DownLoadDataVM.Wells, this);
                 }
                 ProgressValue = 100;
-                LogManagerService.Instance.Log($"Web data synchronize to kindom over!");
+                stopwatch.Stop();
+
+                var elapsed = stopwatch.Elapsed;
+                string elapsedMsg = stopwatch.Elapsed.ToString(@"hh\:mm\:ss\.fff");
+                LogManagerService.Instance.Log($"Web data synchronize to kindom over!" + elapsedMsg);
                 DXMessageBox.Show("Web data synchronize to kindom over!");
             }
             catch (Exception ex)

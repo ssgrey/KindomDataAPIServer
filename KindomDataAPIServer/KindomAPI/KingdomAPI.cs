@@ -16,6 +16,7 @@ using Smt.Entities;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Runtime.Remoting.Contexts;
@@ -44,6 +45,31 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
+
+        public KingdomAPI()
+        {
+            try
+            {
+                //构造函数
+                string OnceSyncWellCountStr = ConfigurationManager.AppSettings["OnceSyncWellCount"];
+                if (int.TryParse(OnceSyncWellCountStr, out int onceSyncWellCount))
+                {
+                    if (onceSyncWellCount < 1)
+                    {
+                        OnceSyncWellCount = 10;
+                    }
+                    else
+                    {
+                        OnceSyncWellCount = onceSyncWellCount;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"KingdomAPI constructor failed: {ex.Message}");
+            }
+            LogManagerService.Instance.Log($"OnceSyncWellCount:{OnceSyncWellCount}");
+        }
         private Project project = null;
         private string ProjectPath { get; set; } = "";
 
@@ -2118,6 +2144,7 @@ namespace KindomDataAPIServer.KindomAPI
             return true;
         }
 
+        public int OnceSyncWellCount { get; set; } = 10;
 
         public async Task CreateWellLogsToKindom(List<WellLogData> wellLogDatas_src, ObservableCollection<WellCheckItem> wellCheckItems, SyncKindomDataViewModel syncKindomDataViewModel)
         {
@@ -2145,21 +2172,25 @@ namespace KindomDataAPIServer.KindomAPI
                 int index = 0;
                 int SaveCurveCount = 0;
                 int ValidWellCount = 0;
-                foreach (var wellLogData in wellLogDatas)
+                List<WellLogData> singleParams = new List<WellLogData>();
+                Dictionary<string, Borehole> wellIDDict = new Dictionary<string, Borehole>();
+                for (int i = 0; i < wellLogDatas.Count; i++)
                 {
                     index++;
-                    LogManagerService.Instance.Log($"Processing well log for well ID {wellLogData.wellId} ({index}/{allWellCount})...");
+                    WellLogData wellLogData = wellLogDatas[i];
                     Borehole borehole = null;
                     var wellItem = wellCheckItems.FirstOrDefault(o => o.ID == wellLogData.wellId);
                     using (var context = project.GetKingdom())
                     {
                         borehole = context.Get<Borehole>(o => o.Uwi == wellItem.Name, false).FirstOrDefault();
                     };
-                    if(borehole==null)
+                    if (borehole == null)
                     {
                         LogManagerService.Instance.Log($"Well UWI {wellItem.Name} not found in Kingdom.");
                         continue;
                     }
+
+                    wellIDDict.Add(wellItem.ID, borehole);
                     List<CurveOption> curveOptions = new List<CurveOption>();
                     foreach (var item in wellLogData.curveOptions)
                     {
@@ -2169,86 +2200,222 @@ namespace KindomDataAPIServer.KindomAPI
                             {
                                 foreach (var logItem in dataSet.Children)
                                 {
-                                    if(logItem.Name == item.name)
+                                    if (logItem.Name == item.name)
                                     {
                                         curveOptions.Add(item);
                                     }
                                 }
                             }
-                        }  
+                        }
                     }
 
                     wellLogData.curveOptions = curveOptions;
-
-                    var logList = await wellDataService.export_curve_batch_protobuf(new List<WellLogData>() { wellLogData });
-
-                    List<string> curvenames = new List<string>();
-                    if(logList.Items.Count == 0)
+                    if(singleParams.Count < OnceSyncWellCount)
                     {
-                        LogManagerService.Instance.Log($"No log curves found for well UWI {wellItem.Name}, skipping.");
+                        singleParams.Add(wellLogData);
                     }
-                    else
+                   
+                    if((index == wellLogDatas.Count) || singleParams.Count == OnceSyncWellCount)// 达到批次上限或者最后一个井数据
                     {
-                        ValidWellCount++;
-                    }
-                    foreach (var log in logList.Items)
-                    {
-                        if (curvenames.Contains(log.Curvename))
+                        var logList = await wellDataService.export_curve_batch_protobuf(singleParams);
+
+                        Dictionary<string, List<string>> logCurvenames = new Dictionary<string, List<string>>();
+                        List<string> curvenames = new List<string>();
+                        if (logList.Items.Count == 0)
                         {
-                            LogManagerService.Instance.Log($"Well UWI {wellItem.Name} already has log curve {log.Curvename} imported, skipping duplicate.");
-                            continue;
+                            string wellNames = string.Join(", ", singleParams.Select(o => wellCheckItems.FirstOrDefault(a => a.ID == o.wellId)?.Name));
+                            LogManagerService.Instance.Log($"No log curves found for well UWI {wellNames}, skipping.");
                         }
-                        curvenames.Add(log.Curvename);
-
-                        if (LogExist(log.Curvename, borehole.Id))
+                        else
                         {
-                            if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Ignore)
+                            ValidWellCount++;
+                        }
+                        foreach (var log in logList.Items)
+                        {
+                            if (!wellIDDict.TryGetValue(log.Wellid, out Borehole boreholeGet))
                             {
+                                LogManagerService.Instance.Log($"No wellID {log.Wellid} _ boreholeId");
                                 continue;
                             }
-                            else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Rename)
-                            {
-                                log.Curvename = log.Curvename + "_A";
+                            if (!logCurvenames.ContainsKey(log.Wellid))
+                            {                               
+                                logCurvenames.Add(log.Wellid, new List<string>() { log.Curvename });
                             }
-                            else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Overwrite)
+                            else
                             {
+                                if (logCurvenames[log.Wellid].Contains(log.Curvename))
+                                {
+                                    LogManagerService.Instance.Log($"Well UWI {log.Wellname} already has log curve {log.Curvename} imported, skipping duplicate.");
+                                    continue;
+                                }
+                                else
+                                {
+                                    logCurvenames[log.Wellid].Add(log.Curvename);
+                                }
+                            }
 
-                            }
-                        }
-                        int unitID = GetOrCreateUnit(log.Unit);
-                        int logTypeID = GetOrCreateLogTypeID(log.Curvetype);
-                        int logNameID = GetOrCreateLogNameID(log.Curvename, logTypeID);
-                        LogData logData = new LogData(CRUDOption.CreateOrUpdate)
-                        {
-                            Borehole = borehole,
-                            LogCurveNameId = logNameID,
-                            DepthSampleRate = log.SampleRate,
-                            StartDepth = log.StartDepth,
-                             UnitId = unitID,
-                        };
-                    
-                        int dataCount = log.Samples.Count;
-                        List<float> depths = new List<float>();
-                        List<float> values = new List<float>();
-                        for (int i = 0; i < dataCount; i++)
-                        {
-                            if (log.Samples[i] != -999)
+
+                            if (LogExist(log.Curvename, boreholeGet.Id))
                             {
-                                depths.Add((float)(log.StartDepth + i * log.SampleRate));
-                                values.Add((float)log.Samples[i]);
+                                if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Ignore)
+                                {
+                                    continue;
+                                }
+                                else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Rename)
+                                {
+                                    log.Curvename = log.Curvename + "_A";
+                                }
+                                else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Overwrite)
+                                {
+
+                                }
                             }
+                            int unitID = GetOrCreateUnit(log.Unit);
+                            int logTypeID = GetOrCreateLogTypeID(log.Curvetype);
+                            int logNameID = GetOrCreateLogNameID(log.Curvename, logTypeID);
+                            LogData logData = new LogData(CRUDOption.CreateOrUpdate)
+                            {
+                                Borehole = boreholeGet,
+                                LogCurveNameId = logNameID,
+                                DepthSampleRate = log.SampleRate,
+                                StartDepth = log.StartDepth,
+                                UnitId = unitID,
+                            };
+
+                            int dataCount = log.Samples.Count;
+                            List<float> depths = new List<float>();
+                            List<float> values = new List<float>();
+                            for (int j = 0; j < dataCount; j++)
+                            {
+                                if (log.Samples[j] != -999)
+                                {
+                                    depths.Add((float)(log.StartDepth + j * log.SampleRate));
+                                    values.Add((float)log.Samples[j]);
+                                }
+                            }
+                            logData.SetLogDepthsAndValues(depths.ToArray(), values.ToArray());
+                            using (var context = project.GetKingdom())
+                            {
+                                context.AddObject(logData);
+                                context.SaveChanges();
+                            }
+
+                            LogManagerService.Instance.Log($"Well UWI {log.Wellname}  log curve {log.Curvename} has imported to kingdom sucessful.");
+                            SaveCurveCount++;
                         }
-                        logData.SetLogDepthsAndValues(depths.ToArray(), values.ToArray());
-                        using (var context = project.GetKingdom())
-                        {
-                            context.AddObject(logData);
-                            context.SaveChanges();
-                        }
-                        SaveCurveCount++;
+
+                        syncKindomDataViewModel.ProgressValue = 100.0 * index / wellLogDatas.Count;
+
+                        singleParams = new List<WellLogData>();
                     }
-
-                    syncKindomDataViewModel.ProgressValue = 100.0 * index / wellLogDatas.Count;
                 }
+                #region 
+                //foreach (var wellLogData in wellLogDatas)
+                //{
+                //    index++;
+                //    LogManagerService.Instance.Log($"Processing well log for well ID {wellLogData.wellId} ({index}/{allWellCount})...");
+                //    Borehole borehole = null;
+                //    var wellItem = wellCheckItems.FirstOrDefault(o => o.ID == wellLogData.wellId);
+                //    using (var context = project.GetKingdom())
+                //    {
+                //        borehole = context.Get<Borehole>(o => o.Uwi == wellItem.Name, false).FirstOrDefault();
+                //    };
+                //    if(borehole==null)
+                //    {
+                //        LogManagerService.Instance.Log($"Well UWI {wellItem.Name} not found in Kingdom.");
+                //        continue;
+                //    }
+                //    List<CurveOption> curveOptions = new List<CurveOption>();
+                //    foreach (var item in wellLogData.curveOptions)
+                //    {
+                //        foreach (var dataSet in wellItem.Children)
+                //        {
+                //            if (dataSet.ID == item.datasetId)
+                //            {
+                //                foreach (var logItem in dataSet.Children)
+                //                {
+                //                    if(logItem.Name == item.name)
+                //                    {
+                //                        curveOptions.Add(item);
+                //                    }
+                //                }
+                //            }
+                //        }  
+                //    }
+
+                //    wellLogData.curveOptions = curveOptions;
+
+                //    var logList = await wellDataService.export_curve_batch_protobuf(new List<WellLogData>() { wellLogData });
+
+                //    List<string> curvenames = new List<string>();
+                //    if(logList.Items.Count == 0)
+                //    {
+                //        LogManagerService.Instance.Log($"No log curves found for well UWI {wellItem.Name}, skipping.");
+                //    }
+                //    else
+                //    {
+                //        ValidWellCount++;
+                //    }
+                //    foreach (var log in logList.Items)
+                //    {
+                //        if (curvenames.Contains(log.Curvename))
+                //        {
+                //            LogManagerService.Instance.Log($"Well UWI {wellItem.Name} already has log curve {log.Curvename} imported, skipping duplicate.");
+                //            continue;
+                //        }
+                //        curvenames.Add(log.Curvename);
+
+                //        if (LogExist(log.Curvename, borehole.Id))
+                //        {
+                //            if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Ignore)
+                //            {
+                //                continue;
+                //            }
+                //            else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Rename)
+                //            {
+                //                log.Curvename = log.Curvename + "_A";
+                //            }
+                //            else if (syncKindomDataViewModel.DownLoadDataVM.FileWriteMode == FileWriteMode.Overwrite)
+                //            {
+
+                //            }
+                //        }
+                //        int unitID = GetOrCreateUnit(log.Unit);
+                //        int logTypeID = GetOrCreateLogTypeID(log.Curvetype);
+                //        int logNameID = GetOrCreateLogNameID(log.Curvename, logTypeID);
+                //        LogData logData = new LogData(CRUDOption.CreateOrUpdate)
+                //        {
+                //            Borehole = borehole,
+                //            LogCurveNameId = logNameID,
+                //            DepthSampleRate = log.SampleRate,
+                //            StartDepth = log.StartDepth,
+                //             UnitId = unitID,
+                //        };
+                    
+                //        int dataCount = log.Samples.Count;
+                //        List<float> depths = new List<float>();
+                //        List<float> values = new List<float>();
+                //        for (int i = 0; i < dataCount; i++)
+                //        {
+                //            if (log.Samples[i] != -999)
+                //            {
+                //                depths.Add((float)(log.StartDepth + i * log.SampleRate));
+                //                values.Add((float)log.Samples[i]);
+                //            }
+                //        }
+                //        logData.SetLogDepthsAndValues(depths.ToArray(), values.ToArray());
+                //        using (var context = project.GetKingdom())
+                //        {
+                //            context.AddObject(logData);
+                //            context.SaveChanges();
+                //        }
+                //        SaveCurveCount++;
+                //    }
+
+                //    syncKindomDataViewModel.ProgressValue = 100.0 * index / wellLogDatas.Count;
+                //}
+
+                #endregion
 
                 LogManagerService.Instance.Log($"Finished importing well logs. {ValidWellCount} wells with valid logs, {SaveCurveCount} log curves saved to Kingdom.");
             }
