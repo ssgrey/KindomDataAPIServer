@@ -304,8 +304,19 @@ namespace KindomDataAPIServer.ViewModels
                     {
                         KindomData = new ProjectResponse();
                         ProgressValue = 0;
-
                         KingdomAPI.Instance.SetProjectPath(_ProjectPath);
+
+                        var config = ConfigManager.LoadConfig(_ProjectPath);
+                        if (config != null)
+                        {
+                            DBUserName = config.Username;
+                            DBPassword = config.Password;
+                        }
+                        else
+                        {
+                            DBUserName = "";
+                            DBPassword = "";
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -328,7 +339,6 @@ namespace KindomDataAPIServer.ViewModels
             set
             {
                 SetProperty(ref _LogDicts, value, nameof(LogDicts));
-
             }
         }
         public List<LogSetInfo> _LogDataSets;
@@ -405,6 +415,21 @@ namespace KindomDataAPIServer.ViewModels
             {
 
                 SetProperty(ref _DBPassword, value, nameof(DBPassword));
+
+            }
+        }
+
+        private bool _IsRememberPassword = true;
+        public bool IsRememberPassword
+        {
+            get
+            {
+                return _IsRememberPassword;
+            }
+            set
+            {
+
+                SetProperty(ref _IsRememberPassword, value, nameof(IsRememberPassword));
 
             }
         }
@@ -777,6 +802,7 @@ namespace KindomDataAPIServer.ViewModels
                     Authors = res;
                     LoginName = Authors.FirstOrDefault();
                     LoginGridVisiable = Visibility.Collapsed;
+                   ConfigManager.SaveConfig(ProjectPath, DBUserName, DBPassword, IsRememberPassword);
                 }
                 else
                 {

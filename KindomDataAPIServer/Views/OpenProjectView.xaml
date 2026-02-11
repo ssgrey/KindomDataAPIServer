@@ -46,6 +46,7 @@
                 </Grid>
             </Grid>
             <Grid Grid.Row="1">
+                <CheckBox Content="Remember DB Info" IsChecked="{Binding IsRememberPassword}"></CheckBox>
                 <dx:SimpleButton Content="Login" Height="26"  Width="55" Command="{Binding LoginCommand}"   HorizontalAlignment="Right"  Margin="0,0,5,0"></dx:SimpleButton>
             </Grid>
         </Grid>

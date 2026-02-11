@@ -222,6 +222,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Common\ColorGenerator.cs" />
+    <Compile Include="Common\ConfigManager.cs" />
     <Compile Include="Common\JsonHelper.cs" />
     <Compile Include="Common\LogManagerService.cs" />
     <Compile Include="Common\MeasureUnit.cs" />
@@ -344,9 +345,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="tempjsonArgs2.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <None Include="tempjsonArgs2.txt" />
     <None Include="tempArgs.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
