@@ -1,0 +1,48 @@
+﻿<Window x:Class="KindomDataAPIServer.Views.LogServerView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
+        xmlns:local="clr-namespace:KindomDataAPIServer.Views"
+        mc:Ignorable="d" Closing="Window_Closing"
+        Title="Server Log" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
+            <Label Content="Log Days："  VerticalAlignment="Center" />
+            <dxe:SpinEdit x:Name="logDaysInput" Width="60" Margin="5,0" MinValue="0.00001" Value="0.1" ShowEditorButtons="False" />
+            <Button Content="Load" Click="Load_Click" Margin="0,0,5,0" />
+
+            <Label Content="Log Type："  VerticalAlignment="Center" Margin="100,0,0,0"/>
+            <dxe:ComboBoxEdit x:Name="logTypeInput" Width="120" Margin="5,0" IsTextEditable="False" EditValueChanged="logTypeInput_EditValueChanged">
+                <dxe:ComboBoxEdit.Items>
+                    <dxe:ComboBoxEditItem Content="ALL" Tag="-1" IsSelected="True"/>
+                    <dxe:ComboBoxEditItem Content="INFO" Tag="0"/>
+                    <dxe:ComboBoxEditItem Content="ERROR" Tag="1"/>
+                </dxe:ComboBoxEdit.Items>
+            </dxe:ComboBoxEdit>
+            
+        </StackPanel>
+        <Button Content="Export" Click="ExportLog_Click" Width="60" Height="26" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="5,0,10,0"></Button>
+        <RichTextBox Grid.Row="1"
+                    x:Name="logger"
+                    AcceptsReturn="True"
+                    Background="Transparent"
+                    FontFamily="Consolas"
+                    IsReadOnly="True"
+                    AcceptsTab="True"
+                    VerticalScrollBarVisibility="Visible">
+            <RichTextBox.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="Logger_Clean" Header="Clear" />
+                </ContextMenu>
+            </RichTextBox.ContextMenu>
+            <FlowDocument LineHeight="1" />
+        </RichTextBox>
+    </Grid>
+</Window>

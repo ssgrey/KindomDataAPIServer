@@ -1,4 +1,5 @@
 ﻿using KindomDataAPIServer.Models;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +30,7 @@ namespace KindomDataAPIServer.DataService
 
         Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest);
 
-         Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest);
+        Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest);
         Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest);
 
         Task<List<LogSetInfo>> get_dataset_list(string datasetType = "continuous");
@@ -47,5 +48,8 @@ namespace KindomDataAPIServer.DataService
         Task<WellOperationResult> batch_create_well_facies_with_meta_infos(CreatePayzoneRequest wellDataRequest);
 
         Task<KWellLogList> export_curve_batch_protobuf(List<WellLogData> request);
+
+        Task<string> get_intelligent_logging(double days);
+
     }
 }

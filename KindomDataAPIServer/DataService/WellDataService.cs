@@ -2,6 +2,7 @@
 using DevExpress.Utils.Drawing;
 using KindomDataAPIServer.Common;
 using KindomDataAPIServer.Models;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -277,6 +278,8 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
+
+
         public async Task<WellOperationResult>  batch_create_well_formation(PbWellFormationList pbWellFormationList)
         {
             try
@@ -410,8 +413,21 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
-        
 
+        public async Task<string> get_intelligent_logging(double days)
+        {
+            try
+            {
+                Dictionary<string, string> parameters = new Dictionary<string, string>();
+                parameters.Add("days", days.ToString());
+                return await _apiClient.GetAsync<string>("datawizard/api/intelligent_logging/log/range", parameters);
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"intelligent_logging: {ex.Message + ex.StackTrace}");
+                throw ex;
+            }
+        }
 
 
 

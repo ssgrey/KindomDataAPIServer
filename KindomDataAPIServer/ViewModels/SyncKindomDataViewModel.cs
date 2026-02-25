@@ -1462,7 +1462,7 @@ namespace KindomDataAPIServer.ViewModels
                 if (DownLoadDataVM.IsDownloadWellLog)
                 {
                     List<WellLogData> getWellLogRequest = ApiConfig2.welllogdata;
-                    await KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this);
+                    bool res = await KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this);
                 }
                 else
                 {

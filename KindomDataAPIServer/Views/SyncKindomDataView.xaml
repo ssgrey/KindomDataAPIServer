@@ -99,6 +99,7 @@
                     </dxb:BarSubItem>
                     <dxb:BarSubItem Content="Help" >
                         <dxb:BarButtonItem Content="Log" ItemClick="Log_ItemClick"/>
+                        <dxb:BarButtonItem Content="Server Log" ItemClick="ServerLog_ItemClick"/>
                         <!--<dxb:BarButtonItem Content="About" />-->
                     </dxb:BarSubItem>
                 </dxb:MainMenuControl>

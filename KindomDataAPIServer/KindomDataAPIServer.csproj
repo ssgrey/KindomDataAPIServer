@@ -264,6 +264,9 @@
     <Compile Include="Views\LogDatasetCreateView.xaml.cs">
       <DependentUpon>LogDatasetCreateView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\LogServerView.xaml.cs">
+      <DependentUpon>LogServerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\LogView.xaml.cs">
       <DependentUpon>LogView.xaml</DependentUpon>
     </Compile>
@@ -284,6 +287,10 @@
     <Page Include="Views\LogDatasetCreateView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\LogServerView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\LogView.xaml">
       <SubType>Designer</SubType>

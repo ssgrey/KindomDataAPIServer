@@ -142,5 +142,13 @@ namespace KindomDataAPIServer.Views
                 logView = new LogView();
            logView.Show();
         }
+
+        LogServerView logServerView = null;
+        private void ServerLog_ItemClick(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
+        {
+            if(logServerView == null)
+             logServerView = new LogServerView();
+            logServerView.Show();
+        }
     }
 }

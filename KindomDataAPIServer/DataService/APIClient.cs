@@ -1,5 +1,6 @@
 ﻿using KindomDataAPIServer.Common;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -65,7 +66,12 @@ namespace KindomDataAPIServer.DataService
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
+                    var content = await response.Content.ReadAsStringAsync();  
+                    if(typeof(T) == typeof(string))
+                    {
+                        OnRequestCompleted($"GET {endpoint} - 成功");
+                        return (T)(object)content;
+                    }
                     var result = JsonHelper.ConvertFrom<ResponseModel<T>>(content);
 
                     if (result.Success)
@@ -115,7 +121,7 @@ namespace KindomDataAPIServer.DataService
                 else
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
-                    throw new HttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent}");
+                    throw new HttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent} + Request json+ {json}" );
                 }
             }
             catch (Exception ex)
