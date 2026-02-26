@@ -44,6 +44,7 @@ namespace KindomDataAPIServer.Views
         {
             try
             {
+                root.IsEnabled = false;
                 var wellDataService = ServiceLocator.GetService<IDataWellService>();
                 double days = Convert.ToDouble(logDaysInput.Value);
                 var logStr = await wellDataService.get_intelligent_logging(days);
@@ -54,8 +55,10 @@ namespace KindomDataAPIServer.Views
             {
                 MessageBox.Show(ex.Message);
             }
-
-
+            finally
+            {
+                root.IsEnabled = true;
+            }
         }
 
         private void logTypeInput_EditValueChanged(object sender, DevExpress.Xpf.Editors.EditValueChangedEventArgs e)
@@ -74,7 +77,7 @@ namespace KindomDataAPIServer.Views
                 var logType = logTypeInput.Text;
                 string[] filteredLogs;
                 if (logType == "INFO")
-                {
+                {                   
                     filteredLogs = logs.Where(log => log.Contains($"[INFO ]")).ToArray();
                 }
                 else if (logType == "ERROR")

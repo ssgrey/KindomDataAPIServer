@@ -6,7 +6,7 @@
         xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
 xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
         xmlns:local="clr-namespace:KindomDataAPIServer.Views"
-        mc:Ignorable="d" Closing="Window_Closing"
+        mc:Ignorable="d" Closing="Window_Closing" x:Name="root"
         Title="Server Log" Height="450" Width="800">
     <Grid>
         <Grid.RowDefinitions>
