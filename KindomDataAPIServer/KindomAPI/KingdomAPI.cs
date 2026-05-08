@@ -351,7 +351,7 @@ namespace KindomDataAPIServer.KindomAPI
                 }
 
                 CurrentLoginName = loginName;
-                project.LogOn(CurrentLoginName);
+                project.LogOn(CurrentLoginName);              
                 return true;
             }
             catch (Exception ex)
@@ -2290,7 +2290,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                                 }
                             }
-                            int unitID = GetOrCreateUnit(log.Unit);
+                            int? unitID = GetOrCreateUnit(log.Unit);
                             int logTypeID = GetOrCreateLogTypeID(log.Curvetype);
                             int logNameID = GetOrCreateLogNameID(log.Curvename, logTypeID);
                             LogData logData = new LogData(CRUDOption.CreateOrUpdate)
@@ -2299,9 +2299,8 @@ namespace KindomDataAPIServer.KindomAPI
                                 LogCurveNameId = logNameID,
                                 DepthSampleRate = log.SampleRate,
                                 StartDepth = log.StartDepth,
-                                UnitId = unitID,
-                            };
-
+                                UnitId = unitID,                                
+                            };                          
                             int dataCount = log.Samples.Count;
                             List<float> depths = new List<float>();
                             List<float> values = new List<float>();
@@ -2761,8 +2760,10 @@ namespace KindomDataAPIServer.KindomAPI
             return item.Id;
         }
 
-        private int GetOrCreateUnit(string  UnitName)
+        private int? GetOrCreateUnit(string  UnitName)
         {
+            if (string.IsNullOrWhiteSpace(UnitName))
+                return null;
             Unit item = null;
             using (var context = project.GetKingdom())
             {
