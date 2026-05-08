@@ -2300,7 +2300,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 DepthSampleRate = log.SampleRate,
                                 StartDepth = log.StartDepth,
                                 UnitId = unitID,                                
-                            };                          
+                            };
                             int dataCount = log.Samples.Count;
                             List<float> depths = new List<float>();
                             List<float> values = new List<float>();
