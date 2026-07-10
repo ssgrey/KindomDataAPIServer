@@ -127,7 +127,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 OnRequestFailed($"POST {endpoint} - 失败: {ex.Message}");
-                throw ex;
+                throw;
             }
         }
 

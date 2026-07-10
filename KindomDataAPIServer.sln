@@ -29,8 +29,8 @@ Global
 		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Debug|ARM64.Build.0 = Debug|x64
 		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Release|Any CPU.ActiveCfg = TRelease|x64
 		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Release|Any CPU.Build.0 = TRelease|x64
-		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Release|ARM64.ActiveCfg = TRelease|x64
-		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Release|ARM64.Build.0 = TRelease|x64
+		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Release|ARM64.ActiveCfg = TRelease|Any CPU
+		{4A8E4F11-549D-45B6-88EF-A0F97A5ACD57}.Release|ARM64.Build.0 = TRelease|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

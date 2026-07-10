@@ -88,7 +88,7 @@ namespace KindomDataAPIServer.Common
                     };
                 }
 
-                if (userc.IsRememberPassword)
+                if (userc.IsRememberPassword && !UserConfigs.Contains(userc))
                 {
                     UserConfigs.Add(userc);
                 }

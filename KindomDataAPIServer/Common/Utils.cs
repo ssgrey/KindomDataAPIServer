@@ -204,13 +204,13 @@ namespace KindomDataAPIServer.Common
                 tryCount++;
                 project = new Project(path);
             }
-            catch (UnauthorizedAccessException ex)//有时候第一次会报这个错，再试一次就好了
+            catch (UnauthorizedAccessException)//有时候第一次会报这个错，再试一次就好了
             {
 
                 if (tryCount < 100)
                     goto start;
                 else
-                    throw ex;
+                    throw;
             }
             if (tryCount > 3)
             {

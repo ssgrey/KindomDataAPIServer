@@ -49,7 +49,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"获取所有井数据失败: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -62,7 +62,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"get_sys_unit: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -72,12 +72,12 @@ namespace KindomDataAPIServer.DataService
             {
                 Dictionary<string,object> keyValuePairs = new Dictionary<string,object>();
                 keyValuePairs.Add("builtInOnly", true);
-                return await _apiClient.PostAsync<Dictionary<string, object>, List<LogDictItem>>("dp/api/well_log/get_log_dic ", keyValuePairs);
+                return await _apiClient.PostAsync<Dictionary<string, object>, List<LogDictItem>>("dp/api/well_log/get_log_dic", keyValuePairs);
             }
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"get_log_dic: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -90,7 +90,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"get_sys_unit: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -103,7 +103,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"get_style_content_by_category: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -116,7 +116,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"del_style_file: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -268,13 +268,13 @@ namespace KindomDataAPIServer.DataService
         {
             try
             {
-                _apiClient.SetHeaders_case_id(resultdata.caseId, " en-US");
+                _apiClient.SetHeaders_case_id(resultdata.caseId, "en-US");
                 return await _apiClient.PostAsync<ResultData, List<ResultRowResponse>>("datawizard/api/intelligent_logging/explain/get_explain_well_log_list", resultdata);
             }
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"get_explain_well_log_list: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -311,7 +311,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"batch_create_well_formation: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 
@@ -346,7 +346,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"batch_create_well_log: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
         /// <summary>
@@ -425,7 +425,7 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log($"intelligent_logging: {ex.Message + ex.StackTrace}");
-                throw ex;
+                throw;
             }
         }
 

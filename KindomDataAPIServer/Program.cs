@@ -32,8 +32,8 @@ namespace KindomDataAPIServer
             try
             {
                 // 1. 尝试创建并获取互斥锁所有权
-                bool isFirstInstance = true;
-                //_appMutex = new Mutex(true, AppMutexName, out isFirstInstance);
+                bool isFirstInstance;
+                _appMutex = new Mutex(true, AppMutexName, out isFirstInstance);
                 if (isFirstInstance)
                 {
                     // 第一个实例：初始化服务并启动管道服务器
@@ -45,7 +45,7 @@ namespace KindomDataAPIServer
                     StartNamedPipeServer();
 
                     App app = new App();
-                    SyncKindomDataView MainWindow = new SyncKindomDataView(args, config);
+                    MainWindow = new SyncKindomDataView(args, config);
                     // 设置主窗口
                     Application.Current.MainWindow = MainWindow;
                     // 设置关闭模式为当主窗口关闭时退出
@@ -53,8 +53,8 @@ namespace KindomDataAPIServer
                     app.Run(MainWindow);
 
                     // 程序退出时释放Mutex
-                    //_appMutex.ReleaseMutex();
-                    //_appMutex.Dispose();
+                    _appMutex.ReleaseMutex();
+                    _appMutex.Dispose();
                 }
                 else
                 {
@@ -64,12 +64,14 @@ namespace KindomDataAPIServer
                     {
                         SendArgumentsToFirstInstance(args[0]);
                     }
+                    _appMutex.Dispose();
 
                     // 当前进程直接退出，不启动任何窗口
                 }
             }
             catch (Exception ex)
             {
+                _appMutex?.Dispose();
                 string msg = ex.StackTrace + ex.Message;
 
                 if (ex.InnerException != null)
