@@ -1974,21 +1974,6 @@ namespace KindomDataAPIServer.KindomAPI
 
                 using (var context = project.GetKingdom())
                 {
-                    var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),//具体行记录
-                     x => new
-                     {
-                         borehole = x.Borehole,
-                         boreholeId = x.BoreholeId,
-                         wellUWI = x.Borehole.Uwi,
-                         data = x,
-                         TextValues = x.IntervalTextValues,
-                         NumValues = x.IntervalNumericValues,
-                         IntervalName = x.IntervalName.Name,
-                     },
-                       x => BoreholeIds.Contains(x.BoreholeId),
-                     false).ToList();
-
-
                     var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
                              x => new
                              {
@@ -2001,42 +1986,59 @@ namespace KindomDataAPIServer.KindomAPI
                                x => true,
                              false).ToList();
 
-                    List<string> fileNames = IntervalRecords.Select(o => o.IntervalName).Distinct().ToList();
                     Dictionary<string, List<string>> dict = new Dictionary<string, List<string>>();
-                    foreach (var file in fileNames)
+                    var distinctBoreholeIds = BoreholeIds.Distinct().ToList();
+                    const int batchSize = 50;
+                    for (int i = 0; i < distinctBoreholeIds.Count; i += batchSize)
                     {
-                        dict.Add(file, new List<string>());
-                    }
+                        var batchBoreholeIds = distinctBoreholeIds.Skip(i).Take(batchSize).ToList();
+                        var IntervalRecords = context.Get(new Smt.Entities.IntervalRecord(),//具体行记录
+                         x => new
+                         {
+                             borehole = x.Borehole,
+                             boreholeId = x.BoreholeId,
+                             wellUWI = x.Borehole.Uwi,
+                             data = x,
+                             TextValues = x.IntervalTextValues,
+                             NumValues = x.IntervalNumericValues,
+                             IntervalName = x.IntervalName.Name,
+                         },
+                           x => batchBoreholeIds.Contains(x.BoreholeId),
+                         false).ToList();
 
-
-
-                    foreach (var interval in IntervalRecords)
-                    {
-                        if (interval.TextValues.Count > 0)
+                        foreach (var interval in IntervalRecords)
                         {
-                            foreach (var intervalTextValue in interval.TextValues)
+                            if (!dict.ContainsKey(interval.IntervalName))
                             {
-                                var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+                                dict.Add(interval.IntervalName, new List<string>());
+                            }
 
-                                if (attr != null && dict.ContainsKey(attr.FileName) && !dict[attr.FileName].Contains(attr.IntervalAttributeName))
+                            if (interval.TextValues.Count > 0)
+                            {
+                                foreach (var intervalTextValue in interval.TextValues)
                                 {
-                                    dict[attr.FileName].Add(attr.IntervalAttributeName);
+                                    var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+
+                                    if (attr != null && dict.ContainsKey(attr.FileName) && !dict[attr.FileName].Contains(attr.IntervalAttributeName))
+                                    {
+                                        dict[attr.FileName].Add(attr.IntervalAttributeName);
+                                    }
                                 }
                             }
-                        }
 
-                        if (interval.NumValues.Count > 0)
-                        {
-                            foreach (var intervalTextValue in interval.NumValues)
+                            if (interval.NumValues.Count > 0)
                             {
-                                var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
-                                if (attr != null && dict.ContainsKey(attr.FileName) && !dict[attr.FileName].Contains(attr.IntervalAttributeName))
+                                foreach (var intervalTextValue in interval.NumValues)
                                 {
-                                    dict[attr.FileName].Add(attr.IntervalAttributeName);
+                                    var attr = IntervalAttributes.FirstOrDefault(o => o.IntervalAttributeID == intervalTextValue.IntervalAttributeId);
+                                    if (attr != null && dict.ContainsKey(attr.FileName) && !dict[attr.FileName].Contains(attr.IntervalAttributeName))
+                                    {
+                                        dict[attr.FileName].Add(attr.IntervalAttributeName);
+                                    }
                                 }
                             }
-                        }
 
+                        }
                     }
 
 
