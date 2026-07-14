@@ -77,7 +77,7 @@
                                 <Style TargetType="dxb:BarButtonItem">
                                     <Setter Property="IsVisible" Value="True"/>
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsSyncToWeb}" Value="true">
+                                        <DataTrigger Binding="{Binding IsSyncToKingdom}" Value="true">
                                             <Setter Property="IsVisible" Value="False"/>
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -89,7 +89,7 @@
                                 <Style TargetType="dxb:BarButtonItem">
                                     <Setter Property="IsVisible" Value="False"/>
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsSyncToWeb}" Value="true">
+                                        <DataTrigger Binding="{Binding IsSyncToKingdom}" Value="true">
                                             <Setter Property="IsVisible" Value="True"/>
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -110,7 +110,7 @@
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsSyncToWeb}" Value="false">
+                            <DataTrigger Binding="{Binding IsSyncToKingdom}" Value="false">
                                 <Setter Property="Visibility" Value="Visible"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -128,7 +128,7 @@
                             <GroupBox Padding="0" Margin="0,0,5,0">
                                 <GroupBox.Header>
                                     <DockPanel LastChildFill="False">
-                                        <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
+                                        <Label Content="{Binding SelectedWellsCount}" ContentStringFormat="Wells ({0})" FontWeight="Bold" Width="Auto"/>
                                         <StackPanel Orientation="Horizontal" Margin="20,3,3,5">
                                             <Label Content="Subset" Width="Auto"  FontWeight="Bold" Margin="2,2,5,2"/>
                                             <dxe:ComboBoxEdit Width="220"
@@ -579,7 +579,7 @@
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Visible"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsSyncToWeb}" Value="false">
+                            <DataTrigger Binding="{Binding IsSyncToKingdom}" Value="false">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -595,7 +595,7 @@
                     <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0">
                         <GroupBox.Header>
                             <DockPanel LastChildFill="False">
-                                <Label Content="Kindom Wells" FontWeight="Bold" Width="Auto"/>
+                                <Label Content="{Binding SelectedWellsCount}" ContentStringFormat="Kindom Wells ({0})" FontWeight="Bold" Width="Auto"/>
                                 <StackPanel Orientation="Horizontal" Margin="20,3,3,5">
                                     <Label Content="Subset" Width="Auto"  FontWeight="Bold" Margin="2,2,5,2"/>
                                     <dxe:ComboBoxEdit Width="220"
@@ -691,7 +691,7 @@
 
                             <GroupBox Grid.Row="1" Padding="0" Margin="0,0,5,0" >
                                 <GroupBox.Header>
-                                    <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
+                                    <Label Content="{Binding DownLoadDataVM.SelectedWellsCount}" ContentStringFormat="Wells ({0})" FontWeight="Bold" Width="Auto"/>
                                 </GroupBox.Header>
                                 <Grid>
                                     <dxg:TreeViewControl x:Name="treeView" 

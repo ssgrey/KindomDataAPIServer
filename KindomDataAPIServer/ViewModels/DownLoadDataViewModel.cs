@@ -61,8 +61,86 @@ namespace KindomDataAPIServer.ViewModels
             }
             set
             {
+                UnsubscribeWells(_Wells);
                 SetProperty(ref _Wells, value, nameof(Wells));
+                SubscribeWells(_Wells);
+                RefreshSelectedWellsCount();
             }
+        }
+
+        private int _SelectedWellsCount;
+        public int SelectedWellsCount
+        {
+            get
+            {
+                return _SelectedWellsCount;
+            }
+            set
+            {
+                SetProperty(ref _SelectedWellsCount, value, nameof(SelectedWellsCount));
+            }
+        }
+
+        private void SubscribeWells(ObservableCollection<WellCheckItem> wells)
+        {
+            if (wells == null)
+            {
+                return;
+            }
+
+            wells.CollectionChanged += Wells_CollectionChanged;
+            foreach (var item in wells)
+            {
+                item.PropertyChanged += WellItem_PropertyChanged;
+            }
+        }
+
+        private void UnsubscribeWells(ObservableCollection<WellCheckItem> wells)
+        {
+            if (wells == null)
+            {
+                return;
+            }
+
+            wells.CollectionChanged -= Wells_CollectionChanged;
+            foreach (var item in wells)
+            {
+                item.PropertyChanged -= WellItem_PropertyChanged;
+            }
+        }
+
+        private void Wells_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (WellCheckItem item in e.OldItems)
+                {
+                    item.PropertyChanged -= WellItem_PropertyChanged;
+                }
+            }
+
+            if (e.NewItems != null)
+            {
+                foreach (WellCheckItem item in e.NewItems)
+                {
+                    item.PropertyChanged += WellItem_PropertyChanged;
+                }
+            }
+
+            RefreshSelectedWellsCount();
+        }
+
+        private void WellItem_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(WellCheckItem.IsChecked))
+            {
+                RefreshSelectedWellsCount();
+            }
+        }
+
+        private void RefreshSelectedWellsCount()
+        {
+            SelectedWellsCount = Wells?.Count(o => o.IsChecked == true) ?? 0;
         }
 
         private bool _IsCheckAllWell = true;
@@ -83,6 +161,7 @@ namespace KindomDataAPIServer.ViewModels
                         item.IsChecked = _IsCheckAllWell;
                     }
                 }
+                RefreshSelectedWellsCount();
             }
         }
 

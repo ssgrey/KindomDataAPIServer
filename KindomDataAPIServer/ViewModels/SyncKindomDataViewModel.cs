@@ -104,11 +104,11 @@ namespace KindomDataAPIServer.ViewModels
             {
                 if (ApiConfig.type == 0)
                 {
-                    IsSyncToWeb = false;
+                    IsSyncToKingdom = false;
                 }
                 else
                 {
-                    IsSyncToWeb = true;
+                    IsSyncToKingdom = true;
 
                     ConfigRequest configRequest = ApiConfig.type == 1 ? ApiConfig.welllogdata : ApiConfig.resultdata;
                     //先同时启动两个任务（不 await）
@@ -487,17 +487,17 @@ namespace KindomDataAPIServer.ViewModels
 
 
 
-        private bool _IsSyncToWeb = true;
-        public bool IsSyncToWeb
+        private bool _IsSyncToKingdom = true;
+        public bool IsSyncToKingdom
         {
             get
             {
-                return _IsSyncToWeb;
+                return _IsSyncToKingdom;
             }
             set
             {
 
-                SetProperty(ref _IsSyncToWeb, value, nameof(IsSyncToWeb));
+                SetProperty(ref _IsSyncToKingdom, value, nameof(IsSyncToKingdom));
 
             }
         }
@@ -544,7 +544,26 @@ namespace KindomDataAPIServer.ViewModels
             set
             {
                 SetProperty(ref _KindomData, value, nameof(KindomData));
+                RefreshSelectedWellsCount();
             }
+        }
+
+        private int _SelectedWellsCount;
+        public int SelectedWellsCount
+        {
+            get
+            {
+                return _SelectedWellsCount;
+            }
+            set
+            {
+                SetProperty(ref _SelectedWellsCount, value, nameof(SelectedWellsCount));
+            }
+        }
+
+        private void RefreshSelectedWellsCount()
+        {
+            SelectedWellsCount = KindomData?.Wells?.Count(o => o.IsChecked) ?? 0;
         }
 
         private bool _isLoadingKingdomWellSubsets;
@@ -761,7 +780,7 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        private bool _IsSyncConclusion = true;
+        private bool _IsSyncConclusion = false;
         public bool IsSyncConclusion
         {
             get
@@ -906,6 +925,13 @@ namespace KindomDataAPIServer.ViewModels
             try
             {
                 var wellSubsets = KingdomAPI.Instance.GetWellSubsets();
+                wellSubsets.Add(new WellSubsetOption
+                {
+                    Id = 0,
+                    Name = "No SubSet",
+                    IsNoSubset = true
+                });
+
                 Application.Current.Dispatcher.Invoke(new Action(() =>
                 {
                     KingdomWellSubsets = new ObservableCollection<WellSubsetOption>(wellSubsets);
@@ -966,6 +992,14 @@ namespace KindomDataAPIServer.ViewModels
         {
            if(e.PropertyName == "IsChecked")
             {
+                if (sender is WellExport well)
+                {
+                    SelectedWellsCount += well.IsChecked ? 1 : -1;
+                }
+                else
+                {
+                    RefreshSelectedWellsCount();
+                }
                 //延时执行
                 delayTimer.Stop();
                 delayTimer.Start();
@@ -1499,7 +1533,7 @@ namespace KindomDataAPIServer.ViewModels
                 return;
             }
 
-            if (DownLoadDataVM.Wells.Count == 0)
+            if (DownLoadDataVM == null || DownLoadDataVM.Wells.Count == 0)
             {
                 DXMessageBox.Show("Please select wells to synchronize!");
                 return;

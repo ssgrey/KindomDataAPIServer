@@ -526,7 +526,7 @@ namespace KindomDataAPIServer.KindomAPI
                 var mapUnit = project.MapUnit.ToString();
                 var verticalUnit = project.VerticalUnit.ToString();
                 List<int> subsetBoreholeIds = null;
-                if (wellSubset != null)
+                if (wellSubset != null && !wellSubset.IsNoSubset)
                 {
                     var wellSubsetManager = new IHS.Kingdom.WellQuery.WellSubsetManager(project);
                     var subset = wellSubsetManager.GetSubset(wellSubset.Id);
@@ -577,39 +577,39 @@ namespace KindomDataAPIServer.KindomAPI
 
                     var boreholeIds = boreholes.Select(b => b.BoreholeId).ToList();
 
-                    var digitalLogs = context.Get(new LogData(),
-                        x => new
-                        {
-                            LogData = x,
-                            LogCurveName = x.LogCurveName,
-                        },
-                        x => boreholeIds.Contains(x.BoreholeId),
-                        false).ToList();
+                    //var digitalLogs = context.Get(new LogData(),
+                    //    x => new
+                    //    {
+                    //        LogData = x,
+                    //        LogCurveName = x.LogCurveName,
+                    //    },
+                    //    x => boreholeIds.Contains(x.BoreholeId),
+                    //    false).ToList();
 
-                    var formations = context.Get(new FormationTopPick(),
-                            x => new
-                            {
-                                FormationTop = x,
-                                FormationTopName = x.FormationTopName
-                            },
-                            x => boreholeIds.Contains(x.BoreholeId),
-                            false).ToList();
+                    //var formations = context.Get(new FormationTopPick(),
+                    //        x => new
+                    //        {
+                    //            FormationTop = x,
+                    //            FormationTopName = x.FormationTopName
+                    //        },
+                    //        x => boreholeIds.Contains(x.BoreholeId),
+                    //        false).ToList();
 
 
                     var wells = new List<WellExport>();
                     foreach (var bh in boreholes)
                     {
-                        var logs = digitalLogs.Where(l => l.LogData.BoreholeId == bh.BoreholeId)
-                            .Select(l => new DigitalLogExport
-                            {
-                                Id = l.LogData.Id,
-                                Name = l.LogCurveName.Name,
-                                NameId = l.LogCurveName.Id,
-                                SampleRate = l.LogData.DepthSampleRate,
-                                StartDepth = l.LogData.StartDepth,
-                                Count = l.LogData.ValuesCount,
+                        //var logs = digitalLogs.Where(l => l.LogData.BoreholeId == bh.BoreholeId)
+                        //    .Select(l => new DigitalLogExport
+                        //    {
+                        //        Id = l.LogData.Id,
+                        //        Name = l.LogCurveName.Name,
+                        //        NameId = l.LogCurveName.Id,
+                        //        SampleRate = l.LogData.DepthSampleRate,
+                        //        StartDepth = l.LogData.StartDepth,
+                        //        Count = l.LogData.ValuesCount,
 
-                            }).ToList();
+                        //    }).ToList();
 
                         wells.Add(new WellExport
                         {
@@ -629,7 +629,7 @@ namespace KindomDataAPIServer.KindomAPI
                             Districts = bh.County,
                             MapUnit = mapUnit,
                             VerticalUnit = verticalUnit,
-                            DigitalLogs = logs
+                            //DigitalLogs = logs
                         });
                     }
 
@@ -669,54 +669,7 @@ namespace KindomDataAPIServer.KindomAPI
 
 
                     formationNames = formationNames.Where(o => !string.IsNullOrEmpty(o.Name)).ToList();
-#if DEBUG
 
-                    //var formationTopNames = context.Get(new FormationTopName(),
-                    // x => new 
-                    // {
-                    //     data = x,
-                    // },
-                    // x => true,
-                    // false).ToList();
-                    //var IntervalRecords = context.Get(new Smt.Entities.IntervalName(),
-                    // x => new
-                    // {
-                    //     data = x,
-                    //     attrs = x.IntervalAttributes
-                    // },
-                    // x => true,
-                    // false).ToList();
-
-                    //foreach (var intervalRecord in IntervalRecords)
-                    //{
-                    //    {
-                    //        foreach (var attr in intervalRecord.attrs)
-                    //        {
-                    //            var IntervalAttributes = context.Get(new Smt.Entities.IntervalAttribute(),
-                    //                    x => new
-                    //                    {
-                    //                        attrdata = x,
-                    //                        texts = x.IntervalTextValues
-                    //                    },
-                    //                    x => x.Id == attr.Id,
-                    //                    false).ToList();
-                    //        }
-
-                    //    }
-                    //}
-
-                    //var IntervalAttribute = context.Get(new Smt.Entities.IntervalRecord(),
-                    // x => new
-                    // {
-                    //     data = x,
-                    //     texts = x.IntervalTextValues,
-                    //     bore = x.Borehole
-                    // },
-                    //  x => true,
-                    // false).ToList();
-
-
-#endif
                     return new ProjectResponse
                     {
                         ProjectPath = this.ProjectPath,
