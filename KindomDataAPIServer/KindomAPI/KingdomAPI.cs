@@ -528,7 +528,7 @@ namespace KindomDataAPIServer.KindomAPI
                 List<int> subsetBoreholeIds = null;
                 if (wellSubset != null && !wellSubset.IsNoSubset)
                 {
-                    var wellSubsetManager = new IHS.Kingdom.WellQuery.WellSubsetManager(project);
+                    var wellSubsetManager = new IHS.Kingdom.WellQuery.WellSubsetManager(project);                   
                     var subset = wellSubsetManager.GetSubset(wellSubset.Id);
                     try
                     {
@@ -2054,7 +2054,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"GetColumnNameDict failed: {ex.Message + ex.StackTrace}");
+                LogManagerService.Instance.Log($"GetColumnNameDict failed: {ex.Message + ex.StackTrace} ");
             }
 
             return FileNameObjs;
