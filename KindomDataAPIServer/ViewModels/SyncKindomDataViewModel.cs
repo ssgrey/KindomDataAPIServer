@@ -303,7 +303,11 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     try
                     {
+                        _isLoadingKingdomWellSubsets = true;
                         KindomData = new ProjectResponse();
+                        KingdomWellSubsets = new ObservableCollection<WellSubsetOption>();
+                        SelectedKingdomWellSubset = null;
+                        _isLoadingKingdomWellSubsets = false;
                         ProgressValue = 0;
                         KingdomAPI.Instance.SetProjectPath(_ProjectPath);
 
@@ -321,6 +325,7 @@ namespace KindomDataAPIServer.ViewModels
                     }
                     catch (Exception ex)
                     {
+                        _isLoadingKingdomWellSubsets = false;
                         DXMessageBox.Show("Load project users failed ! please try select project path again!");
                         LogManagerService.Instance.Log("Load project users failed !" + ex.StackTrace + ex.Message);
                         return;
@@ -539,6 +544,51 @@ namespace KindomDataAPIServer.ViewModels
             set
             {
                 SetProperty(ref _KindomData, value, nameof(KindomData));
+            }
+        }
+
+        private bool _isLoadingKingdomWellSubsets;
+
+        private ObservableCollection<WellSubsetOption> _KingdomWellSubsets = new ObservableCollection<WellSubsetOption>();
+        public ObservableCollection<WellSubsetOption> KingdomWellSubsets
+        {
+            get
+            {
+                return _KingdomWellSubsets;
+            }
+            set
+            {
+                SetProperty(ref _KingdomWellSubsets, value, nameof(KingdomWellSubsets));
+            }
+        }
+
+        private WellSubsetOption _SelectedKingdomWellSubset;
+        public WellSubsetOption SelectedKingdomWellSubset
+        {
+            get
+            {
+                return _SelectedKingdomWellSubset;
+            }
+            set
+            {
+                if (value == null && KingdomWellSubsets != null && KingdomWellSubsets.Count > 0)
+                {
+                    var selectedSubset = _SelectedKingdomWellSubset ?? KingdomWellSubsets.FirstOrDefault();
+                    _SelectedKingdomWellSubset = null;
+                    SetProperty(ref _SelectedKingdomWellSubset, selectedSubset, nameof(SelectedKingdomWellSubset));
+                    return;
+                }
+
+                if (_SelectedKingdomWellSubset == value)
+                {
+                    return;
+                }
+
+                SetProperty(ref _SelectedKingdomWellSubset, value, nameof(SelectedKingdomWellSubset));
+                if (!_isLoadingKingdomWellSubsets && KindomData != null)
+                {
+                    Task.Run(() => LoadKingdomData());
+                }
             }
         }
         #region wellSetting
@@ -835,6 +885,7 @@ namespace KindomDataAPIServer.ViewModels
                     }
                     else
                     {
+                        LoadKingdomWellSubsets();
                         LoadKingdomData();
                     }
                     IsEnable = true;
@@ -849,18 +900,39 @@ namespace KindomDataAPIServer.ViewModels
 
 
 
+        private void LoadKingdomWellSubsets()
+        {
+            _isLoadingKingdomWellSubsets = true;
+            try
+            {
+                var wellSubsets = KingdomAPI.Instance.GetWellSubsets();
+                Application.Current.Dispatcher.Invoke(new Action(() =>
+                {
+                    KingdomWellSubsets = new ObservableCollection<WellSubsetOption>(wellSubsets);
+                    SelectedKingdomWellSubset = KingdomWellSubsets.FirstOrDefault();
+                }));
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log(ex.Message);
+                Application.Current.Dispatcher.Invoke(new Action(() =>
+                {
+                    KingdomWellSubsets = new ObservableCollection<WellSubsetOption>();
+                    SelectedKingdomWellSubset = null;
+                }));
+            }
+            finally
+            {
+                _isLoadingKingdomWellSubsets = false;
+            }
+        }
+
         private void LoadKingdomData()
         {
             try
             {
                 IsEnable = false;
-                KindomData = KingdomAPI.Instance.GetProjectData();
-                LoadConclusionFileNameObjAndTestUnits();
-
-                foreach (var item in KindomData.Wells)
-                {
-                    item.PropertyChanged += Item_PropertyChanged1;
-                }  
+                KindomData = KingdomAPI.Instance.GetProjectData(SelectedKingdomWellSubset);
                 if (KindomData == null)
                 {
                     Application.Current.Dispatcher.Invoke(new Action(() => {
@@ -869,6 +941,13 @@ namespace KindomDataAPIServer.ViewModels
                 }
                 else
                 {
+                    LoadConclusionFileNameObjAndTestUnits();
+
+                    foreach (var item in KindomData.Wells)
+                    {
+                        item.PropertyChanged += Item_PropertyChanged1;
+                    }
+
                     LogManagerService.Instance.Log($"Project {ProjectPath} Kindom data loading successful！");
                 }
             }

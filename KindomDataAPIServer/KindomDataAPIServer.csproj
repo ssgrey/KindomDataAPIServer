@@ -349,10 +349,16 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Resource Include="datapool.ico" />
-    <Content Include="LicenseClientImplx64.dll">
+    <Content Include="..\packages\KindomDLL\LicenseClientImplx64.dll">
+      <Link>LicenseClientImplx64.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="LicenseClientImplx86.dll">
+    <Content Include="..\packages\KindomDLL\LicenseClientImplx86.dll">
+      <Link>LicenseClientImplx86.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\packages\KindomDLL\LicenseClientResource.dll">
+      <Link>LicenseClientResource.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -127,7 +127,17 @@
                             </Grid.ColumnDefinitions>
                             <GroupBox Padding="0" Margin="0,0,5,0">
                                 <GroupBox.Header>
-                                    <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
+                                    <DockPanel LastChildFill="False">
+                                        <Label Content="Wells" FontWeight="Bold" Width="Auto"/>
+                                        <StackPanel Orientation="Horizontal" Margin="20,3,3,5">
+                                            <Label Content="Subset" Width="Auto"  FontWeight="Bold" Margin="2,2,5,2"/>
+                                            <dxe:ComboBoxEdit Width="220"
+                                                              NullText="Select Subset"
+                                                              ItemsSource="{Binding KingdomWellSubsets,Mode=OneWay}"
+                                                              SelectedItem="{Binding SelectedKingdomWellSubset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              DisplayMember="Name"/>
+                                        </StackPanel>
+                                    </DockPanel>
                                 </GroupBox.Header>
                                 <dxg:GridControl  x:Name="tableWell" Margin="0"  SelectionMode="Row" 
                                           ItemsSource="{Binding KindomData.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >
@@ -584,7 +594,17 @@
                     </Grid.ColumnDefinitions>
                     <GroupBox Grid.Column="1" Padding="0" Margin="0,0,5,0">
                         <GroupBox.Header>
-                            <Label Content="Kindom Wells" FontWeight="Bold" Width="Auto"/>
+                            <DockPanel LastChildFill="False">
+                                <Label Content="Kindom Wells" FontWeight="Bold" Width="Auto"/>
+                                <StackPanel Orientation="Horizontal" Margin="20,3,3,5">
+                                    <Label Content="Subset" Width="Auto"  FontWeight="Bold" Margin="2,2,5,2"/>
+                                    <dxe:ComboBoxEdit Width="220"
+                                                      NullText="Select Subset"
+                                                      ItemsSource="{Binding KingdomWellSubsets,Mode=OneWay}"
+                                                      SelectedItem="{Binding SelectedKingdomWellSubset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      DisplayMember="Name"/>
+                                </StackPanel>
+                            </DockPanel>
                         </GroupBox.Header>
                         <dxg:GridControl  x:Name="tableWell2" Margin="0"  SelectionMode="Row" 
                                ItemsSource="{Binding KindomData.Wells}"  ShowBorder="True" AllowInitiallyFocusedRow="True"  >

@@ -80,6 +80,19 @@ namespace KindomDataAPIServer.Models
         }
     }
 
+    public class WellSubsetOption
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public bool IsDynamic { get; set; }
+        public bool IsPublic { get; set; }
+
+        public override string ToString()
+        {
+            return Name;
+        }
+    }
+
     public class WellExport : BindableBase
     {
         private bool _IsChecked = true;

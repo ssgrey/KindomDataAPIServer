@@ -19,6 +19,7 @@ using System.Collections.ObjectModel;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Runtime.Remoting.Contexts;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -473,14 +474,87 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
-        public ProjectResponse GetProjectData()
+        public List<WellSubsetOption> GetWellSubsets()
+        {
+            try
+            {
+                var wsm = new IHS.Kingdom.WellQuery.WellSubsetManager(project);
+                var set1 = wsm.AllSubsetsLite.Select(s => new WellSubsetOption
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    IsDynamic = s.IsDynamic,
+                    IsPublic = s.IsPublic
+                }).ToList();
+                return set1;
+                //var kingdomDataStore = new IHS.Kingdom.WellQuery.KingdomSubsetDataStore(project);
+                //return kingdomDataStore.Load()
+                //    .Union(kingdomDataStore.WellSubsetsLite)
+                //    .Where(s => s != null && !string.IsNullOrEmpty(s.Name))
+                //    .GroupBy(s => s.Id)
+                //    .Select(g =>
+                //    {
+                //        var subset = g.First();
+                //        return new WellSubsetOption
+                //        {
+                //            Id = subset.Id,
+                //            Name = subset.Name,
+                //            IsDynamic = subset.IsDynamic,
+                //            IsPublic = subset.IsPublic
+                //        };
+                //    })
+                //    .OrderBy(s => s.Name)
+                //    .ToList();
+            }
+            catch (Exception ex)
+            {
+                string res = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    res += ex.InnerException.Message;
+                }
+                LogManagerService.Instance.Log(res + ex.StackTrace);
+            }
+
+            return new List<WellSubsetOption>();
+        }
+
+        public ProjectResponse GetProjectData(WellSubsetOption wellSubset = null)
         {
             try
             {
                 var mapUnit = project.MapUnit.ToString();
                 var verticalUnit = project.VerticalUnit.ToString();
+                List<int> subsetBoreholeIds = null;
+                if (wellSubset != null)
+                {
+                    var wellSubsetManager = new IHS.Kingdom.WellQuery.WellSubsetManager(project);
+                    var subset = wellSubsetManager.GetSubset(wellSubset.Id);
+                    try
+                    {
+                        subsetBoreholeIds = wellSubsetManager.GetBoreholeIds(subset)?.Distinct()?.ToList();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogManagerService.Instance.Log($"GetProjectData GetSubset failed: {ex.Message}");
+                        return new ProjectResponse()
+                        {
+                            ProjectPath = this.ProjectPath,
+                            MapUnit = mapUnit,
+                            VerticalUnit = verticalUnit,
+                            Wells = new List<WellExport>(),
+                            FormationNames = new List<CheckNameExport>(),
+                            LogNames = new List<CheckNameLog>()
+                        };
+                    }
+                }
+
                 using (var context = project.GetKingdom())
                 {
+                    Expression<Func<Borehole, bool>> boreholePredicate = subsetBoreholeIds == null
+                        ? (Expression<Func<Borehole, bool>>)(_ => true)
+                        : (b => subsetBoreholeIds.Contains(b.Id));
+
                     var boreholes = context.Get(new Borehole(), b => new
                     {
                         BoreholeId = b.Id,
@@ -498,7 +572,7 @@ namespace KindomDataAPIServer.KindomAPI
                         County = b.Well.County.Name,
                         Kb = b.Well.KBElevation
                     },
-                        _ => true,
+                        boreholePredicate,
                         false).ToList();
 
                     var boreholeIds = boreholes.Select(b => b.BoreholeId).ToList();
@@ -534,7 +608,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 SampleRate = l.LogData.DepthSampleRate,
                                 StartDepth = l.LogData.StartDepth,
                                 Count = l.LogData.ValuesCount,
-                               
+
                             }).ToList();
 
                         wells.Add(new WellExport
@@ -562,7 +636,7 @@ namespace KindomDataAPIServer.KindomAPI
 
 
                     var logNames = context.Get(new LogCurveName(),
-                        x => new 
+                        x => new
                         {
                             Name = x.Name,
                             LogType = x.LogType,
@@ -578,7 +652,7 @@ namespace KindomDataAPIServer.KindomAPI
                             Name = logName.Name,
                         };
                         checkNameLog.LogType = Utils.GetLogDictByName(logName.LogType.Name, logName.Name);
-                        checkNameLog.UnitID = checkNameLog.LogType == null? 0: checkNameLog.LogType.DbUnit;
+                        checkNameLog.UnitID = checkNameLog.LogType == null ? 0 : checkNameLog.LogType.DbUnit;
                         checklogs.Add(checkNameLog);
                     }
 
@@ -652,8 +726,7 @@ namespace KindomDataAPIServer.KindomAPI
                         FormationNames = formationNames,
                         LogNames = checklogs
                     };
-                }
-
+                }               
             }
             catch (Exception ex)
             {
