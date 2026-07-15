@@ -98,6 +98,7 @@
                         </dxb:BarButtonItem>
                     </dxb:BarSubItem>
                     <dxb:BarSubItem Content="Help" >
+                        <dxb:BarButtonItem x:Name="advancedSettingsItem" Content="Advanced Settings" ItemClick="AdvancedSettings_ItemClick" />
                         <dxb:BarButtonItem Content="Log" ItemClick="Log_ItemClick"/>
                         <dxb:BarButtonItem Content="Server Log" ItemClick="ServerLog_ItemClick"/>
                         <!--<dxb:BarButtonItem Content="About" />-->

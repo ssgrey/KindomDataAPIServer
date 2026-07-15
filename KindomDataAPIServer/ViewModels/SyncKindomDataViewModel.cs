@@ -519,6 +519,86 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
+        private class SyncProgressStep
+        {
+            public string Name { get; set; }
+            public double Start { get; set; }
+            public double End { get; set; }
+        }
+
+        private List<SyncProgressStep> _syncProgressSteps = new List<SyncProgressStep>();
+        private SyncProgressStep _currentSyncProgressStep;
+
+        private void InitializeSyncProgressPlan()
+        {
+            _syncProgressSteps = new List<SyncProgressStep>();
+            List<string> stepNames = new List<string>();
+
+            if (IsSyncWellHeader)
+                stepNames.Add("WellHeader");
+            if (IsSyncWellFormation)
+                stepNames.Add("WellFormation");
+            if (IsSyncTrajectory)
+                stepNames.Add("WellTrajs");
+            if (IsSyncProduction)
+                stepNames.Add("WellProduction");
+            if (IsSyncIPProduction)
+                stepNames.Add("WellTest");
+            if (IsSyncWellLog)
+                stepNames.Add("WellLogs");
+            if (IsSyncConclusion)
+                stepNames.Add("WellConclusions");
+
+            if (stepNames.Count == 0)
+            {
+                ProgressValue = 0;
+                return;
+            }
+
+            double stepSize = 100.0 / stepNames.Count;
+            for (int i = 0; i < stepNames.Count; i++)
+            {
+                _syncProgressSteps.Add(new SyncProgressStep
+                {
+                    Name = stepNames[i],
+                    Start = i * stepSize,
+                    End = i == stepNames.Count - 1 ? 100 : (i + 1) * stepSize
+                });
+            }
+
+            ProgressValue = 0;
+        }
+
+        private void StartSyncProgressStep(string stepName)
+        {
+            _currentSyncProgressStep = _syncProgressSteps.FirstOrDefault(o => o.Name == stepName);
+            if (_currentSyncProgressStep != null && ProgressValue < _currentSyncProgressStep.Start)
+            {
+                ProgressValue = _currentSyncProgressStep.Start;
+            }
+        }
+
+        public void ReportCurrentStepProgress(double percent)
+        {
+            if (_currentSyncProgressStep == null)
+            {
+                return;
+            }
+
+            percent = Math.Max(0, Math.Min(100, percent));
+            double value = _currentSyncProgressStep.Start + (_currentSyncProgressStep.End - _currentSyncProgressStep.Start) * percent / 100.0;
+            if (value > ProgressValue)
+            {
+                ProgressValue = value;
+            }
+        }
+
+        private void CompleteSyncProgressStep()
+        {
+            ReportCurrentStepProgress(100);
+            _currentSyncProgressStep = null;
+        }
+
         private Visibility _LoginGridVisiable = Visibility.Visible;
         public Visibility LoginGridVisiable
         {
@@ -754,7 +834,7 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        private bool _IsSyncProduction = true;
+        private bool _IsSyncProduction = false;
         public bool IsSyncProduction
         {
             get
@@ -767,7 +847,7 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        private bool _IsSyncIPProduction = true;
+        private bool _IsSyncIPProduction = false;
         public bool IsSyncIPProduction
         {
             get
@@ -1142,6 +1222,7 @@ namespace KindomDataAPIServer.ViewModels
             {
 
                 ProgressValue = 0;
+                InitializeSyncProgressPlan();
                 LogManagerService.Instance.Log($"Kindom Data Synchronization start.");
 
                 #region 读取井列表
@@ -1213,83 +1294,68 @@ namespace KindomDataAPIServer.ViewModels
 
                 if (IsSyncWellHeader)
                 {
-                    var res = await wellDataService.batch_create_well_header(wellDataRequest);
-                    if (res != null)
+                    StartSyncProgressStep("WellHeader");
+                    int wellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
+                    int wellHeaderCount = wellDataRequest.Items.Count;
+                    if (wellHeaderCount > wellHeaderBatchSize)
                     {
+                        int batchCount = (wellHeaderCount + wellHeaderBatchSize - 1) / wellHeaderBatchSize;
+                        LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) start synchronize by {batchCount} batches, batch size:{wellHeaderBatchSize}.");
+                        for (int batchIndex = 0; batchIndex < batchCount; batchIndex++)
+                        {
+                            WellDataRequest batchRequest = new WellDataRequest()
+                            {
+                                OverWriteFlag = wellDataRequest.OverWriteFlag,
+                                Items = wellDataRequest.Items.Skip(batchIndex * wellHeaderBatchSize).Take(wellHeaderBatchSize).ToList()
+                            };
+                            var res = await wellDataService.batch_create_well_header(batchRequest);
+                            if (res != null)
+                            {
 
+                            }
+                            int syncedCount = Math.Min((batchIndex + 1) * wellHeaderBatchSize, wellHeaderCount);
+                            ReportCurrentStepProgress(syncedCount * 100.0 / wellHeaderCount);
+                            LogManagerService.Instance.Log($"WellHeader batch {batchIndex + 1}/{batchCount}({batchRequest.Items.Count}) synchronized. Synced {syncedCount}/{wellHeaderCount}");
+                        }
                     }
-                    LogManagerService.Instance.Log($"WellHeader({wellDataRequest.Items.Count}) synchronize over！");
-                }
+                    else
+                    {
+                        var res = await wellDataService.batch_create_well_header(wellDataRequest);
+                        if (res != null)
+                        {
 
-                ProgressValue = 10;
+                        }
+                    }
+                    CompleteSyncProgressStep();
+                    LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) synchronize over！");
+                }
 
                
                 WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
-
+                //井分层
                 if (IsSyncWellFormation)
                 {
-                    PbWellFormationList pbWellFormationList = KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList);
-
-                    var tsk3 = await wellDataService.batch_create_well_formation(pbWellFormationList);
-
-                    if (tsk3 != null)
-                    {
-                    }
-                    ProgressValue = 20;
-                    LogManagerService.Instance.Log($"WellFormation({pbWellFormationList.Datas.Count}) synchronize over！");
+                    StartSyncProgressStep("WellFormation");
+                    int wellFormationCount = await KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList, this);
+                    CompleteSyncProgressStep();
+                    LogManagerService.Instance.Log($"WellFormation({wellFormationCount}) synchronize over.");
 
                 }
 
                 #region 井轨迹
                 if (IsSyncTrajectory)
                 {
-                    LogManagerService.Instance.Log($"WellTrajs start synchronize！");
-
-                    List<WellTrajData> AllwellTrajs = KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList);
-
-                    if (AllwellTrajs.Count > 0)
-                    {
-                        int AllwellTrajsCount = AllwellTrajs.Count;
-                        List<WellTrajRequest> tempList = new List<WellTrajRequest>();
-                        WellTrajRequest wellTrajRequest = null;
-                        for (int i = 0; i < AllwellTrajsCount; i++)
-                        {
-                            if (i % 3 == 0)
-                            {
-                                wellTrajRequest = new WellTrajRequest();
-                                tempList.Add(wellTrajRequest);
-                                wellTrajRequest.Items.Add(AllwellTrajs[i]);
-                            }
-                            else
-                            {
-                                wellTrajRequest.Items.Add(AllwellTrajs[i]);
-                            }
-                        }
-                        for (int i = 0; i < tempList.Count; i++)
-                        {
-                            var res4 = await wellDataService.batch_create_well_trajectory_with_meta_infos(tempList[i]);
-                            if (res4 != null)
-                            {
-
-                            }
-                            LogManagerService.Instance.Log($"WellTrajs synchronize ({(i + 1)}/{AllwellTrajsCount})");
-                            ProgressValue = 20 + ((i + 1) * 30) / AllwellTrajsCount;
-                        }
-
-                        LogManagerService.Instance.Log($"WellTrajs synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
-                    }
-                    else
-                    {
-                        LogManagerService.Instance.Log($"WellTrajs Count is 0");
-                    }
+                    StartSyncProgressStep("WellTrajs");
+                    int wellTrajectoryCount = await KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList, this);
+                    CompleteSyncProgressStep();
+                    LogManagerService.Instance.Log($"WellTrajs({wellTrajectoryCount}) synchronize over.");
                 }
                 #endregion
-
-                ProgressValue = 30;
 
                 #region 井产量
                 if (IsSyncProduction)
                 {
+                    StartSyncProgressStep("WellProduction");
                     LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
 
                     await KingdomAPI.Instance.CreateWellProductionDataToWeb(KindomData, WellIDandNameList, IsShowOil, IsShowGas, IsShowWater, this);
@@ -1334,16 +1400,16 @@ namespace KindomDataAPIServer.ViewModels
                     //}
 
                     LogManagerService.Instance.Log($"Well Production Datas synchronize over！");
+                    CompleteSyncProgressStep();
 
                 }
                 #endregion
-
-                ProgressValue = 50;
 
                 #region 试油试气
 
                 if (IsSyncIPProduction)
                 {
+                    StartSyncProgressStep("WellTest");
 
                     (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems);
 
@@ -1392,7 +1458,6 @@ namespace KindomDataAPIServer.ViewModels
 
                             }
                         }
-                        ProgressValue = 55;
                         LogManagerService.Instance.Log($"Well Gas Test Data synchronize synchronize over！");
                     }
                     else
@@ -1400,6 +1465,7 @@ namespace KindomDataAPIServer.ViewModels
                         LogManagerService.Instance.Log($"Well Gas Test Data Count is 0");
                     }
 
+                    ReportCurrentStepProgress(50);
 
                     if (AllwellTestDatas.Item2.Count > 0)
                     {
@@ -1445,35 +1511,36 @@ namespace KindomDataAPIServer.ViewModels
 
                             }
                         }
-                        ProgressValue = 60;
                         LogManagerService.Instance.Log($"Well Oil Test Data synchronize synchronize over！");
                     }
                     else
                     {
                         LogManagerService.Instance.Log($"Well Oil Test Data Count is 0");
                     }
+                    CompleteSyncProgressStep();
                 }
                 #endregion
-                ProgressValue = 60;
 
                 #region  井曲线 
                 if (IsSyncWellLog)
                 {
+                    StartSyncProgressStep("WellLogs");
                     LogManagerService.Instance.Log($"WellLogs start synchronize！");
                     string resdataSetID = SelectedLogDataSet?.Id;
 
                     await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this);
 
                     LogManagerService.Instance.Log($"WellLogs synchronize over！");
+                    CompleteSyncProgressStep();
 
                 }
-                ProgressValue = 80;
                 #endregion
 
 
                 #region 解释结论
                 if (IsSyncConclusion)
                 {
+                    StartSyncProgressStep("WellConclusions");
                     LogManagerService.Instance.Log($"WellConclusions start synchronize！");
                     Dictionary<string, CreatePayzoneRequest> requests = KingdomAPI.Instance.CreateWellConclusionsToWeb(KindomData, WellIDandNameList, ConclusionSettingVM.ConclusionFileNameObjItems.ToList());
                      var listRequests = requests.Values.ToList();
@@ -1499,8 +1566,12 @@ namespace KindomDataAPIServer.ViewModels
                         }
                            
                         LogManagerService.Instance.Log($"Intervals synchronize ({(i + 1)}/{allConclusionsCount})");
-                        ProgressValue = 80 + ((i + 1) * 20) / allConclusionsCount;
-                    }                          
+                        if (allConclusionsCount > 0)
+                        {
+                            ReportCurrentStepProgress((i + 1) * 100.0 / allConclusionsCount);
+                        }
+                    }
+                    CompleteSyncProgressStep();
                 }
    
                 #endregion

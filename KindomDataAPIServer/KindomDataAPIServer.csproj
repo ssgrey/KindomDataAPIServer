@@ -258,6 +258,9 @@
     <Compile Include="ViewModels\DownLoadDataViewModel.cs" />
     <Compile Include="ViewModels\ConclusionSettingViewModel.cs" />
     <Compile Include="ViewModels\SyncKindomDataViewModel.cs" />
+    <Compile Include="Views\AdvancedSettingView.xaml.cs">
+      <DependentUpon>AdvancedSettingView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\ConclusionSettingView.xaml.cs">
       <DependentUpon>ConclusionSettingView.xaml</DependentUpon>
     </Compile>
@@ -281,6 +284,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\ConclusionSettingView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\AdvancedSettingView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

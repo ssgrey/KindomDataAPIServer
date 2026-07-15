@@ -36,6 +36,7 @@ namespace KindomDataAPIServer.Views
         public SyncKindomDataView(string[] args, ApiConfig config)
         {
             InitializeComponent();
+            advancedSettingsItem.IsVisible = AdvancedSettingsConfig.IsAdvancedSettingsMenuVisible();
             apiData = config;
             Ini(args);
             this.Loaded += SyncKindomDataView_Loaded;
@@ -141,6 +142,13 @@ namespace KindomDataAPIServer.Views
             if(logView==null)
                 logView = new LogView();
            logView.Show();
+        }
+
+        private void AdvancedSettings_ItemClick(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
+        {
+            AdvancedSettingView advancedSettingView = new AdvancedSettingView();
+            advancedSettingView.Owner = this;
+            advancedSettingView.ShowDialog();
         }
 
         LogServerView logServerView = null;

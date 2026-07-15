@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -128,6 +129,90 @@ namespace KindomDataAPIServer.Common
             {
                 return null;
             }
+        }
+    }
+
+    public static class AdvancedSettingsConfig
+    {
+        public const string WellHeaderBatchSizeKey = "OnceSyncWellCount_WellHeader";
+        public const string WellTrajectoryBatchSizeKey = "OnceSyncWellCount_WellTrajectory";
+        public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
+        public const string ShowAdvancedSettingsMenuKey = "ShowAdvancedSettingsMenu";
+        public const int DefaultWellHeaderBatchSize = 5000;
+        public const int DefaultWellTrajectoryBatchSize = 3;
+        public const int DefaultWellFormationBatchSize = 5000;
+
+        public static int GetWellHeaderBatchSize()
+        {
+            return GetBatchSize(WellHeaderBatchSizeKey, DefaultWellHeaderBatchSize);
+        }
+
+        public static int GetWellTrajectoryBatchSize()
+        {
+            return GetBatchSize(WellTrajectoryBatchSizeKey, DefaultWellTrajectoryBatchSize);
+        }
+
+        public static int GetWellFormationBatchSize()
+        {
+            return GetBatchSize(WellFormationBatchSizeKey, DefaultWellFormationBatchSize);
+        }
+
+        public static bool IsAdvancedSettingsMenuVisible()
+        {
+            string value = ConfigurationManager.AppSettings[ShowAdvancedSettingsMenuKey];
+            if (bool.TryParse(value, out bool isVisible))
+            {
+                return isVisible;
+            }
+
+            return false;
+        }
+
+        private static int GetBatchSize(string key, int defaultValue)
+        {
+            string value = ConfigurationManager.AppSettings[key];
+            if (!int.TryParse(value, out int batchSize) || batchSize < 1)
+            {
+                return defaultValue;
+            }
+
+            return batchSize;
+        }
+
+        public static void SaveWellHeaderBatchSize(int batchSize)
+        {
+            SaveBatchSize(WellHeaderBatchSizeKey, batchSize, DefaultWellHeaderBatchSize);
+        }
+
+        public static void SaveWellTrajectoryBatchSize(int batchSize)
+        {
+            SaveBatchSize(WellTrajectoryBatchSizeKey, batchSize, DefaultWellTrajectoryBatchSize);
+        }
+
+        public static void SaveWellFormationBatchSize(int batchSize)
+        {
+            SaveBatchSize(WellFormationBatchSizeKey, batchSize, DefaultWellFormationBatchSize);
+        }
+
+        private static void SaveBatchSize(string key, int batchSize, int defaultValue)
+        {
+            if (batchSize < 1)
+            {
+                batchSize = defaultValue;
+            }
+
+            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            if (config.AppSettings.Settings[key] == null)
+            {
+                config.AppSettings.Settings.Add(key, batchSize.ToString());
+            }
+            else
+            {
+                config.AppSettings.Settings[key].Value = batchSize.ToString();
+            }
+
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection("appSettings");
         }
     }
 }

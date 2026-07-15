@@ -740,87 +740,124 @@ namespace KindomDataAPIServer.KindomAPI
             return digitalLogExports;
         }
 
-        public PbWellFormationList GetWellFormation(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList)
+        public async Task<int> GetWellFormation(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, SyncKindomDataViewModel syncKindomDataViewModel)
         {
             List<WellExport> Wells = KingDomData.Wells;
-           var checkNames =   KingDomData.FormationNames.Where(o => o.IsChecked).Select(o=>o.Name).ToList();
-            List<int> BoreholeIds = Wells.Where(o=>o.IsChecked).Select(o => o.BoreholeId).ToList();
+            var checkNames = new HashSet<string>(KingDomData.FormationNames.Where(o => o.IsChecked).Select(o => o.Name));
+            var wellGroups = Wells.Where(o => o.IsChecked && !string.IsNullOrEmpty(o.Uwi)).GroupBy(o => o.Uwi).ToList();
             PbWellFormationList pbWellFormationList = new PbWellFormationList();
+            var wellDataService = ServiceLocator.GetService<IDataWellService>();
+            int wellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
+            int processedWellCount = 0;
+            int syncedFormationCount = 0;
+            int batchIndex = 0;
 
-            List<FormationTopPick> digitalLogExports = new List<FormationTopPick>();
-            using (var context = project.GetKingdom())
+            LogManagerService.Instance.Log($"WellFormation start synchronize. Batch size:{wellFormationBatchSize}.");
+            foreach (var wellGroup in wellGroups)
             {
-                var formations = context.Get(new FormationTopPick(),
-                    x => new
-                    {
-                        FormationTop = x,
-                        FormationTopName = x.FormationTopName,
-                        borehole = x.Borehole,                   
-                        boreholeId = x.BoreholeId,
-                        wellUWI = x.Borehole.Uwi,
-                       
-                    },
-                    x => BoreholeIds.Contains(x.BoreholeId),
-                    false).ToList();
-                var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a=>a.Key,a=>a.ToList());
-                foreach (var item in dicts)
+                processedWellCount++;
+                List<int> boreholeIds = wellGroup.Select(o => o.BoreholeId).ToList();
+                using (var context = project.GetKingdom())
                 {
-                    long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
-                    if (wellWebID == -1)
-                        continue;
-                    PbWellFormation pbWellFormation = new PbWellFormation
-                    {
-                         WellId = wellWebID
-                    };
-
-                    foreach (var formItem in item.Value)
-                    {
-                        if (formItem.FormationTop.Depth.HasValue)
+                    var formations = context.Get(new FormationTopPick(),
+                        x => new
                         {
-                            if (!checkNames.Contains(formItem.FormationTopName.Name))
-                                continue;
-                            var res = pbWellFormation.Items.FirstOrDefault(o => (o.Name == formItem.FormationTopName.Name || o.Name == formItem.FormationTopName.Abbreviation) && o.Top == formItem.FormationTop.Depth.Value);
-                            if (res == null)
+                            FormationTop = x,
+                            FormationTopName = x.FormationTopName,
+                            boreholeId = x.BoreholeId,
+                        },
+                        x => boreholeIds.Contains(x.BoreholeId),
+                        false).ToList();
+
+                    long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
+                    if (wellWebID != -1)
+                    {
+                        PbWellFormation pbWellFormation = new PbWellFormation
+                        {
+                             WellId = wellWebID
+                        };
+
+                        foreach (var formItem in formations)
+                        {
+                            if (formItem.FormationTop.Depth.HasValue)
                             {
-   
-                                if (IsDepthFeet)
+                                if (!checkNames.Contains(formItem.FormationTopName.Name))
+                                    continue;
+                                var res = pbWellFormation.Items.FirstOrDefault(o => (o.Name == formItem.FormationTopName.Name || o.Name == formItem.FormationTopName.Abbreviation) && o.Top == formItem.FormationTop.Depth.Value);
+                                if (res == null)
                                 {
-                                    pbWellFormation.Items.Add(new PbFormationItem()
+       
+                                    if (IsDepthFeet)
                                     {
-                                        Name = formItem.FormationTopName.Name,
-                                        Top = formItem.FormationTop.Depth.Value.ToMeters(),
-                                        Bottom = formItem.FormationTop.Depth.Value.ToMeters(),
-                                    });
-                                }
-                                else
-                                {
-                                    pbWellFormation.Items.Add(new PbFormationItem()
+                                        pbWellFormation.Items.Add(new PbFormationItem()
+                                        {
+                                            Name = formItem.FormationTopName.Name,
+                                            Top = formItem.FormationTop.Depth.Value.ToMeters(),
+                                            Bottom = formItem.FormationTop.Depth.Value.ToMeters(),
+                                        });
+                                    }
+                                    else
                                     {
-                                        Name = formItem.FormationTopName.Name,
-                                        Top = formItem.FormationTop.Depth.Value,
-                                        Bottom = formItem.FormationTop.Depth.Value,
-                                    });
+                                        pbWellFormation.Items.Add(new PbFormationItem()
+                                        {
+                                            Name = formItem.FormationTopName.Name,
+                                            Top = formItem.FormationTop.Depth.Value,
+                                            Bottom = formItem.FormationTop.Depth.Value,
+                                        });
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (pbWellFormation.Items.Count > 0)
-                    {
-                        pbWellFormationList.Datas.Add(pbWellFormation);
+                        if (pbWellFormation.Items.Count > 0)
+                        {
+                            pbWellFormationList.Datas.Add(pbWellFormation);
+                        }
                     }
+                }
+
+                if (pbWellFormationList.Datas.Count >= wellFormationBatchSize)
+                {
+                    batchIndex++;
+                    int batchItemCount = pbWellFormationList.Datas.Count;
+                    var res = await wellDataService.batch_create_well_formation(pbWellFormationList);
+                    if (res != null)
+                    {
+
+                    }
+                    syncedFormationCount += batchItemCount;
+                    LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedFormationCount}");
+                    pbWellFormationList = new PbWellFormationList();
+                }
+
+                if (syncKindomDataViewModel != null && wellGroups.Count > 0)
+                {
+                    syncKindomDataViewModel.ReportCurrentStepProgress(processedWellCount * 100.0 / wellGroups.Count);
                 }
             }
 
-            return pbWellFormationList;
+            if (pbWellFormationList.Datas.Count > 0)
+            {
+                batchIndex++;
+                int batchItemCount = pbWellFormationList.Datas.Count;
+                var res = await wellDataService.batch_create_well_formation(pbWellFormationList);
+                if (res != null)
+                {
+
+                }
+                syncedFormationCount += batchItemCount;
+                LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedFormationCount}");
+            }
+
+            LogManagerService.Instance.Log($"WellFormation synchronized. Synced {syncedFormationCount}");
+            return syncedFormationCount;
         }
 
 
-        public List<WellTrajData> GetWellTrajs(ProjectResponse KingDomData,PbViewMetaObjectList WellIDandNameList)
+        public async Task<int> GetWellTrajs(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, SyncKindomDataViewModel syncKindomDataViewModel)
         {
-            List<WellTrajData> datas = new List<WellTrajData>();
             List<WellExport> Wells = KingDomData.Wells;
-            List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+            var wellGroups = Wells.Where(o => o.IsChecked && !string.IsNullOrEmpty(o.Uwi)).GroupBy(o => o.Uwi).ToList();
 
             List<MetaInfo> MetaInfoList = new List<MetaInfo>();
             MetaInfo metaInfo = new MetaInfo();
@@ -851,74 +888,112 @@ namespace KindomDataAPIServer.KindomAPI
             metaInfo4.MeasureId = XYUnit.MeasureID;
             MetaInfoList.Add(metaInfo4);
 
-            using (var context = project.GetKingdom())
+            var wellDataService = ServiceLocator.GetService<IDataWellService>();
+            int wellTrajectoryBatchSize = AdvancedSettingsConfig.GetWellTrajectoryBatchSize();
+            int processedWellCount = 0;
+            int syncedTrajectoryCount = 0;
+            int batchIndex = 0;
+            WellTrajRequest batchRequest = new WellTrajRequest();
+
+            LogManagerService.Instance.Log($"WellTrajs start synchronize. Batch size:{wellTrajectoryBatchSize}.");
+            foreach (var wellGroup in wellGroups)
             {
-                var DeviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
-                 x => new
-                 {
-                     borehole = x.Borehole,
-                     boreholeId = x.BoreholeId,
-                     wellUWI = x.Borehole.Uwi,
-                     data = x,
-                 },
-                   x => BoreholeIds.Contains(x.BoreholeId),
-                 false).ToList();
-
-                var dicts = DeviationSurveys.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());
-                foreach (var item in dicts)
+                processedWellCount++;
+                List<int> boreholeIds = wellGroup.Select(o => o.BoreholeId).ToList();
+                using (var context = project.GetKingdom())
                 {
-                    long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
-                    if (wellWebID == -1)
-                        continue;
+                    var deviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
+                     x => new
+                     {
+                         boreholeId = x.BoreholeId,
+                         data = x,
+                     },
+                       x => boreholeIds.Contains(x.BoreholeId),
+                     false).ToList();
 
-                    foreach (var formItem in item.Value)
+                    long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
+                    if (wellWebID != -1)
                     {
-                        if (formItem.data != null)
+                        foreach (var formItem in deviationSurveys)
                         {
-                            WellTrajData wellTrajData = new WellTrajData();
-                            wellTrajData.MetaInfoList = MetaInfoList;
-                            wellTrajData.WellId = wellWebID;
-                            for (int i = 0; i < formItem.data.MD.Count; i++)
+                            if (formItem.data != null)
                             {
-                                CoordData coordData = new CoordData()
+                                WellTrajData wellTrajData = new WellTrajData();
+                                wellTrajData.MetaInfoList = MetaInfoList;
+                                wellTrajData.WellId = wellWebID;
+                                for (int i = 0; i < formItem.data.MD.Count; i++)
                                 {
-                                    Md = formItem.data.MD[i],
-                                    Tvd = formItem.data.TVD[i],
-                                    Dx = formItem.data.DX[i],
-                                    Dy = formItem.data.DY[i]
-                                };
-                                if(IsDepthFeet)
-                                {
-                                    coordData.Md = coordData.Md.ToMeters();
-                                    coordData.Tvd = coordData.Tvd.ToMeters();
-                                }
-                                if(IsXYFeet)
-                                {
-                                    coordData.Dx = coordData.Dx.ToMeters();
-                                    coordData.Dy = coordData.Dy.ToMeters();
-                                }
+                                    CoordData coordData = new CoordData()
+                                    {
+                                        Md = formItem.data.MD[i],
+                                        Tvd = formItem.data.TVD[i],
+                                        Dx = formItem.data.DX[i],
+                                        Dy = formItem.data.DY[i]
+                                    };
+                                    if(IsDepthFeet)
+                                    {
+                                        coordData.Md = coordData.Md.ToMeters();
+                                        coordData.Tvd = coordData.Tvd.ToMeters();
+                                    }
+                                    if(IsXYFeet)
+                                    {
+                                        coordData.Dx = coordData.Dx.ToMeters();
+                                        coordData.Dy = coordData.Dy.ToMeters();
+                                    }
 
-                                wellTrajData.CoordList.Add(coordData);
-                                AimuthData aimuthData = new AimuthData()
-                                {
-                                    Md = formItem.data.MD[i],
-                                    Azim = formItem.data.Azimuth[i],
-                                    Devi = formItem.data.Inclination[i],
-                                };
-                                if(IsDepthFeet)
-                                {
-                                    aimuthData.Md = aimuthData.Md.ToMeters();
+                                    wellTrajData.CoordList.Add(coordData);
+                                    AimuthData aimuthData = new AimuthData()
+                                    {
+                                        Md = formItem.data.MD[i],
+                                        Azim = formItem.data.Azimuth[i],
+                                        Devi = formItem.data.Inclination[i],
+                                    };
+                                    if(IsDepthFeet)
+                                    {
+                                        aimuthData.Md = aimuthData.Md.ToMeters();
+                                    }
+                                    wellTrajData.AimuthList.Add(aimuthData);
                                 }
-                                wellTrajData.AimuthList.Add(aimuthData);
+                                batchRequest.Items.Add(wellTrajData);
+                                if (batchRequest.Items.Count >= wellTrajectoryBatchSize)
+                                {
+                                    batchIndex++;
+                                    int batchItemCount = batchRequest.Items.Count;
+                                    var res = await wellDataService.batch_create_well_trajectory_with_meta_infos(batchRequest);
+                                    if (res != null)
+                                    {
+
+                                    }
+                                    syncedTrajectoryCount += batchItemCount;
+                                    LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedTrajectoryCount}");
+                                    batchRequest = new WellTrajRequest();
+                                }
                             }
-                            datas.Add(wellTrajData);
                         }
                     }
+                }
 
+                if (syncKindomDataViewModel != null && wellGroups.Count > 0)
+                {
+                    syncKindomDataViewModel.ReportCurrentStepProgress(processedWellCount * 100.0 / wellGroups.Count);
                 }
             }
 
-            return datas;
+            if (batchRequest.Items.Count > 0)
+            {
+                batchIndex++;
+                int batchItemCount = batchRequest.Items.Count;
+                var res = await wellDataService.batch_create_well_trajectory_with_meta_infos(batchRequest);
+                if (res != null)
+                {
+
+                }
+                syncedTrajectoryCount += batchItemCount;
+                LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedTrajectoryCount}");
+            }
+
+            LogManagerService.Instance.Log($"WellTrajs synchronized. Synced {syncedTrajectoryCount}");
+            return syncedTrajectoryCount;
         }
 
         public PbWellLogCreateList GetWellLogs(ProjectResponse KingDomData,string resdataSetID, PbViewMetaObjectList WellIDandNameList)
@@ -1081,7 +1156,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                         }
                     }
-                    syncKindomDataViewModel.ProgressValue =60 + (double)index / BoreholeIds.Count * 20;
+                    syncKindomDataViewModel.ReportCurrentStepProgress((double)index / BoreholeIds.Count * 100);
                     LogManagerService.Instance.Log($"welllog synchronize ({index}/{BoreholeIds.Count})");
                 }
                 index++;
@@ -1327,7 +1402,7 @@ namespace KindomDataAPIServer.KindomAPI
                             }
 
                             LogManagerService.Instance.Log($"Well Production Datas synchronize ({index}/{allCount})");
-                            syncKindomDataViewModel.ProgressValue = 30 + (index * 20) / allCount;
+                            syncKindomDataViewModel.ReportCurrentStepProgress(index * 100.0 / allCount);
                         }
                         index++;
                     }
