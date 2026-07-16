@@ -513,6 +513,12 @@ namespace KindomDataAPIServer.ViewModels
             }
             set
             {
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher != null && !dispatcher.CheckAccess())
+                {
+                    dispatcher.BeginInvoke(new Action(() => ProgressValue = value), DispatcherPriority.Background);
+                    return;
+                }
 
                 SetProperty(ref _ProgressValue, value, nameof(ProgressValue));
 
@@ -1343,7 +1349,7 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncWellFormation)
                 {
                     StartSyncProgressStep("WellFormation");
-                    int wellFormationCount = await KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList, this);
+                    int wellFormationCount = await Task.Run(() => KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList, this));
                     CompleteSyncProgressStep();
                     LogManagerService.Instance.Log($"WellFormation({wellFormationCount}) synchronize over.");
 
