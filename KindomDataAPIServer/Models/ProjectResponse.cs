@@ -87,6 +87,7 @@ namespace KindomDataAPIServer.Models
         public bool IsDynamic { get; set; }
         public bool IsPublic { get; set; }
         public bool IsNoSubset { get; set; }
+        public bool IsLeftWells { get; set; }
 
         public override string ToString()
         {

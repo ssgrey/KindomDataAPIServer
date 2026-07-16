@@ -526,7 +526,48 @@ namespace KindomDataAPIServer.KindomAPI
                 var mapUnit = project.MapUnit.ToString();
                 var verticalUnit = project.VerticalUnit.ToString();
                 List<int> subsetBoreholeIds = null;
-                if (wellSubset != null && !wellSubset.IsNoSubset)
+                List<int> leftBoreholeIds = null;
+                if (wellSubset != null && wellSubset.IsLeftWells)
+                {
+                    try
+                    {
+                        var wellSubsetManager = new IHS.Kingdom.WellQuery.WellSubsetManager(project);
+                        var allSubsetBoreholeIds = new HashSet<int>();
+                        foreach (var subsetLite in wellSubsetManager.AllSubsetsLite)
+                        {
+                            var subset = wellSubsetManager.GetSubset(subsetLite.Id);
+                            List<int> boreholeIds = null;
+                            try
+                            {
+                                boreholeIds = wellSubsetManager.GetBoreholeIds(subset)?.Distinct()?.ToList();
+                            }
+                            catch (Exception ex)
+                            {
+                                LogManagerService.Instance.Log($"GetProjectData failed to get borehole IDs for subset {wellSubset.Name}: {ex.Message}");
+                            }
+                            if (boreholeIds != null)
+                            {
+                                foreach (var boreholeId in boreholeIds)
+                                {
+                                    allSubsetBoreholeIds.Add(boreholeId);
+                                }
+                            }
+                        }
+
+                        using (var context = project.GetKingdom())
+                        {
+                            leftBoreholeIds = context.Get(new Borehole(),
+                                b => b.Id,
+                                b => true,
+                                false).Where(id => !allSubsetBoreholeIds.Contains(id)).ToList();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                }
+                else if (wellSubset != null && !wellSubset.IsNoSubset)
                 {
                     var wellSubsetManager = new IHS.Kingdom.WellQuery.WellSubsetManager(project);                   
                     var subset = wellSubsetManager.GetSubset(wellSubset.Id);
@@ -534,9 +575,9 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         subsetBoreholeIds = wellSubsetManager.GetBoreholeIds(subset)?.Distinct()?.ToList();
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) //查询子集中的井失败，返回空数据
                     {
-                        LogManagerService.Instance.Log($"GetProjectData GetSubset failed: {ex.Message}");
+                        LogManagerService.Instance.Log($"GetProjectData failed to get borehole IDs for subset {wellSubset.Name}: {ex.Message}");
                         return new ProjectResponse()
                         {
                             ProjectPath = this.ProjectPath,
@@ -549,11 +590,34 @@ namespace KindomDataAPIServer.KindomAPI
                     }
                 }
 
+                if (wellSubset.IsLeftWells && (leftBoreholeIds == null || leftBoreholeIds.Count == 0))
+                {
+                    return new ProjectResponse()
+                    {
+                        ProjectPath = this.ProjectPath,
+                        MapUnit = mapUnit,
+                        VerticalUnit = verticalUnit,
+                        Wells = new List<WellExport>(),
+                        FormationNames = new List<CheckNameExport>(),
+                        LogNames = new List<CheckNameLog>()
+                    };
+                }
+
                 using (var context = project.GetKingdom())
                 {
-                    Expression<Func<Borehole, bool>> boreholePredicate = subsetBoreholeIds == null
-                        ? (Expression<Func<Borehole, bool>>)(_ => true)
-                        : (b => subsetBoreholeIds.Contains(b.Id));
+                    Expression<Func<Borehole, bool>> boreholePredicate;
+                    if (subsetBoreholeIds != null)
+                    {
+                        boreholePredicate = b => subsetBoreholeIds.Contains(b.Id);
+                    }
+                    else if (leftBoreholeIds != null)
+                    {
+                        boreholePredicate = b => leftBoreholeIds.Contains(b.Id);
+                    }
+                    else
+                    {
+                        boreholePredicate = _ => true;
+                    }
 
                     var boreholes = context.Get(new Borehole(), b => new
                     {

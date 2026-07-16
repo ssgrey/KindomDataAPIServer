@@ -1007,8 +1007,14 @@ namespace KindomDataAPIServer.ViewModels
                 var wellSubsets = KingdomAPI.Instance.GetWellSubsets();
                 wellSubsets.Add(new WellSubsetOption
                 {
+                    Id = -1,
+                    Name = "All Wells(No SubSet)",
+                    IsLeftWells = true
+                });
+                wellSubsets.Add(new WellSubsetOption
+                {
                     Id = 0,
-                    Name = "No SubSet",
+                    Name = "All Wells",
                     IsNoSubset = true
                 });
 
@@ -1217,6 +1223,7 @@ namespace KindomDataAPIServer.ViewModels
                 return;
             }
 
+            Stopwatch stopwatch = Stopwatch.StartNew();
             IsEnable = false;
             try
             {
@@ -1591,7 +1598,9 @@ namespace KindomDataAPIServer.ViewModels
             }
             finally
             {
-                 IsEnable = true;
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"Kindom data synchronize to web elapsed time: {stopwatch.Elapsed:hh\\:mm\\:ss\\.fff}.");
+                IsEnable = true;
             }
         }
 
