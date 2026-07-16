@@ -1359,7 +1359,7 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncTrajectory)
                 {
                     StartSyncProgressStep("WellTrajs");
-                    int wellTrajectoryCount = await KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList, this);
+                    int wellTrajectoryCount = await Task.Run(() => KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList, this));
                     CompleteSyncProgressStep();
                     LogManagerService.Instance.Log($"WellTrajs({wellTrajectoryCount}) synchronize over.");
                 }
@@ -1541,7 +1541,7 @@ namespace KindomDataAPIServer.ViewModels
                     LogManagerService.Instance.Log($"WellLogs start synchronize！");
                     string resdataSetID = SelectedLogDataSet?.Id;
 
-                    await KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this);
+                    await Task.Run(() => KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this));
 
                     LogManagerService.Instance.Log($"WellLogs synchronize over！");
                     CompleteSyncProgressStep();

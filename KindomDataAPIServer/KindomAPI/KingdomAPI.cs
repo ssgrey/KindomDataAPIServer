@@ -890,7 +890,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                     }
                     syncedFormationCount += batchItemCount;
-                    LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedFormationCount}");
+                    LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
                     pbWellFormationList = new PbWellFormationList();
                 }
 
@@ -910,7 +910,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                 }
                 syncedFormationCount += batchItemCount;
-                LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedFormationCount}");
+                LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
             }
 
             LogManagerService.Instance.Log($"WellFormation synchronized. Synced {syncedFormationCount}");
@@ -1029,7 +1029,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                                     }
                                     syncedTrajectoryCount += batchItemCount;
-                                    LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedTrajectoryCount}");
+                                    LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
                                     batchRequest = new WellTrajRequest();
                                 }
                             }
@@ -1053,7 +1053,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                 }
                 syncedTrajectoryCount += batchItemCount;
-                LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {syncedTrajectoryCount}");
+                LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
             }
 
             LogManagerService.Instance.Log($"WellTrajs synchronized. Synced {syncedTrajectoryCount}");
@@ -1220,11 +1220,14 @@ namespace KindomDataAPIServer.KindomAPI
 
                         }
                     }
-                    syncKindomDataViewModel.ReportCurrentStepProgress((double)index / BoreholeIds.Count * 100);
-                    LogManagerService.Instance.Log($"welllog synchronize ({index}/{BoreholeIds.Count})");
+                    if (syncKindomDataViewModel != null && BoreholeIds.Count > 0)
+                    {
+                        syncKindomDataViewModel.ReportCurrentStepProgress((double)index / BoreholeIds.Count * 100);
+                    }
+                    LogManagerService.Instance.Log($"WellLogs synchronized. Synced {index}/{BoreholeIds.Count} wells.");
                 }
                 index++;
-            }    
+            }
         }
 
 

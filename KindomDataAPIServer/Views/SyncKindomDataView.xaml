@@ -792,7 +792,7 @@
                 <Label x:Name="vlabel" FontSize="10" Content="1.0.5" Margin="5,0,0,0" VerticalContentAlignment="Center"></Label>
             </StackPanel>
             <dxe:ProgressBarEdit Grid.Column="1" x:Name="progressBar"  Margin="10,5,10,5"
-                Height="20"  ContentDisplayMode="Value"  IsPercent="False"  DisplayFormatString=" {0:f0}%"
+                Height="20"  ContentDisplayMode="Value"  IsPercent="False"  DisplayFormatString=" {0:f2}%"
                 HorizontalAlignment="Stretch" 
                 VerticalAlignment="Center"              
                 Minimum="0" 
