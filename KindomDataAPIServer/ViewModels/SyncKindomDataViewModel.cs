@@ -532,44 +532,53 @@ namespace KindomDataAPIServer.ViewModels
             public double End { get; set; }
         }
 
+        private class SyncProgressStepWeight
+        {
+            public string Name { get; set; }
+            public double Weight { get; set; }
+        }
+
         private List<SyncProgressStep> _syncProgressSteps = new List<SyncProgressStep>();
         private SyncProgressStep _currentSyncProgressStep;
 
         private void InitializeSyncProgressPlan()
         {
             _syncProgressSteps = new List<SyncProgressStep>();
-            List<string> stepNames = new List<string>();
+            List<SyncProgressStepWeight> stepWeights = new List<SyncProgressStepWeight>();
 
             if (IsSyncWellHeader)
-                stepNames.Add("WellHeader");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellHeader", Weight = 1 });
             if (IsSyncWellFormation)
-                stepNames.Add("WellFormation");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellFormation", Weight = 2 });
             if (IsSyncTrajectory)
-                stepNames.Add("WellTrajs");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellTrajs", Weight = 3 });
             if (IsSyncProduction)
-                stepNames.Add("WellProduction");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellProduction", Weight = 2 });
             if (IsSyncIPProduction)
-                stepNames.Add("WellTest");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellTest", Weight = 2 });
             if (IsSyncWellLog)
-                stepNames.Add("WellLogs");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellLogs", Weight = 5 });
             if (IsSyncConclusion)
-                stepNames.Add("WellConclusions");
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellConclusions", Weight = 2 });
 
-            if (stepNames.Count == 0)
+            if (stepWeights.Count == 0)
             {
                 ProgressValue = 0;
                 return;
             }
 
-            double stepSize = 100.0 / stepNames.Count;
-            for (int i = 0; i < stepNames.Count; i++)
+            double totalWeight = stepWeights.Sum(o => o.Weight);
+            double currentStart = 0;
+            for (int i = 0; i < stepWeights.Count; i++)
             {
+                double stepSize = stepWeights[i].Weight * 100.0 / totalWeight;
                 _syncProgressSteps.Add(new SyncProgressStep
                 {
-                    Name = stepNames[i],
-                    Start = i * stepSize,
-                    End = i == stepNames.Count - 1 ? 100 : (i + 1) * stepSize
+                    Name = stepWeights[i].Name,
+                    Start = currentStart,
+                    End = i == stepWeights.Count - 1 ? 100 : currentStart + stepSize
                 });
+                currentStart += stepSize;
             }
 
             ProgressValue = 0;
