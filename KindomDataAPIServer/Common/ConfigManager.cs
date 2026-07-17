@@ -137,11 +137,17 @@ namespace KindomDataAPIServer.Common
         public const string WellHeaderBatchSizeKey = "OnceSyncWellCount_WellHeader";
         public const string WellTrajectoryBatchSizeKey = "OnceSyncWellCount_WellTrajectory";
         public const string WellTrajectoryUploadConcurrencyKey = "well_trajectory_uploadConcurrency";
+        public const string WellLogUploadConcurrencyKey = "well_log_uploadConcurrency";
+        public const string WellLogBatchCurveCountKey = "well_log_batchCurveCount";
+        public const string WellProductionUploadConcurrencyKey = "well_production_uploadConcurrency";
         public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
         public const string ShowAdvancedSettingsMenuKey = "ShowAdvancedSettingsMenu";
         public const int DefaultWellHeaderBatchSize = 5000;
         public const int DefaultWellTrajectoryBatchSize = 3;
         public const int DefaultWellTrajectoryUploadConcurrency = 3;
+        public const int DefaultWellLogUploadConcurrency = 3;
+        public const int DefaultWellLogBatchCurveCount = 3;
+        public const int DefaultWellProductionUploadConcurrency = 3;
         public const int DefaultWellFormationBatchSize = 5000;
 
         public static int GetWellHeaderBatchSize()
@@ -157,6 +163,21 @@ namespace KindomDataAPIServer.Common
         public static int GetWellTrajectoryUploadConcurrency()
         {
             return GetBatchSize(WellTrajectoryUploadConcurrencyKey, DefaultWellTrajectoryUploadConcurrency);
+        }
+
+        public static int GetWellLogUploadConcurrency()
+        {
+            return GetBatchSize(WellLogUploadConcurrencyKey, DefaultWellLogUploadConcurrency);
+        }
+
+        public static int GetWellLogBatchCurveCount()
+        {
+            return GetBatchSize(WellLogBatchCurveCountKey, DefaultWellLogBatchCurveCount);
+        }
+
+        public static int GetWellProductionUploadConcurrency()
+        {
+            return GetBatchSize(WellProductionUploadConcurrencyKey, DefaultWellProductionUploadConcurrency);
         }
 
         public static int GetWellFormationBatchSize()
@@ -199,6 +220,21 @@ namespace KindomDataAPIServer.Common
         public static void SaveWellTrajectoryUploadConcurrency(int uploadConcurrency)
         {
             SaveBatchSize(WellTrajectoryUploadConcurrencyKey, uploadConcurrency, DefaultWellTrajectoryUploadConcurrency);
+        }
+
+        public static void SaveWellLogUploadConcurrency(int uploadConcurrency)
+        {
+            SaveBatchSize(WellLogUploadConcurrencyKey, uploadConcurrency, DefaultWellLogUploadConcurrency);
+        }
+
+        public static void SaveWellLogBatchCurveCount(int batchCurveCount)
+        {
+            SaveBatchSize(WellLogBatchCurveCountKey, batchCurveCount, DefaultWellLogBatchCurveCount);
+        }
+
+        public static void SaveWellProductionUploadConcurrency(int uploadConcurrency)
+        {
+            SaveBatchSize(WellProductionUploadConcurrencyKey, uploadConcurrency, DefaultWellProductionUploadConcurrency);
         }
 
         public static void SaveWellFormationBatchSize(int batchSize)

@@ -151,11 +151,11 @@ namespace KindomDataAPIServer.DataService
         }
 
 
-        public async Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest)
+        public async Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest, string traceName = null)
         {
             try
             {
-                return await _apiClient.PostAsync<WellProductionDataRequest, WellOperationResult>("dp/api/welldata/batch_create_well_production_with_meta_infos", wellDataRequest);
+                return await _apiClient.PostAsync<WellProductionDataRequest, WellOperationResult>("dp/api/welldata/batch_create_well_production_with_meta_infos", wellDataRequest, traceName);
             }
             catch (Exception ex)
             {
@@ -315,33 +315,24 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
-        public async Task<WellOperationResult> batch_create_well_log(PbWellLogCreateList pbWellLogCreateList)
+        public async Task<WellOperationResult> batch_create_well_log(PbWellLogCreateList pbWellLogCreateList, string traceName = null)
         {
             try
             {
                 string flag = "OverWrite";
-                var url = _apiClient.BuildUrl("dp/api/well_log/batch_create_well_log");
-                var formData = new MultipartFormDataContent();
-                using (var stream = ProtoHelper.ToMemoryStream(pbWellLogCreateList))
-                {
-                    var streamContent = new StreamContent(stream);
-                    var stringContent = new StringContent(flag);
-                    formData.Add(streamContent, "proto_creation_data", "data.pbf");
-                    formData.Add(stringContent, "overwrite_flag");
-                    var httpResult = await _apiClient.Client.PostAsync(url, formData);
-                    var responseContent = await httpResult.Content.ReadAsStringAsync();
-                    LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
-                    if (httpResult.IsSuccessStatusCode)
+                return await _apiClient.PostMultipartAsync<WellOperationResult>(
+                    "dp/api/well_log/batch_create_well_log",
+                    () =>
                     {
-                        var result = JsonHelper.ConvertFrom<WellOperationResult>(responseContent);
-                        return result;
-                    }
-                    else
-                    {
-                        throw new HttpRequestException($"HTTP请求失败: {responseContent}");
-                    }
-                }
-                return null;
+                        var formData = new MultipartFormDataContent();
+                        var stream = ProtoHelper.ToMemoryStream(pbWellLogCreateList);
+                        var streamContent = new StreamContent(stream);
+                        var stringContent = new StringContent(flag);
+                        formData.Add(streamContent, "proto_creation_data", "data.pbf");
+                        formData.Add(stringContent, "overwrite_flag");
+                        return formData;
+                    },
+                    traceName);
             }
             catch (Exception ex)
             {
@@ -349,6 +340,7 @@ namespace KindomDataAPIServer.DataService
                 throw;
             }
         }
+
         /// <summary>
         /// request ["WellInformation"]
         /// </summary>

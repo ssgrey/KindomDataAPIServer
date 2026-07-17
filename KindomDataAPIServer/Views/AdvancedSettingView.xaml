@@ -5,8 +5,8 @@
     xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
     xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
     Title="Advanced Settings"
-    Width="420"
-    Height="250"
+    Width="460"
+    Height="520"
     ResizeMode="NoResize"
     WindowStartupLocation="CenterOwner">
     <Grid Margin="12">
@@ -14,58 +14,128 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <StackPanel VerticalAlignment="Center" Orientation="Vertical">
-            <StackPanel Height="32" Orientation="Horizontal">
-                <Label
-                    Width="190"
-                    VerticalAlignment="Center"
-                    Content="Well Header Batch Size" />
-                <dxe:SpinEdit
-                    Width="120"
-                    MinValue="1"
-                    MaxValue="1000000"
-                    IsFloatValue="False"
-                    EditValue="{Binding WellHeaderBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Orientation="Vertical">
+                <GroupBox Header="Well Header" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4,8,8">
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Batch Size" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="1000000"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellHeaderBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Well Trajectory" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4,8,8">
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Batch Size" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="1000000"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellTrajectoryBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Upload Concurrency" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="100"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellTrajectoryUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Well Log" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4,8,8">
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Upload Concurrency" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="100"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellLogUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Batch Curve Count" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="1000000"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellLogBatchCurveCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Well Production" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4,8,8">
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Upload Concurrency" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="100"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellProductionUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Well Formation" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4,8,8">
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Batch Size" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="1000000"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellFormationBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
             </StackPanel>
-            <StackPanel Height="32" Orientation="Horizontal">
-                <Label
-                    Width="190"
-                    VerticalAlignment="Center"
-                    Content="Well Trajectory Batch Size" />
-                <dxe:SpinEdit
-                    Width="120"
-                    MinValue="1"
-                    MaxValue="1000000"
-                    IsFloatValue="False"
-                    EditValue="{Binding WellTrajectoryBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            </StackPanel>
-            <StackPanel Height="32" Orientation="Horizontal">
-                <Label
-                    Width="190"
-                    VerticalAlignment="Center"
-                    Content="Well Trajectory Upload Concurrency" />
-                <dxe:SpinEdit
-                    Width="120"
-                    MinValue="1"
-                    MaxValue="100"
-                    IsFloatValue="False"
-                    EditValue="{Binding WellTrajectoryUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            </StackPanel>
-            <StackPanel Height="32" Orientation="Horizontal">
-                <Label
-                    Width="190"
-                    VerticalAlignment="Center"
-                    Content="Well Formation Batch Size" />
-                <dxe:SpinEdit
-                    Width="120"
-                    MinValue="1"
-                    MaxValue="1000000"
-                    IsFloatValue="False"
-                    EditValue="{Binding WellFormationBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            </StackPanel>
-        </StackPanel>
+        </ScrollViewer>
         <StackPanel
             Grid.Row="1"
+            Margin="0,12,0,0"
             HorizontalAlignment="Right"
             Orientation="Horizontal">
             <dx:SimpleButton

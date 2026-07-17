@@ -28,7 +28,7 @@ namespace KindomDataAPIServer.DataService
 
         Task<WellOperationResult> batch_create_well_trajectory_with_meta_infos(WellTrajRequest welltrajDataRequest, string traceName = null);
 
-        Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest);
+        Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest, string traceName = null);
 
         Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest);
         Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest);
@@ -40,7 +40,7 @@ namespace KindomDataAPIServer.DataService
 
 
         Task<WellOperationResult> batch_create_well_formation(PbWellFormationList pbWellFormationList);
-        Task<WellOperationResult> batch_create_well_log(PbWellLogCreateList pbWellLogCreateList);
+        Task<WellOperationResult> batch_create_well_log(PbWellLogCreateList pbWellLogCreateList, string traceName = null);
 
         Task<WellOperationResult> batch_create_well_payzone_with_meta_infos(CreatePayzoneRequest wellDataRequest);
         Task<WellOperationResult> batch_create_well_lithology_with_meta_infos(CreatePayzoneRequest wellDataRequest);

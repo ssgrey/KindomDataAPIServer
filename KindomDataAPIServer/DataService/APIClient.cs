@@ -268,6 +268,67 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
+        public async Task<TResponse> PostMultipartAsync<TResponse>(string endpoint, Func<MultipartFormDataContent> contentFactory, string traceName = null)
+        {
+            string requestId = CreateRequestId();
+            string operationLabel = BuildOperationLabel(requestId, traceName, "POST", endpoint);
+            var totalStopwatch = Stopwatch.StartNew();
+            try
+            {
+                OnRequestStarted($"{operationLabel} - 开始");
+
+                var url = BuildUrl(endpoint);
+                LogManagerService.Instance.LogDebug($"{operationLabel} {url} started.");
+                for (int attempt = 1; attempt <= MaxRetryCount + 1; attempt++)
+                {
+                    try
+                    {
+                        var attemptStopwatch = Stopwatch.StartNew();
+                        using (var content = contentFactory())
+                        using (var response = await Client.PostAsync(url, content))
+                        {
+                            attemptStopwatch.Stop();
+                            LogManagerService.Instance.LogDebug($"{operationLabel} {url}    {response.StatusCode} elapsed:{attemptStopwatch.Elapsed.TotalSeconds:F3}s");
+
+                            var responseContent = await response.Content.ReadAsStringAsync();
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var result = JsonHelper.ConvertFrom<TResponse>(responseContent);
+                                totalStopwatch.Stop();
+                                OnRequestCompleted($"{operationLabel} - 成功 elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s");
+                                return result;
+                            }
+
+                            if (ShouldRetryStatusCode(response.StatusCode) && attempt <= MaxRetryCount)
+                            {
+                                await DelayForRetryAsync(operationLabel, attempt, response.StatusCode);
+                                continue;
+                            }
+
+                            throw new NonRetryableHttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!ShouldRetryException(ex) || attempt > MaxRetryCount)
+                        {
+                            throw;
+                        }
+
+                        await DelayForRetryAsync(operationLabel, attempt, ex);
+                    }
+                }
+
+                throw new HttpRequestException($"POST {endpoint} failed after retries.");
+            }
+            catch (Exception ex)
+            {
+                totalStopwatch.Stop();
+                OnRequestFailed($"{operationLabel} - 失败 elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s: {ExceptionLogHelper.Format(ex)}");
+                throw;
+            }
+        }
+
         #endregion
 
         #region 配置方法

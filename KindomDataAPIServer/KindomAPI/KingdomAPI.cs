@@ -43,6 +43,22 @@ namespace KindomDataAPIServer.KindomAPI
             public WellTrajRequest Request { get; set; }
         }
 
+        private class WellLogUploadBatch
+        {
+            public int BatchIndex { get; set; }
+            public int ItemCount { get; set; }
+            public int CompletedWellCount { get; set; }
+            public PbWellLogCreateList Request { get; set; }
+        }
+
+        private class WellProductionUploadBatch
+        {
+            public int BatchIndex { get; set; }
+            public int ItemCount { get; set; }
+            public int CompletedWellCount { get; set; }
+            public WellProductionDataRequest Request { get; set; }
+        }
+
         private static KingdomAPI _instance = null;
         public static KingdomAPI Instance
         {
@@ -1252,83 +1268,210 @@ namespace KindomDataAPIServer.KindomAPI
             List<WellExport> Wells = KingDomData.Wells;
             var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
-            List<LogData> digitalLogExports = new List<LogData>();
+            int uploadConcurrency = AdvancedSettingsConfig.GetWellLogUploadConcurrency();
+            int wellLogBatchCurveCount = AdvancedSettingsConfig.GetWellLogBatchCurveCount();
+            int uploadQueueCapacity = Math.Max(uploadConcurrency * 2, uploadConcurrency);
+            int processedWellCount = 0;
+            int syncedLogCount = 0;
+            int uploadedBatchCount = 0;
+            int batchIndex = 0;
 
-            int index = 1;
-            foreach (var borID in BoreholeIds)
+            using (var uploadQueue = new BlockingCollection<WellLogUploadBatch>(uploadQueueCapacity))
+            using (var cancellationTokenSource = new CancellationTokenSource())
             {
-                using (var context = project.GetKingdom())
+                var uploadExceptions = new ConcurrentQueue<Exception>();
+                var completedBatchProgress = new Dictionary<int, int>();
+                object progressLock = new object();
+                int nextProgressBatchIndex = 1;
+
+                Action<WellLogUploadBatch> reportUploadedBatchProgress = batch =>
                 {
-                    PbWellLogCreateList logList = new PbWellLogCreateList();
-                    var formations = context.Get(new LogData(),
-                        x => new
-                        {
-                            LogData = x,
-                            LogCurveName = x.LogCurveName,
-                            LogType = x.LogCurveName.LogType,
-                            borehole = x.Borehole,
-                            boreholeId = x.BoreholeId,
-                            wellUWI = x.Borehole.Uwi,                         
-                        },
-                        x => x.BoreholeId == borID,
-                        false).ToList();
-                    var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//只有一个key  暂时的
-                    foreach (var item in dicts)
+                    if (syncKindomDataViewModel == null || BoreholeIds.Count == 0)
                     {
-                        long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
-                        if (wellWebID == -1)
-                            continue;
+                        return;
+                    }
 
-                        foreach (var formItem in item.Value)
+                    lock (progressLock)
+                    {
+                        completedBatchProgress[batch.BatchIndex] = batch.CompletedWellCount;
+                        while (completedBatchProgress.ContainsKey(nextProgressBatchIndex))
                         {
-                            if (formItem.LogData != null)
+                            int completedWellCount = completedBatchProgress[nextProgressBatchIndex];
+                            completedBatchProgress.Remove(nextProgressBatchIndex);
+                            nextProgressBatchIndex++;
+                            syncKindomDataViewModel.ReportCurrentStepProgress(completedWellCount * 100.0 / BoreholeIds.Count);
+                        }
+                    }
+                };
+
+                var uploadTasks = Enumerable.Range(0, uploadConcurrency)
+                    .Select(workerIndex => Task.Run(async () =>
+                    {
+                        try
+                        {
+                            foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                if (!checkNames.Contains(formItem.LogCurveName.Name))
-                                    continue;
-                                var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o).ToArray();
-                                PbWellLogCreateParams logObj = new PbWellLogCreateParams
+                                var res4 = await wellDataService.batch_create_well_log(uploadBatch.Request, $"WellLogs batch {uploadBatch.BatchIndex}");
+                                if (res4 != null)
                                 {
-                                    WellId = wellWebID,
-                                    SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
-                                    StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
-                                    CurveName = formItem.LogCurveName.Name,
-                                    DataSetId = dataSetId,                                   
-                                };
-                                if (IsDepthFeet)
-                                {
-                                    logObj.SampleRate = logObj.SampleRate.ToMeters();
-                                    logObj.StartDepth = logObj.StartDepth.ToMeters();
+
                                 }
 
-                                var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
-                                if (checkNameObj != null)
+                                int currentSyncedCount = Interlocked.Add(ref syncedLogCount, uploadBatch.ItemCount);
+                                int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
+                                LogManagerService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) synchronized. Uploaded batches {currentUploadedBatchCount}, synced {currentSyncedCount} curves.");
+                                reportUploadedBatchProgress(uploadBatch);
+                            }
+                        }
+                        catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+                        {
+                        }
+                        catch (Exception ex)
+                        {
+                            uploadExceptions.Enqueue(ex);
+                            cancellationTokenSource.Cancel();
+                            throw;
+                        }
+                    }))
+                    .ToArray();
+
+                Exception producerException = null;
+
+                PbWellLogCreateList batchLogList = new PbWellLogCreateList();
+                Action enqueueCurrentBatch = () =>
+                {
+                    if (batchLogList.LogList.Count == 0)
+                    {
+                        return;
+                    }
+
+                    batchIndex++;
+                    var uploadBatch = new WellLogUploadBatch
+                    {
+                        BatchIndex = batchIndex,
+                        ItemCount = batchLogList.LogList.Count,
+                        CompletedWellCount = processedWellCount,
+                        Request = batchLogList
+                    };
+                    uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
+                    LogManagerService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) queued. Read {processedWellCount}/{BoreholeIds.Count} wells.");
+                    batchLogList = new PbWellLogCreateList();
+                };
+
+                LogManagerService.Instance.Log($"WellLogs upload start. Batch curve count:{wellLogBatchCurveCount}. Upload concurrency:{uploadConcurrency}. Queue capacity:{uploadQueueCapacity}.");
+                try
+                {
+                    foreach (var borID in BoreholeIds)
+                    {
+                        cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                        processedWellCount++;
+                        using (var context = project.GetKingdom())
+                        {
+                            var formations = context.Get(new LogData(),
+                                x => new
                                 {
-                                    logObj.CurveType = checkNameObj.LogType.FamilyName;
-                                    logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
-                                    logObj.SampleUnitId = checkNameObj.UnitID;
+                                    LogData = x,
+                                    LogCurveName = x.LogCurveName,
+                                    LogType = x.LogCurveName.LogType,
+                                    borehole = x.Borehole,
+                                    boreholeId = x.BoreholeId,
+                                    wellUWI = x.Borehole.Uwi,
+                                },
+                                x => x.BoreholeId == borID,
+                                false).ToList();
+                            var dicts = formations.GroupBy(o => o.wellUWI).ToDictionary(a => a.Key, a => a.ToList());//只有一个key  暂时的
+                            foreach (var item in dicts)
+                            {
+                                cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
+                                if (wellWebID == -1)
+                                    continue;
+
+                                foreach (var formItem in item.Value)
+                                {
+                                    if (formItem.LogData != null)
+                                    {
+                                        if (!checkNames.Contains(formItem.LogCurveName.Name))
+                                            continue;
+                                        var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o).ToArray();
+                                        PbWellLogCreateParams logObj = new PbWellLogCreateParams
+                                        {
+                                            WellId = wellWebID,
+                                            SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
+                                            StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
+                                            CurveName = formItem.LogCurveName.Name,
+                                            DataSetId = dataSetId,
+                                        };
+                                        if (IsDepthFeet)
+                                        {
+                                            logObj.SampleRate = logObj.SampleRate.ToMeters();
+                                            logObj.StartDepth = logObj.StartDepth.ToMeters();
+                                        }
+
+                                        var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
+                                        if (checkNameObj != null)
+                                        {
+                                            logObj.CurveType = checkNameObj.LogType.FamilyName;
+                                            logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
+                                            logObj.SampleUnitId = checkNameObj.UnitID;
+                                        }
+
+                                        logObj.Samples.AddRange(dataArray);
+                                        batchLogList.LogList.Add(logObj);
+                                        if (batchLogList.LogList.Count >= wellLogBatchCurveCount)
+                                        {
+                                            enqueueCurrentBatch();
+                                        }
+                                    }
                                 }
-      
-                                logObj.Samples.AddRange(dataArray);
-                                logList.LogList.Add(logObj);
                             }
                         }
                     }
-                    if (logList.LogList.Count > 0)
-                    {
-                        var res4 = await wellDataService.batch_create_well_log(logList);
-                        if (res4 != null)
-                        {
 
-                        }
-                    }
-                    if (syncKindomDataViewModel != null && BoreholeIds.Count > 0)
-                    {
-                        syncKindomDataViewModel.ReportCurrentStepProgress((double)index / BoreholeIds.Count * 100);
-                    }
-                    LogManagerService.Instance.Log($"WellLogs synchronized. Synced {index}/{BoreholeIds.Count} wells.");
+                    enqueueCurrentBatch();
                 }
-                index++;
+                catch (OperationCanceledException) when (uploadExceptions.TryPeek(out _))
+                {
+                }
+                catch (Exception ex)
+                {
+                    producerException = ex;
+                    cancellationTokenSource.Cancel();
+                }
+                finally
+                {
+                    uploadQueue.CompleteAdding();
+                }
+
+                try
+                {
+                    await Task.WhenAll(uploadTasks);
+                }
+                catch
+                {
+                    if (uploadExceptions.TryPeek(out Exception uploadException))
+                    {
+                        throw uploadException;
+                    }
+
+                    if (producerException == null)
+                    {
+                        throw;
+                    }
+                }
+
+                if (producerException != null)
+                {
+                    throw producerException;
+                }
             }
+
+            if (syncKindomDataViewModel != null)
+            {
+                syncKindomDataViewModel.ReportCurrentStepProgress(100);
+            }
+
+            LogManagerService.Instance.Log($"WellLogs synchronized. Synced {syncedLogCount} curves.");
         }
 
 
@@ -1476,6 +1619,12 @@ namespace KindomDataAPIServer.KindomAPI
 
                 List<WellExport> Wells = kindomData.Wells;
                 List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+                int uploadConcurrency = AdvancedSettingsConfig.GetWellProductionUploadConcurrency();
+                int uploadQueueCapacity = Math.Max(uploadConcurrency * 2, uploadConcurrency);
+                int processedWellCount = 0;
+                int syncedProductionCount = 0;
+                int uploadedBatchCount = 0;
+                int batchIndex = 0;
 
                 List<MetaInfo> MetaInfoList = new List<MetaInfo>();
                 MetaInfo metaInfo = new MetaInfo();
@@ -1499,86 +1648,193 @@ namespace KindomDataAPIServer.KindomAPI
                 MetaInfoList.Add(metaInfo3);
 
 
-                using (var context = project.GetKingdom())
+                using (var uploadQueue = new BlockingCollection<WellProductionUploadBatch>(uploadQueueCapacity))
+                using (var cancellationTokenSource = new CancellationTokenSource())
                 {
-                    int index = 1;
-                    int allCount = BoreholeIds.Count;
-                    foreach (var boreID in BoreholeIds)
+                    var uploadExceptions = new ConcurrentQueue<Exception>();
+                    var completedBatchProgress = new Dictionary<int, int>();
+                    object progressLock = new object();
+                    int nextProgressBatchIndex = 1;
+
+                    Action<WellProductionUploadBatch> reportUploadedBatchProgress = batch =>
                     {
-                        var kindomDatas = context.Get(new Smt.Entities.ProductionVolumeHistory(),
-                         x => new
-                         {
-                             borehole = x.Borehole,
-                             boreholeId = x.BoreholeId,
-                             wellUWI = x.Borehole.Uwi,
-                             data = x,
-                         },
-                           x => x.BoreholeId == boreID,
-                         false).ToList();
-
-                        if (kindomDatas.Count > 0)
+                        if (syncKindomDataViewModel == null || BoreholeIds.Count == 0)
                         {
-                            string WellUWI = kindomDatas.FirstOrDefault().wellUWI;
-                            long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, wellIDandNameList);
-                            if (wellWebID == -1)
-                                continue;
-
-                            List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
-                            WellDailyProductionData productionData = new WellDailyProductionData();
-                            productionData.WellId = wellWebID;
-                            productionData.MetaInfoList = MetaInfoList;
-                            foreach (var item in kindomDatas)
-                            {
-                                if (item.data.StartDate == null || item.data.EndDate == null)
-                                    continue;
-                                TimeSpan timespan = item.data.EndDate.Value - item.data.StartDate.Value;
-                                int totalDays = timespan.Days + 1;
-                                for (int i = 0; i < totalDays; i++)
-                                {
-                                    DailyData dailyData = new DailyData()
-                                    {
-                                        MeasureDate = item.data.StartDate.Value.AddDays(i).ToShortDateString()
-                                    };
-
-                                    if (isShowOil)
-                                    {
-                                        dailyData.OilVol = item.data.OilProductionVolume == null ? 0 : item.data.OilProductionVolume.Value / totalDays;
-                                    }
-                                    if (isShowGas)
-                                    {
-                                        dailyData.GasVol = item.data.GasProductionVolume == null ? 0 : item.data.GasProductionVolume.Value / totalDays;
-
-                                    }
-                                    if (isShowWater)
-                                    {
-                                        dailyData.WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays;
-                                    }
-                                    productionData.DailyList.Add(dailyData);
-                                }
-                            }
-                            datas.Add(productionData);
-
-                            if (datas.Count > 0)
-                            {
-                                WellProductionDataRequest Request = new WellProductionDataRequest();
-                                Request.Items = datas;
-                                var res4 = await wellDataService.batch_create_well_production_with_meta_infos(Request);
-                                if (res4 != null)
-                                {
-
-                                }
-                            }
-
-                            LogManagerService.Instance.Log($"Well Production Datas synchronize ({index}/{allCount})");
-                            syncKindomDataViewModel.ReportCurrentStepProgress(index * 100.0 / allCount);
+                            return;
                         }
-                        index++;
+
+                        lock (progressLock)
+                        {
+                            completedBatchProgress[batch.BatchIndex] = batch.CompletedWellCount;
+                            while (completedBatchProgress.ContainsKey(nextProgressBatchIndex))
+                            {
+                                int completedWellCount = completedBatchProgress[nextProgressBatchIndex];
+                                completedBatchProgress.Remove(nextProgressBatchIndex);
+                                nextProgressBatchIndex++;
+                                syncKindomDataViewModel.ReportCurrentStepProgress(completedWellCount * 100.0 / BoreholeIds.Count);
+                            }
+                        }
+                    };
+
+                    var uploadTasks = Enumerable.Range(0, uploadConcurrency)
+                        .Select(workerIndex => Task.Run(async () =>
+                        {
+                            try
+                            {
+                                foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                                {
+                                    var res4 = await wellDataService.batch_create_well_production_with_meta_infos(uploadBatch.Request, $"WellProduction batch {uploadBatch.BatchIndex}");
+                                    if (res4 != null)
+                                    {
+
+                                    }
+
+                                    int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, uploadBatch.ItemCount);
+                                    int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
+                                    LogManagerService.Instance.Log($"Well Production Datas batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) synchronized. Uploaded batches {currentUploadedBatchCount}, synced {currentSyncedCount} production items.");
+                                    reportUploadedBatchProgress(uploadBatch);
+                                }
+                            }
+                            catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+                            {
+                            }
+                            catch (Exception ex)
+                            {
+                                uploadExceptions.Enqueue(ex);
+                                cancellationTokenSource.Cancel();
+                                throw;
+                            }
+                        }))
+                        .ToArray();
+
+                    Exception producerException = null;
+
+                    LogManagerService.Instance.Log($"Well Production Datas upload start. Upload concurrency:{uploadConcurrency}. Queue capacity:{uploadQueueCapacity}.");
+                    try
+                    {
+                        using (var context = project.GetKingdom())
+                        {
+                            foreach (var boreID in BoreholeIds)
+                            {
+                                cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                processedWellCount++;
+                                var kindomDatas = context.Get(new Smt.Entities.ProductionVolumeHistory(),
+                                 x => new
+                                 {
+                                     borehole = x.Borehole,
+                                     boreholeId = x.BoreholeId,
+                                     wellUWI = x.Borehole.Uwi,
+                                     data = x,
+                                 },
+                                   x => x.BoreholeId == boreID,
+                                 false).ToList();
+
+                                if (kindomDatas.Count > 0)
+                                {
+                                    string WellUWI = kindomDatas.FirstOrDefault().wellUWI;
+                                    long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, wellIDandNameList);
+                                    if (wellWebID == -1)
+                                        continue;
+
+                                    List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
+                                    WellDailyProductionData productionData = new WellDailyProductionData();
+                                    productionData.WellId = wellWebID;
+                                    productionData.MetaInfoList = MetaInfoList;
+                                    foreach (var item in kindomDatas)
+                                    {
+                                        if (item.data.StartDate == null || item.data.EndDate == null)
+                                            continue;
+                                        TimeSpan timespan = item.data.EndDate.Value - item.data.StartDate.Value;
+                                        int totalDays = timespan.Days + 1;
+                                        for (int i = 0; i < totalDays; i++)
+                                        {
+                                            DailyData dailyData = new DailyData()
+                                            {
+                                                MeasureDate = item.data.StartDate.Value.AddDays(i).ToShortDateString()
+                                            };
+
+                                            if (isShowOil)
+                                            {
+                                                dailyData.OilVol = item.data.OilProductionVolume == null ? 0 : item.data.OilProductionVolume.Value / totalDays;
+                                            }
+                                            if (isShowGas)
+                                            {
+                                                dailyData.GasVol = item.data.GasProductionVolume == null ? 0 : item.data.GasProductionVolume.Value / totalDays;
+
+                                            }
+                                            if (isShowWater)
+                                            {
+                                                dailyData.WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays;
+                                            }
+                                            productionData.DailyList.Add(dailyData);
+                                        }
+                                    }
+                                    datas.Add(productionData);
+
+                                    if (datas.Count > 0)
+                                    {
+                                        batchIndex++;
+                                        WellProductionDataRequest request = new WellProductionDataRequest();
+                                        request.Items = datas;
+                                        var uploadBatch = new WellProductionUploadBatch
+                                        {
+                                            BatchIndex = batchIndex,
+                                            ItemCount = datas.Count,
+                                            CompletedWellCount = processedWellCount,
+                                            Request = request
+                                        };
+                                        uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
+                                        LogManagerService.Instance.Log($"Well Production Datas batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) queued. Read {processedWellCount}/{BoreholeIds.Count} wells.");
+                                    }
+                                }
+                            }
+                        }
                     }
+                    catch (OperationCanceledException) when (uploadExceptions.TryPeek(out _))
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        producerException = ex;
+                        cancellationTokenSource.Cancel();
+                    }
+                    finally
+                    {
+                        uploadQueue.CompleteAdding();
+                    }
+
+                    try
+                    {
+                        await Task.WhenAll(uploadTasks);
+                    }
+                    catch
+                    {
+                        if (uploadExceptions.TryPeek(out Exception uploadException))
+                        {
+                            throw uploadException;
+                        }
+
+                        if (producerException == null)
+                        {
+                            throw;
+                        }
+                    }
+
+                    if (producerException != null)
+                    {
+                        throw producerException;
+                    }
+                }
+
+                if (syncKindomDataViewModel != null)
+                {
+                    syncKindomDataViewModel.ReportCurrentStepProgress(100);
                 }
             }
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log("CreateWellProductionDataToWeb error:" + ExceptionLogHelper.Format(ex));
+                throw;
             }
         }
 

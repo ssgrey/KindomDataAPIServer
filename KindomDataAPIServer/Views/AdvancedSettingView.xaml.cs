@@ -16,6 +16,9 @@ namespace KindomDataAPIServer.Views
             WellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
             WellTrajectoryBatchSize = AdvancedSettingsConfig.GetWellTrajectoryBatchSize();
             WellTrajectoryUploadConcurrency = AdvancedSettingsConfig.GetWellTrajectoryUploadConcurrency();
+            WellLogUploadConcurrency = AdvancedSettingsConfig.GetWellLogUploadConcurrency();
+            WellLogBatchCurveCount = AdvancedSettingsConfig.GetWellLogBatchCurveCount();
+            WellProductionUploadConcurrency = AdvancedSettingsConfig.GetWellProductionUploadConcurrency();
             WellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
             DataContext = this;
         }
@@ -23,6 +26,9 @@ namespace KindomDataAPIServer.Views
         public int WellHeaderBatchSize { get; set; }
         public int WellTrajectoryBatchSize { get; set; }
         public int WellTrajectoryUploadConcurrency { get; set; }
+        public int WellLogUploadConcurrency { get; set; }
+        public int WellLogBatchCurveCount { get; set; }
+        public int WellProductionUploadConcurrency { get; set; }
         public int WellFormationBatchSize { get; set; }
 
         private void Ok_Click(object sender, RoutedEventArgs e)
@@ -32,6 +38,9 @@ namespace KindomDataAPIServer.Views
                 AdvancedSettingsConfig.SaveWellHeaderBatchSize(WellHeaderBatchSize);
                 AdvancedSettingsConfig.SaveWellTrajectoryBatchSize(WellTrajectoryBatchSize);
                 AdvancedSettingsConfig.SaveWellTrajectoryUploadConcurrency(WellTrajectoryUploadConcurrency);
+                AdvancedSettingsConfig.SaveWellLogUploadConcurrency(WellLogUploadConcurrency);
+                AdvancedSettingsConfig.SaveWellLogBatchCurveCount(WellLogBatchCurveCount);
+                AdvancedSettingsConfig.SaveWellProductionUploadConcurrency(WellProductionUploadConcurrency);
                 AdvancedSettingsConfig.SaveWellFormationBatchSize(WellFormationBatchSize);
                 DialogResult = true;
                 Close();

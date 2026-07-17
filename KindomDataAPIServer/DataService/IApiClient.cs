@@ -15,6 +15,7 @@ namespace KindomDataAPIServer.DataService
         Task<T> GetAsync<T>(string endpoint, Dictionary<string, string> parameters = null, string traceName = null);
         Task<TResponse> PostAsync<TRequest, TResponse>(string endpoint, TRequest data, string traceName = null);
         Task<TResponse> PostAsync<TResponse>(string endpoint, string traceName = null);
+        Task<TResponse> PostMultipartAsync<TResponse>(string endpoint, Func<MultipartFormDataContent> contentFactory, string traceName = null);
 
         // 事件
         event EventHandler<string> RequestStarted;
