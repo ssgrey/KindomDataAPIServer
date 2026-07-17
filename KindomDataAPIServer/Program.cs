@@ -72,13 +72,7 @@ namespace KindomDataAPIServer
             catch (Exception ex)
             {
                 _appMutex?.Dispose();
-                string msg = ex.StackTrace + ex.Message;
-
-                if (ex.InnerException != null)
-                {
-                    msg = msg + ex.InnerException.Message + ex.InnerException.StackTrace;
-                }
-                MessageBox.Show(msg);
+                MessageBox.Show(ExceptionLogHelper.Format(ex));
             }
         }
 
@@ -122,7 +116,7 @@ namespace KindomDataAPIServer
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log(ex.Message);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
             }
             return apiData;
         }
@@ -188,7 +182,7 @@ namespace KindomDataAPIServer
             }
             catch (Exception ex)
             {
-                DXMessageBox.Show("Error sending arguments to the first instance: " + ex.Message+ ex.StackTrace);
+                DXMessageBox.Show("Error sending arguments to the first instance: " + ExceptionLogHelper.Format(ex));
                 // 其他异常，主实例可能已异常退出
             }
         }

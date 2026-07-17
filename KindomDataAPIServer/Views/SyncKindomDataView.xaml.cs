@@ -85,7 +85,7 @@ namespace KindomDataAPIServer.Views
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log(ex.Message);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
             }
 
         }

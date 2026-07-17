@@ -192,7 +192,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("iniByArgs failed !" + ex.StackTrace + ex.Message);
+                LogManagerService.Instance.Log("iniByArgs failed !" + ExceptionLogHelper.Format(ex));
             }
             finally
             {
@@ -253,8 +253,8 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("Initial failed !" + ex.StackTrace + ex.Message);
-                DXMessageBox.Show(ex.Message + ex.StackTrace);
+                LogManagerService.Instance.Log("Initial failed !" + ExceptionLogHelper.Format(ex));
+                DXMessageBox.Show(ExceptionLogHelper.Format(ex));
             }
             finally
             {
@@ -327,7 +327,7 @@ namespace KindomDataAPIServer.ViewModels
                     {
                         _isLoadingKingdomWellSubsets = false;
                         DXMessageBox.Show("Load project users failed ! please try select project path again!");
-                        LogManagerService.Instance.Log("Load project users failed !" + ex.StackTrace + ex.Message);
+                        LogManagerService.Instance.Log("Load project users failed !" + ExceptionLogHelper.Format(ex));
                         return;
                     }
 
@@ -1041,7 +1041,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log(ex.Message);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
                 Application.Current.Dispatcher.Invoke(new Action(() =>
                 {
                     KingdomWellSubsets = new ObservableCollection<WellSubsetOption>();
@@ -1080,7 +1080,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log(ex.Message);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
                 return;
             }
             finally
@@ -1161,7 +1161,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("RefreshConclusionMappingItems failed !" + ex.StackTrace + ex.Message);
+                LogManagerService.Instance.Log("RefreshConclusionMappingItems failed !" + ExceptionLogHelper.Format(ex));
             }
         }
 
@@ -1607,7 +1607,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log(ex.Message + ex.StackTrace);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
                 DXMessageBox.Show("Data synchronize failed：" + ex.Message);
                 return;
             }
@@ -1687,7 +1687,7 @@ namespace KindomDataAPIServer.ViewModels
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log(ex.Message + ex.Message);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
             }
             finally
             {
@@ -1718,7 +1718,7 @@ namespace KindomDataAPIServer.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    LogManagerService.Instance.Log($"Create New LogSetID error: {ex.Message} ");
+                    LogManagerService.Instance.Log($"Create New LogSetID error: {ExceptionLogHelper.Format(ex)} ");
                 }finally { IsEnable = true; }
  
             }

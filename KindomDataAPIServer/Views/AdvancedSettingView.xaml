@@ -6,7 +6,7 @@
     xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
     Title="Advanced Settings"
     Width="420"
-    Height="220"
+    Height="250"
     ResizeMode="NoResize"
     WindowStartupLocation="CenterOwner">
     <Grid Margin="12">
@@ -38,6 +38,18 @@
                     MaxValue="1000000"
                     IsFloatValue="False"
                     EditValue="{Binding WellTrajectoryBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+            <StackPanel Height="32" Orientation="Horizontal">
+                <Label
+                    Width="190"
+                    VerticalAlignment="Center"
+                    Content="Well Trajectory Upload Concurrency" />
+                <dxe:SpinEdit
+                    Width="120"
+                    MinValue="1"
+                    MaxValue="100"
+                    IsFloatValue="False"
+                    EditValue="{Binding WellTrajectoryUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </StackPanel>
             <StackPanel Height="32" Orientation="Horizontal">
                 <Label

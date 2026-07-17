@@ -14,6 +14,7 @@ using log4net;
 using Smt;
 using Smt.Entities;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Configuration;
@@ -23,6 +24,7 @@ using System.Linq.Expressions;
 using System.Runtime.Remoting.Contexts;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
@@ -33,6 +35,14 @@ namespace KindomDataAPIServer.KindomAPI
 {
     public class KingdomAPI :BindableBase
     {
+        private class WellTrajectoryUploadBatch
+        {
+            public int BatchIndex { get; set; }
+            public int ItemCount { get; set; }
+            public int CompletedWellCount { get; set; }
+            public WellTrajRequest Request { get; set; }
+        }
+
         private static KingdomAPI _instance = null;
         public static KingdomAPI Instance
         {
@@ -81,7 +91,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"KingdomAPI constructor failed: {ex.Message}");
+                LogManagerService.Instance.Log($"KingdomAPI constructor failed: {ExceptionLogHelper.Format(ex)}");
             }
             LogManagerService.Instance.Log($"OnceSyncWellCount_Logs:{OnceSyncWellCount_Logs}");
             LogManagerService.Instance.Log($"OnceSyncWellCount_Intervals:{OnceSyncWellCount_Intervals}");
@@ -292,7 +302,7 @@ namespace KindomDataAPIServer.KindomAPI
             catch (Exception ex)
             {
                 DXMessageBox.Show($"SetProjectPath failed: {ex.Message}");
-                LogManagerService.Instance.Log($"SetProjectPath failed: {ex.Message}");
+                LogManagerService.Instance.Log($"SetProjectPath failed: {ExceptionLogHelper.Format(ex)}");
             }
         }
 
@@ -331,11 +341,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"LoginDB failed: {ex.Message + ex.StackTrace}");
-                if (ex.InnerException != null)
-                {
-                      LogManagerService.Instance.Log($"LoginDB InnerException failed: {ex.InnerException.Message + ex.InnerException.StackTrace}");
-                }
+                LogManagerService.Instance.Log($"LoginDB failed: {ExceptionLogHelper.Format(ex)}");
             }
             return null;
         }
@@ -357,7 +363,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"Project LogOn failed: {ex.Message}");
+                LogManagerService.Instance.Log($"Project LogOn failed: {ExceptionLogHelper.Format(ex)}");
             }
             return false;
         }
@@ -373,7 +379,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch(Exception ex)
             {
-                LogManagerService.Instance.Log($"close failed: {ex.Message}");
+                LogManagerService.Instance.Log($"close failed: {ExceptionLogHelper.Format(ex)}");
 
             }
         }
@@ -508,12 +514,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                string res = ex.Message;
-                if (ex.InnerException != null)
-                {
-                    res += ex.InnerException.Message;
-                }
-                LogManagerService.Instance.Log(res + ex.StackTrace);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
             }
 
             return new List<WellSubsetOption>();
@@ -543,7 +544,7 @@ namespace KindomDataAPIServer.KindomAPI
                             }
                             catch (Exception ex)
                             {
-                                LogManagerService.Instance.Log($"GetProjectData failed to get borehole IDs for subset {wellSubset.Name}: {ex.Message}");
+                                LogManagerService.Instance.Log($"GetProjectData failed to get borehole IDs for subset {wellSubset.Name}: {ExceptionLogHelper.Format(ex)}");
                             }
                             if (boreholeIds != null)
                             {
@@ -577,7 +578,7 @@ namespace KindomDataAPIServer.KindomAPI
                     }
                     catch (Exception ex) //查询子集中的井失败，返回空数据
                     {
-                        LogManagerService.Instance.Log($"GetProjectData failed to get borehole IDs for subset {wellSubset.Name}: {ex.Message}");
+                        LogManagerService.Instance.Log($"GetProjectData failed to get borehole IDs for subset {wellSubset.Name}: {ExceptionLogHelper.Format(ex)}");
                         return new ProjectResponse()
                         {
                             ProjectPath = this.ProjectPath,
@@ -747,12 +748,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                string res = ex.Message;
-                if (ex.InnerException != null)
-                {
-                    res += ex.InnerException.Message;
-                }
-                LogManagerService.Instance.Log(res + ex.StackTrace);
+                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
             }
             return null;
         }
@@ -954,106 +950,211 @@ namespace KindomDataAPIServer.KindomAPI
 
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
             int wellTrajectoryBatchSize = AdvancedSettingsConfig.GetWellTrajectoryBatchSize();
+            int uploadConcurrency = AdvancedSettingsConfig.GetWellTrajectoryUploadConcurrency();
+            int uploadQueueCapacity = Math.Max(uploadConcurrency * 2, uploadConcurrency);
             int processedWellCount = 0;
             int syncedTrajectoryCount = 0;
+            int uploadedBatchCount = 0;
             int batchIndex = 0;
             WellTrajRequest batchRequest = new WellTrajRequest();
 
-            LogManagerService.Instance.Log($"WellTrajs start synchronize. Batch size:{wellTrajectoryBatchSize}.");
-            foreach (var wellGroup in wellGroups)
+            using (var uploadQueue = new BlockingCollection<WellTrajectoryUploadBatch>(uploadQueueCapacity))
+            using (var cancellationTokenSource = new CancellationTokenSource())
             {
-                processedWellCount++;
-                List<int> boreholeIds = wellGroup.Select(o => o.BoreholeId).ToList();
-                using (var context = project.GetKingdom())
+                var uploadExceptions = new ConcurrentQueue<Exception>();
+                var completedBatchProgress = new Dictionary<int, int>();
+                object progressLock = new object();
+                int nextProgressBatchIndex = 1;
+
+                Action<WellTrajectoryUploadBatch> reportUploadedBatchProgress = batch =>
                 {
-                    var deviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
-                     x => new
-                     {
-                         boreholeId = x.BoreholeId,
-                         data = x,
-                     },
-                       x => boreholeIds.Contains(x.BoreholeId),
-                     false).ToList();
-
-                    long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
-                    if (wellWebID != -1)
+                    if (syncKindomDataViewModel == null || wellGroups.Count == 0)
                     {
-                        foreach (var formItem in deviationSurveys)
+                        return;
+                    }
+
+                    lock (progressLock)
+                    {
+                        completedBatchProgress[batch.BatchIndex] = batch.CompletedWellCount;
+                        while (completedBatchProgress.ContainsKey(nextProgressBatchIndex))
                         {
-                            if (formItem.data != null)
+                            int completedWellCount = completedBatchProgress[nextProgressBatchIndex];
+                            completedBatchProgress.Remove(nextProgressBatchIndex);
+                            nextProgressBatchIndex++;
+                            syncKindomDataViewModel.ReportCurrentStepProgress(completedWellCount * 100.0 / wellGroups.Count);
+                        }
+                    }
+                };
+
+                var uploadTasks = Enumerable.Range(0, uploadConcurrency)
+                    .Select(workerIndex => Task.Run(async () =>
+                    {
+                        try
+                        {
+                            foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                WellTrajData wellTrajData = new WellTrajData();
-                                wellTrajData.MetaInfoList = MetaInfoList;
-                                wellTrajData.WellId = wellWebID;
-                                for (int i = 0; i < formItem.data.MD.Count; i++)
+                                var res = await wellDataService.batch_create_well_trajectory_with_meta_infos(uploadBatch.Request, $"WellTrajs batch {uploadBatch.BatchIndex}");
+                                if (res != null)
                                 {
-                                    CoordData coordData = new CoordData()
-                                    {
-                                        Md = formItem.data.MD[i],
-                                        Tvd = formItem.data.TVD[i],
-                                        Dx = formItem.data.DX[i],
-                                        Dy = formItem.data.DY[i]
-                                    };
-                                    if(IsDepthFeet)
-                                    {
-                                        coordData.Md = coordData.Md.ToMeters();
-                                        coordData.Tvd = coordData.Tvd.ToMeters();
-                                    }
-                                    if(IsXYFeet)
-                                    {
-                                        coordData.Dx = coordData.Dx.ToMeters();
-                                        coordData.Dy = coordData.Dy.ToMeters();
-                                    }
 
-                                    wellTrajData.CoordList.Add(coordData);
-                                    AimuthData aimuthData = new AimuthData()
-                                    {
-                                        Md = formItem.data.MD[i],
-                                        Azim = formItem.data.Azimuth[i],
-                                        Devi = formItem.data.Inclination[i],
-                                    };
-                                    if(IsDepthFeet)
-                                    {
-                                        aimuthData.Md = aimuthData.Md.ToMeters();
-                                    }
-                                    wellTrajData.AimuthList.Add(aimuthData);
                                 }
-                                batchRequest.Items.Add(wellTrajData);
-                                if (batchRequest.Items.Count >= wellTrajectoryBatchSize)
-                                {
-                                    batchIndex++;
-                                    int batchItemCount = batchRequest.Items.Count;
-                                    var res = await wellDataService.batch_create_well_trajectory_with_meta_infos(batchRequest);
-                                    if (res != null)
-                                    {
 
+                                int currentSyncedCount = Interlocked.Add(ref syncedTrajectoryCount, uploadBatch.ItemCount);
+                                int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
+                                LogManagerService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) synchronized. Uploaded batches {currentUploadedBatchCount}, synced {currentSyncedCount} trajectory items.");
+                                reportUploadedBatchProgress(uploadBatch);
+                            }
+                        }
+                        catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+                        {
+                        }
+                        catch (Exception ex)
+                        {
+                            uploadExceptions.Enqueue(ex);
+                            cancellationTokenSource.Cancel();
+                            throw;
+                        }
+                    }))
+                    .ToArray();
+
+                Action enqueueCurrentBatch = () =>
+                {
+                    if (batchRequest.Items.Count == 0)
+                    {
+                        return;
+                    }
+
+                    batchIndex++;
+                    int batchItemCount = batchRequest.Items.Count;
+                    var uploadBatch = new WellTrajectoryUploadBatch
+                    {
+                        BatchIndex = batchIndex,
+                        ItemCount = batchItemCount,
+                        CompletedWellCount = processedWellCount,
+                        Request = batchRequest
+                    };
+                    uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
+                    LogManagerService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) queued. Read {processedWellCount}/{wellGroups.Count} wells.");
+                    batchRequest = new WellTrajRequest();
+                };
+
+                Exception producerException = null;
+
+                LogManagerService.Instance.Log($"WellTrajs start synchronize. Batch size:{wellTrajectoryBatchSize}. Upload concurrency:{uploadConcurrency}. Queue capacity:{uploadQueueCapacity}.");
+                try
+                {
+                    foreach (var wellGroup in wellGroups)
+                    {
+                        cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                        processedWellCount++;
+                        List<int> boreholeIds = wellGroup.Select(o => o.BoreholeId).ToList();
+                        using (var context = project.GetKingdom())
+                        {
+                            var deviationSurveys = context.Get(new Smt.Entities.DeviationSurvey(),
+                             x => new
+                             {
+                                 boreholeId = x.BoreholeId,
+                                 data = x,
+                             },
+                               x => boreholeIds.Contains(x.BoreholeId),
+                             false).ToList();
+
+                            long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
+                            if (wellWebID != -1)
+                            {
+                                foreach (var formItem in deviationSurveys)
+                                {
+                                    cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                    if (formItem.data != null)
+                                    {
+                                        WellTrajData wellTrajData = new WellTrajData();
+                                        wellTrajData.MetaInfoList = MetaInfoList;
+                                        wellTrajData.WellId = wellWebID;
+                                        for (int i = 0; i < formItem.data.MD.Count; i++)
+                                        {
+                                            CoordData coordData = new CoordData()
+                                            {
+                                                Md = formItem.data.MD[i],
+                                                Tvd = formItem.data.TVD[i],
+                                                Dx = formItem.data.DX[i],
+                                                Dy = formItem.data.DY[i]
+                                            };
+                                            if (IsDepthFeet)
+                                            {
+                                                coordData.Md = coordData.Md.ToMeters();
+                                                coordData.Tvd = coordData.Tvd.ToMeters();
+                                            }
+                                            if (IsXYFeet)
+                                            {
+                                                coordData.Dx = coordData.Dx.ToMeters();
+                                                coordData.Dy = coordData.Dy.ToMeters();
+                                            }
+
+                                            wellTrajData.CoordList.Add(coordData);
+                                            AimuthData aimuthData = new AimuthData()
+                                            {
+                                                Md = formItem.data.MD[i],
+                                                Azim = formItem.data.Azimuth[i],
+                                                Devi = formItem.data.Inclination[i],
+                                            };
+                                            if (IsDepthFeet)
+                                            {
+                                                aimuthData.Md = aimuthData.Md.ToMeters();
+                                            }
+                                            wellTrajData.AimuthList.Add(aimuthData);
+                                        }
+                                        batchRequest.Items.Add(wellTrajData);
+                                        if (batchRequest.Items.Count >= wellTrajectoryBatchSize)
+                                        {
+                                            enqueueCurrentBatch();
+                                        }
                                     }
-                                    syncedTrajectoryCount += batchItemCount;
-                                    LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
-                                    batchRequest = new WellTrajRequest();
                                 }
                             }
                         }
                     }
+
+                    enqueueCurrentBatch();
+                }
+                catch (OperationCanceledException) when (uploadExceptions.TryPeek(out _))
+                {
+                }
+                catch (Exception ex)
+                {
+                    producerException = ex;
+                    cancellationTokenSource.Cancel();
+                }
+                finally
+                {
+                    uploadQueue.CompleteAdding();
                 }
 
-                if (syncKindomDataViewModel != null && wellGroups.Count > 0)
+                try
                 {
-                    syncKindomDataViewModel.ReportCurrentStepProgress(processedWellCount * 100.0 / wellGroups.Count);
+                    await Task.WhenAll(uploadTasks);
+                }
+                catch
+                {
+                    if (uploadExceptions.TryPeek(out Exception uploadException))
+                    {
+                        throw uploadException;
+                    }
+
+                    if (producerException == null)
+                    {
+                        throw;
+                    }
+                }
+
+                if (producerException != null)
+                {
+                    throw producerException;
                 }
             }
 
-            if (batchRequest.Items.Count > 0)
+            if (syncKindomDataViewModel != null)
             {
-                batchIndex++;
-                int batchItemCount = batchRequest.Items.Count;
-                var res = await wellDataService.batch_create_well_trajectory_with_meta_infos(batchRequest);
-                if (res != null)
-                {
-
-                }
-                syncedTrajectoryCount += batchItemCount;
-                LogManagerService.Instance.Log($"WellTrajs batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
+                syncKindomDataViewModel.ReportCurrentStepProgress(100);
             }
 
             LogManagerService.Instance.Log($"WellTrajs synchronized. Synced {syncedTrajectoryCount}");
@@ -1477,7 +1578,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("CreateWellProductionDataToWeb error:" + ex.Message + ex.StackTrace);
+                LogManagerService.Instance.Log("CreateWellProductionDataToWeb error:" + ExceptionLogHelper.Format(ex));
             }
         }
 
@@ -1744,7 +1845,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("GetWellProductionTestDataUnits error:" + ex.Message + ex.StackTrace);
+                LogManagerService.Instance.Log("GetWellProductionTestDataUnits error:" + ExceptionLogHelper.Format(ex));
             }
             return UnitMappingItems;
         }
@@ -1942,7 +2043,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("CreateWellConclusionsToWeb error:" + ex.Message + ex.StackTrace);
+                LogManagerService.Instance.Log("CreateWellConclusionsToWeb error:" + ExceptionLogHelper.Format(ex));
             }
             return requestDict;
         }
@@ -2097,7 +2198,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"GetConclusionFileNameObjs failed: {ex.Message+ ex.StackTrace}");
+                LogManagerService.Instance.Log($"GetConclusionFileNameObjs failed: {ExceptionLogHelper.Format(ex)}");
             }
             return ConclusionNames;
         }
@@ -2198,7 +2299,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"GetColumnNameDict failed: {ex.Message + ex.StackTrace} ");
+                LogManagerService.Instance.Log($"GetColumnNameDict failed: {ExceptionLogHelper.Format(ex)} ");
             }
 
             return FileNameObjs;
@@ -2286,7 +2387,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"GetConclusionNames failed: {ex.Message + ex.StackTrace}");
+                LogManagerService.Instance.Log($"GetConclusionNames failed: {ExceptionLogHelper.Format(ex)}");
             }
 
             return ConclusionNames;
@@ -2323,7 +2424,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"CreateOrUpdateWell failed: {ex.Message}");
+                LogManagerService.Instance.Log($"CreateOrUpdateWell failed: {ExceptionLogHelper.Format(ex)}");
                 return false;
             }
             return true;
@@ -2637,7 +2738,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"CreateWellLogsToKindom failed: {ex.Message + ex.StackTrace}");
+                LogManagerService.Instance.Log($"CreateWellLogsToKindom failed: {ExceptionLogHelper.Format(ex)}");
                 return false;
             }
             return true;
@@ -2771,7 +2872,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"CreateWellIntervalsToKindom failed: {ex.Message + ex.StackTrace}");
+                LogManagerService.Instance.Log($"CreateWellIntervalsToKindom failed: {ExceptionLogHelper.Format(ex)}");
             }
 
 
@@ -2867,7 +2968,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"CreateWellIntervalsToKindom failed: {ex.Message + ex.StackTrace}");
+                LogManagerService.Instance.Log($"CreateWellIntervalsToKindom failed: {ExceptionLogHelper.Format(ex)}");
             }
 
 
@@ -3075,7 +3176,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"CreateOrUpdateWell failed: {ex.Message}");
+                LogManagerService.Instance.Log($"CreateOrUpdateWell failed: {ExceptionLogHelper.Format(ex)}");
                 return false;
             }
             return true;

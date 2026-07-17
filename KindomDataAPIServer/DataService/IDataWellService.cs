@@ -26,7 +26,7 @@ namespace KindomDataAPIServer.DataService
         Task<WellOperationResult> batch_create_well_header(WellDataRequest wellDataRequest);
         Task<List<ResultRowResponse>> get_explain_well_log_list(ResultData resultdata);
 
-        Task<WellOperationResult> batch_create_well_trajectory_with_meta_infos(WellTrajRequest welltrajDataRequest);
+        Task<WellOperationResult> batch_create_well_trajectory_with_meta_infos(WellTrajRequest welltrajDataRequest, string traceName = null);
 
         Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest);
 

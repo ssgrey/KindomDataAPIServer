@@ -32,7 +32,7 @@ namespace KindomDataAPIServer.Controllers
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"GetAllAuthorsByProject异常：{ex.Message}\n{ex.StackTrace}");
+                LogManagerService.Instance.Log($"GetAllAuthorsByProject异常：{ExceptionLogHelper.Format(ex)}");
                 return InternalServerError(ex);
             }
             finally
@@ -70,7 +70,7 @@ namespace KindomDataAPIServer.Controllers
             catch (Exception ex)
             {
                 response.ErrorMessage = $"查询失败: {ex.Message}";
-                LogManagerService.Instance.Log($"GetAllWellByProject异常：{ex.Message}\n{ex.StackTrace}");
+                LogManagerService.Instance.Log($"GetAllWellByProject异常：{ExceptionLogHelper.Format(ex)}");
                 return InternalServerError(ex);
             }
             finally

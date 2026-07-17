@@ -15,12 +15,14 @@ namespace KindomDataAPIServer.Views
             InitializeComponent();
             WellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
             WellTrajectoryBatchSize = AdvancedSettingsConfig.GetWellTrajectoryBatchSize();
+            WellTrajectoryUploadConcurrency = AdvancedSettingsConfig.GetWellTrajectoryUploadConcurrency();
             WellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
             DataContext = this;
         }
 
         public int WellHeaderBatchSize { get; set; }
         public int WellTrajectoryBatchSize { get; set; }
+        public int WellTrajectoryUploadConcurrency { get; set; }
         public int WellFormationBatchSize { get; set; }
 
         private void Ok_Click(object sender, RoutedEventArgs e)
@@ -29,6 +31,7 @@ namespace KindomDataAPIServer.Views
             {
                 AdvancedSettingsConfig.SaveWellHeaderBatchSize(WellHeaderBatchSize);
                 AdvancedSettingsConfig.SaveWellTrajectoryBatchSize(WellTrajectoryBatchSize);
+                AdvancedSettingsConfig.SaveWellTrajectoryUploadConcurrency(WellTrajectoryUploadConcurrency);
                 AdvancedSettingsConfig.SaveWellFormationBatchSize(WellFormationBatchSize);
                 DialogResult = true;
                 Close();
