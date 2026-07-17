@@ -1380,47 +1380,11 @@ namespace KindomDataAPIServer.ViewModels
                     StartSyncProgressStep("WellProduction");
                     LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
 
-                    await KingdomAPI.Instance.CreateWellProductionDataToWeb(KindomData, WellIDandNameList, IsShowOil, IsShowGas, IsShowWater, this);
+                    await Task.Run(async () =>
+                    {
+                        await KingdomAPI.Instance.CreateWellProductionDataToWeb(KindomData, WellIDandNameList, IsShowOil, IsShowGas, IsShowWater, this);
+                    });
                   
-                    //List<WellDailyProductionData> AllwellProductionDatas = KingdomAPI.Instance.GetWellProductionData(KindomData, WellIDandNameList, IsShowOil,IsShowGas,IsShowWater);
-
-                    //if (AllwellProductionDatas.Count > 0)
-                    //{
-                    //    int AllwellTrajsCount = AllwellProductionDatas.Count;
-                    //    List<WellProductionDataRequest> tempList = new List<WellProductionDataRequest>();
-                    //    WellProductionDataRequest wellTrajRequest = null;
-                    //    for (int i = 0; i < AllwellTrajsCount; i++)
-                    //    {
-                    //        if (i % 3 == 0)
-                    //        {
-                    //            wellTrajRequest = new WellProductionDataRequest();
-                    //            tempList.Add(wellTrajRequest);
-                    //            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
-                    //        }
-                    //        else
-                    //        {
-                    //            wellTrajRequest.Items.Add(AllwellProductionDatas[i]);
-                    //        }
-                    //    }
-                    //    for (int i = 0; i < tempList.Count; i++)
-                    //    {
-                    //        var res4 = await wellDataService.batch_create_well_production_with_meta_infos(tempList[i]);
-                    //        if (res4 != null)
-                    //        {
-
-                    //        }
-
-                    //        LogManagerService.Instance.Log($"Well Production Datas synchronize ({(i + 1) * 3}/{AllwellTrajsCount})");
-                    //        ProgressValue = 30 + ((i + 1) * 3 * 20) / AllwellTrajsCount;
-                    //    }
-
-                    //    LogManagerService.Instance.Log($"Well Production Datas synchronize ({AllwellTrajsCount}/{AllwellTrajsCount}) synchronize over！");
-                    //}
-                    //else
-                    //{
-                    //    LogManagerService.Instance.Log($"Well Production Data Count is 0");
-                    //}
-
                     LogManagerService.Instance.Log($"Well Production Datas synchronize over！");
                     CompleteSyncProgressStep();
 
@@ -1433,7 +1397,8 @@ namespace KindomDataAPIServer.ViewModels
                 {
                     StartSyncProgressStep("WellTest");
 
-                    (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems);
+                    (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = await Task.Run(() =>
+                        KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems));
 
                     if (AllwellTestDatas.Item1.Count > 0)
                     {
