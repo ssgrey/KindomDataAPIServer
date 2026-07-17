@@ -1,22 +1,26 @@
-﻿using DevExpress.Xpf.Core;
-using System;
-using System.Collections.Generic;
+﻿using System;
+using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace KindomDataAPIServer.Common
 {
     public class LogManagerService
     {
+        private const int RetainedLogDays = 7;
+        private const string LogFilePrefix = "app-";
+        private const string LogFileExtension = ".log";
+
         private static readonly Lazy<LogManagerService> _instance = new Lazy<LogManagerService>(() => new LogManagerService());
-        private readonly string _logFilePath;
+        private readonly object _syncRoot = new object();
+        private readonly string _logDirectory;
+        private DateTime _lastCleanupDate = DateTime.MinValue;
 
         private LogManagerService()
         {
-            _logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
-            EnsureLogFileIsToday();
+            _logDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            EnsureLogFile(DateTime.Today);
+            CleanupExpiredLogFiles(DateTime.Today);
         }
 
         public static LogManagerService Instance => _instance.Value;
@@ -28,7 +32,8 @@ namespace KindomDataAPIServer.Common
         public System.Windows.Controls.RichTextBox TextBox { get; set; }
         public void Log(string message)
         {
-            var logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} | {message}";
+            var now = DateTime.Now;
+            var logEntry = $"{now:yyyy-MM-dd HH:mm:ss.fff} | {message}";
             try
             {
                 if(TextBox != null)
@@ -40,8 +45,13 @@ namespace KindomDataAPIServer.Common
                         TextBox.ScrollToEnd();
                     });
                 }
-                EnsureLogFileIsToday();
-                File.AppendAllText(_logFilePath, logEntry + Environment.NewLine, Encoding.UTF8);
+
+                lock (_syncRoot)
+                {
+                    EnsureLogFile(now.Date);
+                    CleanupExpiredLogFiles(now.Date);
+                    File.AppendAllText(GetLogFilePath(now.Date), logEntry + Environment.NewLine, Encoding.UTF8);
+                }
             }
             catch(Exception ex)
             {
@@ -57,26 +67,16 @@ namespace KindomDataAPIServer.Common
         }
 
         /// <summary>
-        /// 检查日志文件的最后修改日期，如果不是今天则删除并重新创建
+        /// 确保当天日志文件存在
         /// </summary>
-        private void EnsureLogFileIsToday()
+        private void EnsureLogFile(DateTime logDate)
         {
             try
             {
-                if (File.Exists(_logFilePath))
+                var logFilePath = GetLogFilePath(logDate);
+                if (!File.Exists(logFilePath))
                 {
-                    var lastWrite = File.GetLastWriteTime(_logFilePath);
-                    if (lastWrite.Date != DateTime.Today)
-                    {
-                        File.Delete(_logFilePath);
-                        // 创建新文件
-                        File.WriteAllText(_logFilePath, $"[{DateTime.Now:yyyy-MM-dd}] 日志文件已重置{Environment.NewLine}", Encoding.UTF8);
-                    }
-                }
-                else
-                {
-                    // 创建新文件
-                    File.WriteAllText(_logFilePath, $"[{DateTime.Now:yyyy-MM-dd}] 日志文件已创建{Environment.NewLine}", Encoding.UTF8);
+                    File.WriteAllText(logFilePath, $"[{logDate:yyyy-MM-dd}] 日志文件已创建{Environment.NewLine}", Encoding.UTF8);
                 }
             }
             catch(Exception ex)
@@ -84,6 +84,45 @@ namespace KindomDataAPIServer.Common
                 //DXMessageBox.Show("日志文件初始化失败: " + ex.Message + ex.StackTrace);
                 // 可根据需要处理异常
             }
+        }
+
+        /// <summary>
+        /// 清理超过最近一周的日志文件
+        /// </summary>
+        private void CleanupExpiredLogFiles(DateTime today)
+        {
+            if (_lastCleanupDate == today)
+            {
+                return;
+            }
+
+            try
+            {
+                var earliestRetainedDate = today.AddDays(1 - RetainedLogDays);
+                foreach (var logFilePath in Directory.EnumerateFiles(_logDirectory, LogFilePrefix + "*" + LogFileExtension))
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(logFilePath);
+                    var datePart = fileName.Substring(LogFilePrefix.Length);
+                    DateTime logDate;
+                    if (DateTime.TryParseExact(datePart, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out logDate)
+                        && logDate.Date < earliestRetainedDate)
+                    {
+                        File.Delete(logFilePath);
+                    }
+                }
+
+                _lastCleanupDate = today;
+            }
+            catch(Exception ex)
+            {
+                //DXMessageBox.Show("日志文件清理失败: " + ex.Message + ex.StackTrace);
+                // 可根据需要处理异常
+            }
+        }
+
+        private string GetLogFilePath(DateTime logDate)
+        {
+            return Path.Combine(_logDirectory, $"{LogFilePrefix}{logDate:yyyy-MM-dd}{LogFileExtension}");
         }
     }
 }
