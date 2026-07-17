@@ -2,6 +2,7 @@
     x:Class="KindomDataAPIServer.Views.AdvancedSettingView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="clr-namespace:KindomDataAPIServer.Converters"
     xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
     xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
     Title="Advanced Settings"
@@ -9,6 +10,9 @@
     Height="520"
     ResizeMode="NoResize"
     WindowStartupLocation="CenterOwner">
+    <dx:ThemedWindow.Resources>
+        <converters:DecimalToIntConverter x:Key="DecimalToIntConverter" />
+    </dx:ThemedWindow.Resources>
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -29,7 +33,7 @@
                                 MinValue="1"
                                 MaxValue="1000000"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellHeaderBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellHeaderBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
@@ -47,7 +51,7 @@
                                 MinValue="1"
                                 MaxValue="1000000"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellTrajectoryBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellTrajectoryBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                         <StackPanel Height="32" Orientation="Horizontal">
                             <Label
@@ -60,7 +64,7 @@
                                 MinValue="1"
                                 MaxValue="100"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellTrajectoryUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellTrajectoryUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
@@ -78,7 +82,7 @@
                                 MinValue="1"
                                 MaxValue="100"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellLogUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellLogUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                         <StackPanel Height="32" Orientation="Horizontal">
                             <Label
@@ -91,7 +95,7 @@
                                 MinValue="1"
                                 MaxValue="1000000"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellLogBatchCurveCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellLogBatchCurveCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
@@ -109,7 +113,7 @@
                                 MinValue="1"
                                 MaxValue="100"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellProductionUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellProductionUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
@@ -127,7 +131,7 @@
                                 MinValue="1"
                                 MaxValue="1000000"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellFormationBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                EditValue="{Binding WellFormationBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
