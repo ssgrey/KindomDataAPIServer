@@ -36,7 +36,7 @@ namespace KindomDataAPIServer.DataService
             Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             // 设置默认超时时间
-            Client.Timeout = TimeSpan.FromSeconds(300);
+            Client.Timeout = TimeSpan.FromSeconds(600);
 
             // 从配置文件加载设置
            // LoadConfiguration();
