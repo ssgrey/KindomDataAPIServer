@@ -1620,6 +1620,7 @@ namespace KindomDataAPIServer.KindomAPI
                 List<WellExport> Wells = kindomData.Wells;
                 List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
                 int uploadConcurrency = AdvancedSettingsConfig.GetWellProductionUploadConcurrency();
+                int wellProductionBatchDailyDataCount = AdvancedSettingsConfig.GetWellProductionBatchDailyDataCount();
                 int uploadQueueCapacity = Math.Max(uploadConcurrency * 2, uploadConcurrency);
                 int processedWellCount = 0;
                 int syncedProductionCount = 0;
@@ -1691,7 +1692,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                                     int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, uploadBatch.ItemCount);
                                     int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
-                                    LogManagerService.Instance.Log($"Well Production Datas batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) synchronized. Uploaded batches {currentUploadedBatchCount}, synced {currentSyncedCount} production items.");
+                                    LogManagerService.Instance.Log($"Well Production Datas batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount} daily items) synchronized. Uploaded batches {currentUploadedBatchCount}, synced {currentSyncedCount} daily items.");
                                     reportUploadedBatchProgress(uploadBatch);
                                 }
                             }
@@ -1709,7 +1710,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                     Exception producerException = null;
 
-                    LogManagerService.Instance.Log($"Well Production Datas upload start. Upload concurrency:{uploadConcurrency}. Queue capacity:{uploadQueueCapacity}.");
+                    LogManagerService.Instance.Log($"Well Production Datas upload start. Batch daily data count:{wellProductionBatchDailyDataCount}. Upload concurrency:{uploadConcurrency}. Queue capacity:{uploadQueueCapacity}.");
                     try
                     {
                         using (var context = project.GetKingdom())
@@ -1736,7 +1737,7 @@ namespace KindomDataAPIServer.KindomAPI
                                     if (wellWebID == -1)
                                         continue;
 
-                                    List<WellDailyProductionData> datas = new List<WellDailyProductionData>();
+                                    List<WellDailyProductionData> productionDataBatches = new List<WellDailyProductionData>();
                                     WellDailyProductionData productionData = new WellDailyProductionData();
                                     productionData.WellId = wellWebID;
                                     productionData.MetaInfoList = MetaInfoList;
@@ -1767,24 +1768,36 @@ namespace KindomDataAPIServer.KindomAPI
                                                 dailyData.WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays;
                                             }
                                             productionData.DailyList.Add(dailyData);
+                                            if (productionData.DailyList.Count >= wellProductionBatchDailyDataCount)
+                                            {
+                                                productionDataBatches.Add(productionData);
+                                                productionData = new WellDailyProductionData();
+                                                productionData.WellId = wellWebID;
+                                                productionData.MetaInfoList = MetaInfoList;
+                                            }
                                         }
                                     }
-                                    datas.Add(productionData);
 
-                                    if (datas.Count > 0)
+                                    if (productionData.DailyList.Count > 0)
                                     {
+                                        productionDataBatches.Add(productionData);
+                                    }
+
+                                    for (int i = 0; i < productionDataBatches.Count; i++)
+                                    {
+                                        var productionDataBatch = productionDataBatches[i];
                                         batchIndex++;
                                         WellProductionDataRequest request = new WellProductionDataRequest();
-                                        request.Items = datas;
+                                        request.Items.Add(productionDataBatch);
                                         var uploadBatch = new WellProductionUploadBatch
                                         {
                                             BatchIndex = batchIndex,
-                                            ItemCount = datas.Count,
-                                            CompletedWellCount = processedWellCount,
+                                            ItemCount = productionDataBatch.DailyList.Count,
+                                            CompletedWellCount = i == productionDataBatches.Count - 1 ? processedWellCount : processedWellCount - 1,
                                             Request = request
                                         };
                                         uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
-                                        LogManagerService.Instance.Log($"Well Production Datas batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount}) queued. Read {processedWellCount}/{BoreholeIds.Count} wells.");
+                                        LogManagerService.Instance.Log($"Well Production Datas batch {uploadBatch.BatchIndex}({uploadBatch.ItemCount} daily items) queued. Read {processedWellCount}/{BoreholeIds.Count} wells.");
                                     }
                                 }
                             }
