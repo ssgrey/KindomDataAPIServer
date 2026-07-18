@@ -52,42 +52,29 @@ namespace KindomDataAPIServer.Views
                     string decodedArgs = System.Uri.UnescapeDataString(args[0]);
                     string joinedArgs = string.Join(" ", args);
 
-                    LogManagerService.Instance.LogDebug("Web args:" + decodedArgs);
-
-                    //apiData = Utils.ParseUri(decodedArgs);
-                    //var client = ServiceLocator.GetService<IApiClient>();
-                    //client.SetHeaders(apiData.token, apiData.tetproj);
-                    //if (apiData.port.Contains("30015"))
-                    //{
-                    //    client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
-                    //}
-                    //else
-                    //{
-                    //    client.SetBaseUrl($"https://{apiData.ip}/tet/");
-                    //}
+                    LogManagerService.Instance.Log("Web args:" + decodedArgs);
                 }
-                //else
-                //{
-                //    string decodedArgs = File.ReadAllText("tempArgs.txt");
-                //    string joinedArgs = string.Join(" ", args);
-                //    apiData = Utils.ParseUri(decodedArgs);
-                //    var client = ServiceLocator.GetService<IApiClient>();
-                //    client.SetHeaders(apiData.token, apiData.tetproj);
-                //    if (apiData.port.Contains("30015"))
-                //    {
-                //        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
-                //    }
-                //    else
-                //    {
-                //        client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
-                //    }
-                //}
+                InitializeUserCredentialRequest();
             }
             catch (Exception ex)
             {
                 LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
             }
 
+        }
+
+        private static void InitializeUserCredentialRequest()
+        {
+            try
+            {
+                LogManagerService.Instance.Log("Start getting user credentials by api-token.");
+                UserCredentialApi.GetUserInfoByIdList();
+                LogManagerService.Instance.Log("Successfully got user credentials by api-token.");
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("Failed to get user credentials by api-token: " + ExceptionLogHelper.Format(ex));
+            }
         }
 
         private void SyncKindomDataView_Loaded(object sender, RoutedEventArgs e)

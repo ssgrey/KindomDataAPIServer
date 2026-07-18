@@ -122,6 +122,8 @@ namespace KindomDataAPIServer
         }
 
 
+
+
         // 2. 命名管道服务器（主实例监听）
         private static void StartNamedPipeServer()
         {

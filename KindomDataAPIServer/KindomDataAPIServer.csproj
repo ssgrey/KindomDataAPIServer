@@ -248,6 +248,7 @@
     <Compile Include="DataService\IApiClient.cs" />
     <Compile Include="DataService\IDataWellService.cs" />
     <Compile Include="DataService\ServiceLocator.cs" />
+    <Compile Include="DataService\UserCredentialApi.cs" />
     <Compile Include="DataService\WellDataService.cs" />
     <Compile Include="KindomAPI\KingdomAPI.cs" />
     <Compile Include="Models\ApiConfig .cs" />
