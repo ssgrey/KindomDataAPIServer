@@ -7,14 +7,47 @@
         mc:Ignorable="d" Closing="Window_Closing"
         Title="Log" Height="450" Width="800">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel
+            Grid.Row="0"
+            Margin="8,6,8,4"
+            Orientation="Horizontal">
+            <Label Content="Max Lines:" VerticalAlignment="Center" />
+            <TextBox
+                x:Name="maxLineCountInput"
+                Width="70"
+                Margin="4,0,12,0"
+                Text="2000"
+                VerticalContentAlignment="Center"
+                KeyDown="LogSettingsInput_KeyDown" />
+            <Label Content="Refresh(ms):" VerticalAlignment="Center" />
+            <TextBox
+                x:Name="refreshIntervalInput"
+                Width="70"
+                Margin="4,0,12,0"
+                Text="3000"
+                VerticalContentAlignment="Center"
+                KeyDown="LogSettingsInput_KeyDown" />
+            <Button
+                Width="60"
+                Height="24"
+                Click="ApplyLogSettings_Click"
+                Content="Apply" />
+        </StackPanel>
+
         <RichTextBox
-                    x:Name="logger"
-                    AcceptsReturn="True"
-                    Background="Transparent"
-                    FontFamily="Consolas"
-                    IsReadOnly="True"
-                    AcceptsTab="True"
-                    VerticalScrollBarVisibility="Visible">
+            x:Name="logger"
+            Grid.Row="1"
+            AcceptsReturn="True"
+            Background="Transparent"
+            FontFamily="Consolas"
+            IsReadOnly="True"
+            AcceptsTab="True"
+            VerticalScrollBarVisibility="Visible">
             <RichTextBox.ContextMenu>
                 <ContextMenu>
                     <MenuItem Click="Logger_Clean" Header="Clear" />

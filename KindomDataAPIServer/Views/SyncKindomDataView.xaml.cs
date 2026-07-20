@@ -117,7 +117,6 @@ namespace KindomDataAPIServer.Views
 
         private void Exit_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
         {
-            LogManagerService.Instance.TextBox = null;
             logView.Close();       
             logView = null;
             this.Close();
