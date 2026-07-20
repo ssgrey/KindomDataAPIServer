@@ -21,17 +21,27 @@ namespace KindomDataAPIServer.Views
     /// </summary>
     public partial class LogView : Window
     {
-        private const int DefaultMaxUiLogLines = 2000;
+        private const int DefaultMaxUiLogLines = 50;
         private const int DefaultRefreshIntervalMs = 3000;
-        private const int MinMaxUiLogLines = 100;
+        private const int MinMaxUiLogLines = 20;
         private const int MaxMaxUiLogLines = 20000;
-        private const int MinRefreshIntervalMs = 50;
-        private const int MaxRefreshIntervalMs = 5000;
+        private const int MinRefreshIntervalMs = 100;
+        private const int MaxRefreshIntervalMs = 30000;
 
         private readonly List<string> _visibleLogs = new List<string>();
         private readonly DispatcherTimer _refreshTimer;
         private int _maxUiLogLines = DefaultMaxUiLogLines;
         private ScrollViewer _logScrollViewer;
+
+        public string MaxUiLogLinesRangeToolTip
+        {
+            get { return string.Format("Range: {0} - {1}", MinMaxUiLogLines, MaxMaxUiLogLines); }
+        }
+
+        public string RefreshIntervalMsRangeToolTip
+        {
+            get { return string.Format("Range: {0} - {1} ms", MinRefreshIntervalMs, MaxRefreshIntervalMs); }
+        }
 
         public LogView()
         {

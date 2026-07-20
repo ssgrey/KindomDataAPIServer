@@ -16,7 +16,10 @@
             Grid.Row="0"
             Margin="8,6,8,4"
             Orientation="Horizontal">
-            <Label Content="Max Lines:" VerticalAlignment="Center" />
+            <Label
+                Content="Max Lines:"
+                ToolTip="{Binding MaxUiLogLinesRangeToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
+                VerticalAlignment="Center" />
             <TextBox
                 x:Name="maxLineCountInput"
                 Width="70"
@@ -24,7 +27,10 @@
                 Text="2000"
                 VerticalContentAlignment="Center"
                 KeyDown="LogSettingsInput_KeyDown" />
-            <Label Content="Refresh(ms):" VerticalAlignment="Center" />
+            <Label
+                Content="Refresh(ms):"
+                ToolTip="{Binding RefreshIntervalMsRangeToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
+                VerticalAlignment="Center" />
             <TextBox
                 x:Name="refreshIntervalInput"
                 Width="70"
