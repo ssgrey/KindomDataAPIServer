@@ -22,11 +22,11 @@ namespace KindomDataAPIServer.Views
     public partial class LogView : Window
     {
         private const int DefaultMaxUiLogLines = 50;
-        private const int DefaultRefreshIntervalMs = 3000;
+        private const double DefaultRefreshIntervalSeconds = 1;
         private const int MinMaxUiLogLines = 20;
         private const int MaxMaxUiLogLines = 20000;
-        private const int MinRefreshIntervalMs = 100;
-        private const int MaxRefreshIntervalMs = 30000;
+        private const double MinRefreshIntervalSeconds = 0.1;
+        private const double MaxRefreshIntervalSeconds = 30000;
 
         private readonly List<string> _visibleLogs = new List<string>();
         private readonly DispatcherTimer _refreshTimer;
@@ -38,9 +38,9 @@ namespace KindomDataAPIServer.Views
             get { return string.Format("Range: {0} - {1}", MinMaxUiLogLines, MaxMaxUiLogLines); }
         }
 
-        public string RefreshIntervalMsRangeToolTip
+        public string RefreshIntervalSecondsRangeToolTip
         {
-            get { return string.Format("Range: {0} - {1} ms", MinRefreshIntervalMs, MaxRefreshIntervalMs); }
+            get { return string.Format("Range: {0} - {1} s", MinRefreshIntervalSeconds, MaxRefreshIntervalSeconds); }
         }
 
         public LogView()
@@ -48,7 +48,7 @@ namespace KindomDataAPIServer.Views
             InitializeComponent();
 
             _refreshTimer = new DispatcherTimer(DispatcherPriority.Background);
-            _refreshTimer.Interval = TimeSpan.FromMilliseconds(DefaultRefreshIntervalMs);
+            _refreshTimer.Interval = TimeSpan.FromSeconds(DefaultRefreshIntervalSeconds);
             _refreshTimer.Tick += RefreshTimer_Tick;
             _refreshTimer.Start();
 
@@ -88,11 +88,11 @@ namespace KindomDataAPIServer.Views
         private void ApplyLogSettings()
         {
             _maxUiLogLines = ReadBoundedInt(maxLineCountInput.Text, DefaultMaxUiLogLines, MinMaxUiLogLines, MaxMaxUiLogLines);
-            var refreshIntervalMs = ReadBoundedInt(refreshIntervalInput.Text, DefaultRefreshIntervalMs, MinRefreshIntervalMs, MaxRefreshIntervalMs);
+            double refreshIntervalSeconds = ReadBoundedDouble(refreshIntervalInput.Text, DefaultRefreshIntervalSeconds, MinRefreshIntervalSeconds, MaxRefreshIntervalSeconds);
 
             maxLineCountInput.Text = _maxUiLogLines.ToString();
-            refreshIntervalInput.Text = refreshIntervalMs.ToString();
-            _refreshTimer.Interval = TimeSpan.FromMilliseconds(refreshIntervalMs);
+            refreshIntervalInput.Text = FormatSeconds(refreshIntervalSeconds);
+            _refreshTimer.Interval = TimeSpan.FromSeconds(refreshIntervalSeconds);
 
             TrimVisibleLogs();
             ScrollToEnd();
@@ -219,6 +219,32 @@ namespace KindomDataAPIServer.Views
             }
 
             return result;
+        }
+
+        private static double ReadBoundedDouble(string value, double defaultValue, double minValue, double maxValue)
+        {
+            double result;
+            if (!double.TryParse(value, out result))
+            {
+                return defaultValue;
+            }
+
+            if (result < minValue)
+            {
+                return minValue;
+            }
+
+            if (result > maxValue)
+            {
+                return maxValue;
+            }
+
+            return result;
+        }
+
+        private static string FormatSeconds(double value)
+        {
+            return value.ToString("0.###");
         }
 
         private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject

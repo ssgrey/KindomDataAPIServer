@@ -28,14 +28,14 @@
                 VerticalContentAlignment="Center"
                 KeyDown="LogSettingsInput_KeyDown" />
             <Label
-                Content="Refresh(ms):"
-                ToolTip="{Binding RefreshIntervalMsRangeToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
+                Content="Refresh(s):"
+                ToolTip="{Binding RefreshIntervalSecondsRangeToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
                 VerticalAlignment="Center" />
             <TextBox
                 x:Name="refreshIntervalInput"
                 Width="70"
                 Margin="4,0,12,0"
-                Text="3000"
+                Text="3"
                 VerticalContentAlignment="Center"
                 KeyDown="LogSettingsInput_KeyDown" />
             <Button
