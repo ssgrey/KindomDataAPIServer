@@ -1567,19 +1567,21 @@ namespace KindomDataAPIServer.ViewModels
 
                 ProgressValue = 100;
                 LogManagerService.Instance.Log($"Kindom data synchronize to web over!.");
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"Kindom data synchronize to web elapsed time: {stopwatch.Elapsed:hh\\:mm\\:ss\\.fff}.");
                 DXMessageBox.Show("Kindom data synchronize to web over!");
 
             }
             catch (Exception ex)
             {
+                stopwatch.Stop();
                 LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
                 DXMessageBox.Show("Data synchronize failed：" + ex.Message);
                 return;
             }
             finally
             {
-                stopwatch.Stop();
-                LogManagerService.Instance.Log($"Kindom data synchronize to web elapsed time: {stopwatch.Elapsed:hh\\:mm\\:ss\\.fff}.");
+
                 IsEnable = true;
             }
         }
