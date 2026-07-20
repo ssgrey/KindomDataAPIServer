@@ -75,19 +75,6 @@
                             <Label
                                 Width="220"
                                 VerticalAlignment="Center"
-                                Content="Upload Concurrency" />
-                            <dxe:SpinEdit
-                                Width="120"
-                                Height="25"
-                                MinValue="1"
-                                MaxValue="100"
-                                IsFloatValue="False"
-                                EditValue="{Binding WellLogUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
-                        </StackPanel>
-                        <StackPanel Height="32" Orientation="Horizontal">
-                            <Label
-                                Width="220"
-                                VerticalAlignment="Center"
                                 Content="Batch Curve Count" />
                             <dxe:SpinEdit
                                 Width="120"
@@ -97,11 +84,6 @@
                                 IsFloatValue="False"
                                 EditValue="{Binding WellLogBatchCurveCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
-                    </StackPanel>
-                </GroupBox>
-
-                <GroupBox Header="Well Production" Margin="0,0,0,8">
-                    <StackPanel Margin="8,4,8,8">
                         <StackPanel Height="32" Orientation="Horizontal">
                             <Label
                                 Width="220"
@@ -113,8 +95,13 @@
                                 MinValue="1"
                                 MaxValue="100"
                                 IsFloatValue="False"
-                                EditValue="{Binding WellProductionUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
+                                EditValue="{Binding WellLogUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Well Production" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4,8,8">
                         <StackPanel Height="32" Orientation="Horizontal">
                             <Label
                                 Width="220"
@@ -127,6 +114,19 @@
                                 MaxValue="1000000"
                                 IsFloatValue="False"
                                 EditValue="{Binding WellProductionBatchDailyDataCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
+                        </StackPanel>
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Upload Concurrency" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="100"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellProductionUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>

@@ -23,7 +23,7 @@ namespace KindomDataAPIServer.Views
     {
         private const int DefaultMaxUiLogLines = 50;
         private const double DefaultRefreshIntervalSeconds = 1;
-        private const int MinMaxUiLogLines = 20;
+        private const int MinMaxUiLogLines = 1;
         private const int MaxMaxUiLogLines = 20000;
         private const double MinRefreshIntervalSeconds = 0.1;
         private const double MaxRefreshIntervalSeconds = 30000;
@@ -46,6 +46,9 @@ namespace KindomDataAPIServer.Views
         public LogView()
         {
             InitializeComponent();
+
+            maxLineCountInput.Text = _maxUiLogLines.ToString();
+            refreshIntervalInput.Text = FormatSeconds(DefaultRefreshIntervalSeconds);
 
             _refreshTimer = new DispatcherTimer(DispatcherPriority.Background);
             _refreshTimer.Interval = TimeSpan.FromSeconds(DefaultRefreshIntervalSeconds);

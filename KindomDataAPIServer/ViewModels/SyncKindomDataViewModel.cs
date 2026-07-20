@@ -547,13 +547,13 @@ namespace KindomDataAPIServer.ViewModels
             List<SyncProgressStepWeight> stepWeights = new List<SyncProgressStepWeight>();
 
             if (IsSyncWellHeader)
-                stepWeights.Add(new SyncProgressStepWeight { Name = "WellHeader", Weight = 1 });
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellHeader", Weight = 0.2 });
             if (IsSyncWellFormation)
-                stepWeights.Add(new SyncProgressStepWeight { Name = "WellFormation", Weight = 2 });
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellFormation", Weight = 0.5 });
             if (IsSyncTrajectory)
                 stepWeights.Add(new SyncProgressStepWeight { Name = "WellTrajs", Weight = 3 });
             if (IsSyncProduction)
-                stepWeights.Add(new SyncProgressStepWeight { Name = "WellProduction", Weight = 2 });
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellProduction", Weight = 3 });
             if (IsSyncIPProduction)
                 stepWeights.Add(new SyncProgressStepWeight { Name = "WellTest", Weight = 2 });
             if (IsSyncWellLog)
