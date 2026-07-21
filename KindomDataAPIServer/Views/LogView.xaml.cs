@@ -21,7 +21,7 @@ namespace KindomDataAPIServer.Views
     /// </summary>
     public partial class LogView : Window
     {
-        private const int DefaultMaxUiLogLines = 50;
+        private const int DefaultMaxUiLogLines = 100;
         private const double DefaultRefreshIntervalSeconds = 1;
         private const int MinMaxUiLogLines = 1;
         private const int MaxMaxUiLogLines = 20000;

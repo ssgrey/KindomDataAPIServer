@@ -516,13 +516,18 @@ namespace KindomDataAPIServer.ViewModels
                 var dispatcher = Application.Current?.Dispatcher;
                 if (dispatcher != null && !dispatcher.CheckAccess())
                 {
-                    dispatcher.BeginInvoke(new Action(() => ProgressValue = value), DispatcherPriority.Background);
+                    dispatcher.BeginInvoke(new Action(() => SetProgressValue(value)), DispatcherPriority.DataBind);
                     return;
                 }
 
-                SetProperty(ref _ProgressValue, value, nameof(ProgressValue));
+                SetProgressValue(value);
 
             }
+        }
+
+        private void SetProgressValue(double value)
+        {
+            SetProperty(ref _ProgressValue, value, nameof(ProgressValue));
         }
 
         private class SyncProgressStep
@@ -1595,7 +1600,13 @@ namespace KindomDataAPIServer.ViewModels
                 return;
             }
 
-            if (DownLoadDataVM == null || DownLoadDataVM.Wells.Count == 0)
+            if (ApiConfig2 == null)
+            {
+                DXMessageBox.Show("Please load web project data first!");
+                return;
+            }
+
+            if (DownLoadDataVM == null || DownLoadDataVM.Wells == null || DownLoadDataVM.Wells.Count == 0)
             {
                 DXMessageBox.Show("Please select wells to synchronize!");
                 return;
@@ -1603,25 +1614,30 @@ namespace KindomDataAPIServer.ViewModels
 
             if (DownLoadDataVM.IsDownloadWellLog)
             {
-                foreach (var item in DownLoadDataVM.Wells)
+                bool hasSelectedCurve = false;
+                foreach (var item in DownLoadDataVM.Wells.Where(w => w.IsChecked != false))
                 {
                     List<string> curvenames = new List<string>();
-                    foreach (var dataSet in item.Children)
+                    foreach (var dataSet in item.Children.Where(ds => ds.IsChecked != false))
                     {
-                       foreach (var curve in dataSet.Children)
+                       foreach (var curve in dataSet.Children.Where(c => c.IsChecked == true))
                         {
-                            if (curve.IsChecked == true)
+                            hasSelectedCurve = true;
+                            if (curvenames.Contains(curve.Name))
                             {
-                                if (curvenames.Contains(curve.Name))
-                                {
-                                    DXMessageBox.Show($"Well {item.Name} has duplicate curve name {curve.Name}, please uncheck the repeat welllog which in different dataset!");
-                                    return;
-                                }
-                                curvenames.Add(curve.Name);
+                                DXMessageBox.Show($"Well {item.Name} has duplicate curve name {curve.Name}, please uncheck the repeat welllog which in different dataset!");
+                                return;
                             }
+                            curvenames.Add(curve.Name);
 
                         }
                     }
+                }
+
+                if (!hasSelectedCurve)
+                {
+                    DXMessageBox.Show("Please select well logs to synchronize!");
+                    return;
                 }
             }
 
@@ -1637,12 +1653,22 @@ namespace KindomDataAPIServer.ViewModels
                 if (DownLoadDataVM.IsDownloadWellLog)
                 {
                     List<WellLogData> getWellLogRequest = ApiConfig2.welllogdata;
-                    bool res = await KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this);
+                    bool res = await Task.Run(() => KingdomAPI.Instance.CreateWellLogsToKindom(getWellLogRequest, DownLoadDataVM.Wells, this));
+                    if (!res)
+                    {
+                        DXMessageBox.Show("Web data synchronize to kindom failed!");
+                        return;
+                    }
                 }
                 else
                 {
                     ResultData resultdata = ApiConfig2.resultdata;
-                    await KingdomAPI.Instance.CreateWellIntervalsToKindom(resultdata,DownLoadDataVM.Wells, this);
+                    bool res = await Task.Run(() => KingdomAPI.Instance.CreateWellIntervalsToKindom(resultdata, DownLoadDataVM.Wells, this));
+                    if (!res)
+                    {
+                        DXMessageBox.Show("Web data synchronize to kindom failed!");
+                        return;
+                    }
                 }
                 ProgressValue = 100;
                 stopwatch.Stop();
