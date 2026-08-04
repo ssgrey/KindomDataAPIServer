@@ -23,6 +23,7 @@ namespace KindomDataAPIServer.Common
         private long _totalUploadBytes;
         private long _apiReadElapsedTicks;
         private long _uploadElapsedTicks;
+        private long _errorCount;
 
         private SyncTaskReportService()
         {
@@ -32,6 +33,17 @@ namespace KindomDataAPIServer.Common
         public static SyncTaskReportService Instance => _instance.Value;
 
         public string ReportDirectory => _reportDirectory;
+
+        public long ErrorCount
+        {
+            get
+            {
+                lock (_syncRoot)
+                {
+                    return _errorCount;
+                }
+            }
+        }
 
         public string CurrentReportPath
         {
@@ -61,6 +73,7 @@ namespace KindomDataAPIServer.Common
                 _totalUploadBytes = 0;
                 _apiReadElapsedTicks = 0;
                 _uploadElapsedTicks = 0;
+                _errorCount = 0;
                 _currentReportPath = Path.Combine(
                     _reportDirectory,
                     $"sync-task-{now:yyyyMMdd-HHmmss-fff}.txt");
@@ -100,9 +113,22 @@ namespace KindomDataAPIServer.Common
             WriteReportLine(message);
         }
 
+        public void RecordError(string context, Exception exception = null)
+        {
+            string message = exception == null
+                ? context
+                : context + ": " + ExceptionLogHelper.Format(exception);
+            lock (_syncRoot)
+            {
+                _errorCount++;
+            }
+            LogSummary(message);
+        }
+
         public void Complete(bool succeeded, TimeSpan elapsed, string errorMessage = null)
         {
-            string status = succeeded ? "Succeeded" : "Failed";
+            bool completedSuccessfully = succeeded && ErrorCount == 0;
+            string status = completedSuccessfully ? "Succeeded" : "Failed";
             WriteReportLine(new string('-', 48));
             lock (_syncRoot)
             {
@@ -111,6 +137,7 @@ namespace KindomDataAPIServer.Common
                 WriteReportLine($"Overall upload payload bytes: {_totalUploadBytes} ({_totalUploadBytes / 1024.0 / 1024.0:F3} MiB)");
                 WriteReportLine($"Overall API read elapsed: {TimeSpan.FromTicks(_apiReadElapsedTicks).TotalSeconds:F3}s");
                 WriteReportLine($"Cumulative upload request elapsed: {TimeSpan.FromTicks(_uploadElapsedTicks).TotalSeconds:F3}s");
+                WriteReportLine($"Overall synchronization errors: {_errorCount}");
             }
             WriteReportLine($"Task status: {status}");
             WriteReportLine($"Finished: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");

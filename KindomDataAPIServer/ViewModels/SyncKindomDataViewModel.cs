@@ -1297,7 +1297,6 @@ namespace KindomDataAPIServer.ViewModels
             Stopwatch stopwatch = Stopwatch.StartNew();
             bool taskSucceeded = false;
             string taskError = null;
-            string taskErrorMessage = null;
             SyncTaskReportService.Instance.BeginTask(ProjectPath, LoginName);
             SyncTaskReportService.Instance.Log($"Synchronization options. Selected wells:{selectedWellCount}, well formation:{IsSyncWellFormation}, well trajectory:{IsSyncTrajectory}, well production:{IsSyncProduction}, well logs:{IsSyncWellLog}.");
             IsEnable = false;
@@ -1378,59 +1377,101 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncWellHeader)
                 {
                     StartSyncProgressStep("WellHeader");
-                    int wellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
-                    int wellHeaderCount = wellDataRequest.Items.Count;
-                    if (wellHeaderCount > wellHeaderBatchSize)
+                    try
                     {
-                        int batchCount = (wellHeaderCount + wellHeaderBatchSize - 1) / wellHeaderBatchSize;
-                        LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) start synchronize by {batchCount} batches, batch size:{wellHeaderBatchSize}.");
-                        for (int batchIndex = 0; batchIndex < batchCount; batchIndex++)
+                        int wellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
+                        int wellHeaderCount = wellDataRequest.Items.Count;
+                        if (wellHeaderCount > wellHeaderBatchSize)
                         {
-                            WellDataRequest batchRequest = new WellDataRequest()
+                            int batchCount = (wellHeaderCount + wellHeaderBatchSize - 1) / wellHeaderBatchSize;
+                            LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) start synchronize by {batchCount} batches, batch size:{wellHeaderBatchSize}.");
+                            for (int batchIndex = 0; batchIndex < batchCount; batchIndex++)
                             {
-                                OverWriteFlag = wellDataRequest.OverWriteFlag,
-                                Items = wellDataRequest.Items.Skip(batchIndex * wellHeaderBatchSize).Take(wellHeaderBatchSize).ToList()
-                            };
-                            var res = await wellDataService.batch_create_well_header(batchRequest);
-                            if (res != null)
-                            {
+                                WellDataRequest batchRequest = new WellDataRequest()
+                                {
+                                    OverWriteFlag = wellDataRequest.OverWriteFlag,
+                                    Items = wellDataRequest.Items.Skip(batchIndex * wellHeaderBatchSize).Take(wellHeaderBatchSize).ToList()
+                                };
+                                try
+                                {
+                                    await wellDataService.batch_create_well_header(batchRequest);
+                                }
+                                catch (Exception ex)
+                                {
+                                    SyncTaskReportService.Instance.RecordError($"WellHeader batch {batchIndex + 1}/{batchCount} synchronization failed", ex);
+                                }
 
+                                int syncedCount = Math.Min((batchIndex + 1) * wellHeaderBatchSize, wellHeaderCount);
+                                ReportCurrentStepProgress(syncedCount * 100.0 / wellHeaderCount);
+                                LogManagerService.Instance.Log($"WellHeader batch {batchIndex + 1}/{batchCount}({batchRequest.Items.Count}) processed. Processed {syncedCount}/{wellHeaderCount}");
                             }
-                            int syncedCount = Math.Min((batchIndex + 1) * wellHeaderBatchSize, wellHeaderCount);
-                            ReportCurrentStepProgress(syncedCount * 100.0 / wellHeaderCount);
-                            LogManagerService.Instance.Log($"WellHeader batch {batchIndex + 1}/{batchCount}({batchRequest.Items.Count}) synchronized. Synced {syncedCount}/{wellHeaderCount}");
                         }
-                    }
-                    else
-                    {
-                        var res = await wellDataService.batch_create_well_header(wellDataRequest);
-                        if (res != null)
+                        else
                         {
-
+                            await wellDataService.batch_create_well_header(wellDataRequest);
                         }
+                        LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) synchronize over!");
                     }
-                    CompleteSyncProgressStep();
-                    LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) synchronize over！");
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellHeader synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
                 }
 
-               
-                WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
+                try
+                {
+                    WellIDandNameList = await wellDataService.get_all_meta_objects_by_objecttype_in_protobuf(new string[] { "WellInformation" });
+                    if (WellIDandNameList == null)
+                    {
+                        WellIDandNameList = new PbViewMetaObjectList();
+                        SyncTaskReportService.Instance.RecordError("Loading synchronized well metadata returned an empty response");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    WellIDandNameList = new PbViewMetaObjectList();
+                    SyncTaskReportService.Instance.RecordError("Loading synchronized well metadata failed", ex);
+                }
                 //井分层
                 if (IsSyncWellFormation)
                 {
                     StartSyncProgressStep("WellFormation");
-                    int wellFormationCount = await Task.Run(() => KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList, this));
-                    CompleteSyncProgressStep();
-                    LogManagerService.Instance.Log($"WellFormation({wellFormationCount}) synchronize over.");
+                    try
+                    {
+                        int wellFormationCount = await Task.Run(() => KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList, this));
+                        LogManagerService.Instance.Log($"WellFormation({wellFormationCount}) synchronize over.");
+                    }
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellFormation synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
                 }
 
                 #region 井轨迹
                 if (IsSyncTrajectory)
                 {
                     StartSyncProgressStep("WellTrajs");
-                    int wellTrajectoryCount = await Task.Run(() => KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList, this));
-                    CompleteSyncProgressStep();
-                    LogManagerService.Instance.Log($"WellTrajs({wellTrajectoryCount}) synchronize over.");
+                    try
+                    {
+                        int wellTrajectoryCount = await Task.Run(() => KingdomAPI.Instance.GetWellTrajs(KindomData, WellIDandNameList, this));
+                        LogManagerService.Instance.Log($"WellTrajs({wellTrajectoryCount}) synchronize over.");
+                    }
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellTrajs synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
                 }
                 #endregion
 
@@ -1438,15 +1479,23 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncProduction)
                 {
                     StartSyncProgressStep("WellProduction");
-                    LogManagerService.Instance.Log($"Well Production Datas start synchronize！");
-
-                    await Task.Run(async () =>
+                    try
                     {
-                        await KingdomAPI.Instance.CreateWellProductionDataToWeb(KindomData, WellIDandNameList, IsShowOil, IsShowGas, IsShowWater, this);
-                    });
-                  
-                    LogManagerService.Instance.Log($"Well Production Datas synchronize over！");
-                    CompleteSyncProgressStep();
+                        LogManagerService.Instance.Log("Well Production Datas start synchronize!");
+                        await Task.Run(async () =>
+                        {
+                            await KingdomAPI.Instance.CreateWellProductionDataToWeb(KindomData, WellIDandNameList, IsShowOil, IsShowGas, IsShowWater, this);
+                        });
+                        LogManagerService.Instance.Log("Well Production Datas synchronize over!");
+                    }
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellProduction synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
 
                 }
                 #endregion
@@ -1456,9 +1505,10 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncIPProduction)
                 {
                     StartSyncProgressStep("WellTest");
-
-                    (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = await Task.Run(() =>
-                        KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems));
+                    try
+                    {
+                        (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = await Task.Run(() =>
+                            KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems));
 
                     if (AllwellTestDatas.Item1.Count > 0)
                     {
@@ -1499,10 +1549,13 @@ namespace KindomDataAPIServer.ViewModels
                         }
                         for (int i = 0; i < tempList.Count; i++)
                         {
-                            var res4 = await wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(tempList[i]);
-                            if (res4 != null)
+                            try
                             {
-
+                                await wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(tempList[i]);
+                            }
+                            catch (Exception ex)
+                            {
+                                SyncTaskReportService.Instance.RecordError($"WellGasTest batch {i + 1}/{tempList.Count} synchronization failed", ex);
                             }
                         }
                         LogManagerService.Instance.Log($"Well Gas Test Data synchronize synchronize over！");
@@ -1552,10 +1605,13 @@ namespace KindomDataAPIServer.ViewModels
                         }
                         for (int i = 0; i < tempList.Count; i++)
                         {
-                            var res4 = await wellDataService.batch_create_well_oil_test_with_meta_infos(tempList[i]);
-                            if (res4 != null)
+                            try
                             {
-
+                                await wellDataService.batch_create_well_oil_test_with_meta_infos(tempList[i]);
+                            }
+                            catch (Exception ex)
+                            {
+                                SyncTaskReportService.Instance.RecordError($"WellOilTest batch {i + 1}/{tempList.Count} synchronization failed", ex);
                             }
                         }
                         LogManagerService.Instance.Log($"Well Oil Test Data synchronize synchronize over！");
@@ -1564,7 +1620,15 @@ namespace KindomDataAPIServer.ViewModels
                     {
                         LogManagerService.Instance.Log($"Well Oil Test Data Count is 0");
                     }
-                    CompleteSyncProgressStep();
+                    }
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellTest synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
                 }
                 #endregion
 
@@ -1572,13 +1636,21 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncWellLog)
                 {
                     StartSyncProgressStep("WellLogs");
-                    LogManagerService.Instance.Log($"WellLogs start synchronize！");
-                    string resdataSetID = SelectedLogDataSet?.Id;
-
-                    await Task.Run(() => KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this));
-
-                    LogManagerService.Instance.Log($"WellLogs synchronize over！");
-                    CompleteSyncProgressStep();
+                    try
+                    {
+                        LogManagerService.Instance.Log("WellLogs start synchronize!");
+                        string resdataSetID = SelectedLogDataSet?.Id;
+                        await Task.Run(() => KingdomAPI.Instance.CreateWellLogsToWeb(KindomData, WellIDandNameList, resdataSetID,this));
+                        LogManagerService.Instance.Log("WellLogs synchronize over!");
+                    }
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellLogs synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
 
                 }
                 #endregion
@@ -1588,28 +1660,37 @@ namespace KindomDataAPIServer.ViewModels
                 if (IsSyncConclusion)
                 {
                     StartSyncProgressStep("WellConclusions");
-                    LogManagerService.Instance.Log($"WellConclusions start synchronize！");
-                    Dictionary<string, CreatePayzoneRequest> requests = KingdomAPI.Instance.CreateWellConclusionsToWeb(KindomData, WellIDandNameList, ConclusionSettingVM.ConclusionFileNameObjItems.ToList());
-                     var listRequests = requests.Values.ToList();
-                    int allConclusionsCount = requests.Count;
+                    try
+                    {
+                        LogManagerService.Instance.Log("WellConclusions start synchronize!");
+                        Dictionary<string, CreatePayzoneRequest> requests = KingdomAPI.Instance.CreateWellConclusionsToWeb(KindomData, WellIDandNameList, ConclusionSettingVM.ConclusionFileNameObjItems.ToList());
+                        var listRequests = requests.Values.ToList();
+                        int allConclusionsCount = requests.Count;
 
   
                     for (int i = 0; i < listRequests.Count; i++)
                     {
-                        if (listRequests[i].Items.Count > 0)
+                        try
                         {
-                            if (listRequests[i].DatasetType == 1)
+                            if (listRequests[i].Items.Count > 0)
                             {
-                                var res4 = await wellDataService.batch_create_well_payzone_with_meta_infos(listRequests[i]);
+                                if (listRequests[i].DatasetType == 1)
+                                {
+                                    await wellDataService.batch_create_well_payzone_with_meta_infos(listRequests[i]);
+                                }
+                                else if (listRequests[i].DatasetType == 2)
+                                {
+                                    await wellDataService.batch_create_well_lithology_with_meta_infos(listRequests[i]);
+                                }
+                                else if (listRequests[i].DatasetType == 3)
+                                {
+                                    await wellDataService.batch_create_well_facies_with_meta_infos(listRequests[i]);
+                                }
                             }
-                            else if (listRequests[i].DatasetType == 2)
-                            {
-                                var res5 = await wellDataService.batch_create_well_lithology_with_meta_infos(listRequests[i]);
-                            }
-                            else if (listRequests[i].DatasetType == 3)
-                            {
-                                var res6 = await wellDataService.batch_create_well_facies_with_meta_infos(listRequests[i]);
-                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            SyncTaskReportService.Instance.RecordError($"WellConclusions batch {i + 1}/{allConclusionsCount} synchronization failed", ex);
                         }
                            
                         LogManagerService.Instance.Log($"Intervals synchronize ({(i + 1)}/{allConclusionsCount})");
@@ -1618,7 +1699,15 @@ namespace KindomDataAPIServer.ViewModels
                             ReportCurrentStepProgress((i + 1) * 100.0 / allConclusionsCount);
                         }
                     }
-                    CompleteSyncProgressStep();
+                    }
+                    catch (Exception ex)
+                    {
+                        SyncTaskReportService.Instance.RecordError("WellConclusions synchronization failed", ex);
+                    }
+                    finally
+                    {
+                        CompleteSyncProgressStep();
+                    }
                 }
    
                 #endregion
@@ -1626,18 +1715,25 @@ namespace KindomDataAPIServer.ViewModels
 
 
                 ProgressValue = 100;
-                LogManagerService.Instance.Log($"Kindom data synchronize to web over!.");
                 stopwatch.Stop();
+                taskSucceeded = SyncTaskReportService.Instance.ErrorCount == 0;
+                if (taskSucceeded)
+                {
+                    LogManagerService.Instance.Log("Kindom data synchronize to web over!.");
+                }
+                else
+                {
+                    taskError = $"Synchronization completed with {SyncTaskReportService.Instance.ErrorCount} error(s). Check the task report for details.";
+                    LogManagerService.Instance.Log(taskError);
+                }
                 LogManagerService.Instance.Log($"Kindom data synchronize to web elapsed time: {stopwatch.Elapsed:hh\\:mm\\:ss\\.fff}.");
-                taskSucceeded = true;
 
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 taskError = ExceptionLogHelper.Format(ex);
-                taskErrorMessage = ex.Message;
-                LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
+                SyncTaskReportService.Instance.RecordError("Unexpected synchronization error", ex);
             }
             finally
             {
@@ -1649,9 +1745,10 @@ namespace KindomDataAPIServer.ViewModels
                 IsEnable = true;
             }
 
-            DXMessageBox.Show(taskSucceeded
-                ? "Kindom data synchronize to web over!"
-                : "Data synchronize failed: " + taskErrorMessage);
+            if (taskSucceeded)
+            {
+                DXMessageBox.Show("Kindom data synchronize to web over!");
+            }
         }
 
         private async Task Sync2CommandAction()
