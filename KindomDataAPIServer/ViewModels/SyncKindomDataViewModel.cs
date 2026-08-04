@@ -545,6 +545,8 @@ namespace KindomDataAPIServer.ViewModels
 
         private List<SyncProgressStep> _syncProgressSteps = new List<SyncProgressStep>();
         private SyncProgressStep _currentSyncProgressStep;
+        private readonly object _syncProgressLock = new object();
+        private double _lastLoggedStepProgress = -1;
 
         private void InitializeSyncProgressPlan()
         {
@@ -554,7 +556,7 @@ namespace KindomDataAPIServer.ViewModels
             if (IsSyncWellHeader)
                 stepWeights.Add(new SyncProgressStepWeight { Name = "WellHeader", Weight = 0.2 });
             if (IsSyncWellFormation)
-                stepWeights.Add(new SyncProgressStepWeight { Name = "WellFormation", Weight = 0.5 });
+                stepWeights.Add(new SyncProgressStepWeight { Name = "WellFormation", Weight = 0.3 });
             if (IsSyncTrajectory)
                 stepWeights.Add(new SyncProgressStepWeight { Name = "WellTrajs", Weight = 3 });
             if (IsSyncProduction)
@@ -591,32 +593,74 @@ namespace KindomDataAPIServer.ViewModels
 
         private void StartSyncProgressStep(string stepName)
         {
-            _currentSyncProgressStep = _syncProgressSteps.FirstOrDefault(o => o.Name == stepName);
-            if (_currentSyncProgressStep != null && ProgressValue < _currentSyncProgressStep.Start)
+            SyncProgressStep progressStep;
+            lock (_syncProgressLock)
             {
-                ProgressValue = _currentSyncProgressStep.Start;
+                _currentSyncProgressStep = _syncProgressSteps.FirstOrDefault(o => o.Name == stepName);
+                _lastLoggedStepProgress = -1;
+                if (_currentSyncProgressStep != null && ProgressValue < _currentSyncProgressStep.Start)
+                {
+                    ProgressValue = _currentSyncProgressStep.Start;
+                }
+
+                progressStep = _currentSyncProgressStep;
+                if (progressStep != null)
+                {
+                    _lastLoggedStepProgress = 0;
+                }
+            }
+
+            if (progressStep != null)
+            {
+                LogSyncProgress(progressStep, 0, progressStep.Start);
             }
         }
 
         public void ReportCurrentStepProgress(double percent)
         {
-            if (_currentSyncProgressStep == null)
+            SyncProgressStep progressStep;
+            double value;
+            bool shouldLog;
+            lock (_syncProgressLock)
             {
-                return;
+                progressStep = _currentSyncProgressStep;
+                if (progressStep == null)
+                {
+                    return;
+                }
+
+                percent = Math.Max(0, Math.Min(100, percent));
+                value = progressStep.Start + (progressStep.End - progressStep.Start) * percent / 100.0;
+                if (value > ProgressValue)
+                {
+                    ProgressValue = value;
+                }
+
+                shouldLog = percent > _lastLoggedStepProgress;
+                if (shouldLog)
+                {
+                    _lastLoggedStepProgress = percent;
+                }
             }
 
-            percent = Math.Max(0, Math.Min(100, percent));
-            double value = _currentSyncProgressStep.Start + (_currentSyncProgressStep.End - _currentSyncProgressStep.Start) * percent / 100.0;
-            if (value > ProgressValue)
+            if (shouldLog)
             {
-                ProgressValue = value;
+                LogSyncProgress(progressStep, percent, value);
             }
         }
 
         private void CompleteSyncProgressStep()
         {
             ReportCurrentStepProgress(100);
-            _currentSyncProgressStep = null;
+            lock (_syncProgressLock)
+            {
+                _currentSyncProgressStep = null;
+            }
+        }
+
+        private static void LogSyncProgress(SyncProgressStep progressStep, double stepPercent, double overallPercent)
+        {
+            LogManagerService.Instance.Log($"Synchronization progress. Step:{progressStep.Name}, step progress:{stepPercent:F1}%, overall progress:{overallPercent:F1}%.");
         }
 
         private Visibility _LoginGridVisiable = Visibility.Visible;
@@ -1243,7 +1287,19 @@ namespace KindomDataAPIServer.ViewModels
                 return;
             }
 
+            int selectedWellCount = KindomData.Wells.Count(well => well.IsChecked);
+            if (selectedWellCount == 0)
+            {
+                DXMessageBox.Show("The number of wells selected cannot be 0");
+                return;
+            }
+
             Stopwatch stopwatch = Stopwatch.StartNew();
+            bool taskSucceeded = false;
+            string taskError = null;
+            string taskErrorMessage = null;
+            SyncTaskReportService.Instance.BeginTask(ProjectPath, LoginName);
+            SyncTaskReportService.Instance.Log($"Synchronization options. Selected wells:{selectedWellCount}, well formation:{IsSyncWellFormation}, well trajectory:{IsSyncTrajectory}, well production:{IsSyncProduction}, well logs:{IsSyncWellLog}.");
             IsEnable = false;
             try
             {
@@ -1366,7 +1422,6 @@ namespace KindomDataAPIServer.ViewModels
                     int wellFormationCount = await Task.Run(() => KingdomAPI.Instance.GetWellFormation(KindomData, WellIDandNameList, this));
                     CompleteSyncProgressStep();
                     LogManagerService.Instance.Log($"WellFormation({wellFormationCount}) synchronize over.");
-
                 }
 
                 #region 井轨迹
@@ -1574,21 +1629,29 @@ namespace KindomDataAPIServer.ViewModels
                 LogManagerService.Instance.Log($"Kindom data synchronize to web over!.");
                 stopwatch.Stop();
                 LogManagerService.Instance.Log($"Kindom data synchronize to web elapsed time: {stopwatch.Elapsed:hh\\:mm\\:ss\\.fff}.");
-                DXMessageBox.Show("Kindom data synchronize to web over!");
+                taskSucceeded = true;
 
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
+                taskError = ExceptionLogHelper.Format(ex);
+                taskErrorMessage = ex.Message;
                 LogManagerService.Instance.Log(ExceptionLogHelper.Format(ex));
-                DXMessageBox.Show("Data synchronize failed：" + ex.Message);
-                return;
             }
             finally
             {
-
+                if (stopwatch.IsRunning)
+                {
+                    stopwatch.Stop();
+                }
+                SyncTaskReportService.Instance.Complete(taskSucceeded, stopwatch.Elapsed, taskError);
                 IsEnable = true;
             }
+
+            DXMessageBox.Show(taskSucceeded
+                ? "Kindom data synchronize to web over!"
+                : "Data synchronize failed: " + taskErrorMessage);
         }
 
         private async Task Sync2CommandAction()

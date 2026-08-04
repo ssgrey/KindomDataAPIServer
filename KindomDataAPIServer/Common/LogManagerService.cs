@@ -37,6 +37,8 @@ namespace KindomDataAPIServer.Common
 
         public static LogManagerService Instance => _instance.Value;
 
+        public string LogDirectory => _logDirectory;
+
         /// <summary>
         /// 调试模式
         /// </summary>

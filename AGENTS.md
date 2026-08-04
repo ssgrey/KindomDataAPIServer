@@ -7,6 +7,17 @@
 
 Runtime assets live beside the projects: `packages/` for restored NuGet and vendor DLLs, `docs/` and `Documentation/` for reference material, and `KindomDataAPIServer/WebTest/` for manual API smoke-test pages.
 
+## Synchronization & Reporting
+The main synchronization task starts in `SyncKindomDataViewModel.SyncCommandAction`. Kingdom SDK reads and web uploads for formations, trajectories, production, and well logs are implemented in `KindomAPI/KingdomAPI.cs`:
+- `GetWellFormation`
+- `GetWellTrajs`
+- `CreateWellProductionDataToWeb`
+- `CreateWellLogsToWeb`
+
+Keep synchronization diagnostics in English. Each Kingdom SDK read should record its basic query parameters, returned item counts, and elapsed time. Each web upload should record its batch parameters, serialized payload byte count, result counts, and elapsed time. Protobuf payload sizes use `CalculateSize()`; JSON payload sizes use the same `JsonHelper.ToJson()` serialization as `APIClient`. Payload totals exclude HTTP headers and multipart boundaries.
+
+`Common/SyncTaskReportService.cs` owns the per-task text report and aggregate counters. Reports are written to `Logs/TaskReports` beside the executable, with `%LOCALAPPDATA%/KindomDataAPIServer/Logs/TaskReports` and the temp directory as fallbacks. Report creation or writing failures must be logged but must not interrupt synchronization. The `Log > Task Report` menu opens `Views/TaskReportView`, which loads the latest report by default.
+
 ## Build, Test, and Development Commands
 Run commands from the repository root in a Visual Studio 2022 Developer PowerShell.
 
@@ -27,6 +38,7 @@ There is no automated test project in this solution today. Validate changes by:
 - building the solution cleanly;
 - exercising affected API endpoints through `KindomDataAPIServer/WebTest/*.html` or an HTTP client;
 - checking the corresponding WPF view when UI or configuration code changes.
+- checking `Log > Task Report` after synchronization and confirming the report contains a final status, API/upload totals, payload bytes, and elapsed times.
 
 If you add tests, keep them in a separate `*.Tests` project and name methods after the behavior being verified.
 

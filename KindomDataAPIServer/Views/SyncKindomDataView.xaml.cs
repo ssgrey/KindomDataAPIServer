@@ -138,11 +138,26 @@ namespace KindomDataAPIServer.Views
         }
 
         LogServerView logServerView = null;
+        TaskReportView taskReportView = null;
         private void ServerLog_ItemClick(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
         {
             if(logServerView == null)
              logServerView = new LogServerView();
             logServerView.Show();
+        }
+
+        private void TaskReport_ItemClick(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
+        {
+            if (taskReportView == null)
+            {
+                taskReportView = new TaskReportView();
+            }
+            else
+            {
+                taskReportView.LoadLatestReport();
+            }
+
+            taskReportView.Show();
         }
     }
 }

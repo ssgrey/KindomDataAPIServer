@@ -146,6 +146,19 @@
                                 IsFloatValue="False"
                                 EditValue="{Binding WellFormationBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
                         </StackPanel>
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Upload Concurrency" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="100"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellFormationUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
+                        </StackPanel>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

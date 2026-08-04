@@ -142,6 +142,7 @@ namespace KindomDataAPIServer.Common
         public const string WellProductionUploadConcurrencyKey = "well_production_uploadConcurrency";
         public const string WellProductionBatchDailyDataCountKey = "well_production_batchDailyDataCount";
         public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
+        public const string WellFormationUploadConcurrencyKey = "well_formation_uploadConcurrency";
         public const string ShowAdvancedSettingsMenuKey = "ShowAdvancedSettingsMenu";
         public const int DefaultWellHeaderBatchSize = 5000;
         public const int DefaultWellTrajectoryBatchSize = 3;
@@ -150,7 +151,8 @@ namespace KindomDataAPIServer.Common
         public const int DefaultWellLogBatchCurveCount = 3;
         public const int DefaultWellProductionUploadConcurrency = 3;
         public const int DefaultWellProductionBatchDailyDataCount = 300;
-        public const int DefaultWellFormationBatchSize = 5000;
+        public const int DefaultWellFormationBatchSize = 100;
+        public const int DefaultWellFormationUploadConcurrency = 2;
 
         public static int GetWellHeaderBatchSize()
         {
@@ -190,6 +192,11 @@ namespace KindomDataAPIServer.Common
         public static int GetWellFormationBatchSize()
         {
             return GetBatchSize(WellFormationBatchSizeKey, DefaultWellFormationBatchSize);
+        }
+
+        public static int GetWellFormationUploadConcurrency()
+        {
+            return GetBatchSize(WellFormationUploadConcurrencyKey, DefaultWellFormationUploadConcurrency);
         }
 
         public static bool IsAdvancedSettingsMenuVisible()
@@ -252,6 +259,11 @@ namespace KindomDataAPIServer.Common
         public static void SaveWellFormationBatchSize(int batchSize)
         {
             SaveBatchSize(WellFormationBatchSizeKey, batchSize, DefaultWellFormationBatchSize);
+        }
+
+        public static void SaveWellFormationUploadConcurrency(int uploadConcurrency)
+        {
+            SaveBatchSize(WellFormationUploadConcurrencyKey, uploadConcurrency, DefaultWellFormationUploadConcurrency);
         }
 
         private static void SaveBatchSize(string key, int batchSize, int defaultValue)

@@ -235,6 +235,7 @@
     <Compile Include="Common\ExceptionLogHelper.cs" />
     <Compile Include="Common\JsonHelper.cs" />
     <Compile Include="Common\LogManagerService.cs" />
+    <Compile Include="Common\SyncTaskReportService.cs" />
     <Compile Include="Common\MeasureUnit.cs" />
     <Compile Include="Common\Options.cs" />
     <Compile Include="Common\ProtoHelper.cs" />
@@ -290,6 +291,9 @@
     <Compile Include="Views\SyncKindomDataView.xaml.cs">
       <DependentUpon>SyncKindomDataView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\TaskReportView.xaml.cs">
+      <DependentUpon>TaskReportView.xaml</DependentUpon>
+    </Compile>
     <Page Include="GlobalStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -323,6 +327,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\SyncKindomDataView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\TaskReportView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

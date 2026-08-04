@@ -1,6 +1,8 @@
 ﻿using KindomDataAPIServer.Common;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -72,6 +74,26 @@ namespace KindomDataAPIServer.Views
         private void ApplyLogSettings_Click(object sender, RoutedEventArgs e)
         {
             ApplyLogSettings();
+        }
+
+        private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string logDirectory = LogManagerService.Instance.LogDirectory;
+            if (string.IsNullOrWhiteSpace(logDirectory) || !Directory.Exists(logDirectory))
+            {
+                MessageBox.Show(this, "The log folder is not available.", "Open Log Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(logDirectory) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("Failed to open log folder: " + ExceptionLogHelper.Format(ex));
+                MessageBox.Show(this, "Failed to open the log folder.", "Open Log Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void LogSettingsInput_KeyDown(object sender, KeyEventArgs e)

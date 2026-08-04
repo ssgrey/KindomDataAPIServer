@@ -5,6 +5,7 @@ using KindomDataAPIServer.Models;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -282,6 +283,7 @@ namespace KindomDataAPIServer.DataService
 
         public async Task<WellOperationResult>  batch_create_well_formation(PbWellFormationList pbWellFormationList)
         {
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 string flag = "OverWrite";
@@ -299,18 +301,20 @@ namespace KindomDataAPIServer.DataService
                     if (httpResult.IsSuccessStatusCode)
                     {
                         var result = JsonHelper.ConvertFrom<WellOperationResult>(responseContent);
-                            return result;                   
+                        stopwatch.Stop();
+                        LogManagerService.Instance.Log($"batch_create_well_formation completed. Wells:{pbWellFormationList?.Datas?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
+                        return result;
                     }
                     else
                     {
                         throw new HttpRequestException($"HTTP请求失败: {responseContent}");
                     }
                 }
-                return null;
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"batch_create_well_formation: {ExceptionLogHelper.Format(ex)}");
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"batch_create_well_formation failed. Elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s. {ExceptionLogHelper.Format(ex)}");
                 throw;
             }
         }
@@ -348,6 +352,7 @@ namespace KindomDataAPIServer.DataService
         /// <returns></returns>
         public async Task<PbViewMetaObjectList> get_all_meta_objects_by_objecttype_in_protobuf(string[] request)
         {
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 var url = _apiClient.BuildUrl("dp/api/dpobjects/get_all_meta_objects_by_objecttype_in_protobuf");
@@ -360,6 +365,8 @@ namespace KindomDataAPIServer.DataService
                 {
                     Stream stream = await httpResult.Content.ReadAsStreamAsync();
                     PbViewMetaObjectList obj = ProtoHelper.FromStream<PbViewMetaObjectList>(stream);
+                    stopwatch.Stop();
+                    LogManagerService.Instance.Log($"get_all_meta_objects_by_objecttype_in_protobuf completed. Object types:[{string.Join(",", request ?? new string[0])}], returned items:{obj?.MetaObjects?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
                     return obj;
                 }
                 else
@@ -367,11 +374,11 @@ namespace KindomDataAPIServer.DataService
                     throw new HttpRequestException($"HTTP请求失败: {httpResult.StatusCode}");
                 }
 
-                return null;
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"get_all_meta_objects_by_objecttype_in_protobuf filed: {ExceptionLogHelper.Format(ex)}");
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"get_all_meta_objects_by_objecttype_in_protobuf failed. Object types:[{string.Join(",", request ?? new string[0])}], elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s. {ExceptionLogHelper.Format(ex)}");
                 throw;
             }
         }
@@ -379,6 +386,7 @@ namespace KindomDataAPIServer.DataService
 
         public async Task<KWellLogList> export_curve_batch_protobuf(List<WellLogData> request)
         {
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 var url = _apiClient.BuildUrl("datawizard/api/intelligent_logging/export/curve/batch/protobuf");
@@ -391,6 +399,8 @@ namespace KindomDataAPIServer.DataService
                 {
                     Stream stream = await httpResult.Content.ReadAsStreamAsync();
                     KWellLogList obj = ProtoHelper.FromStream<KWellLogList>(stream);
+                    stopwatch.Stop();
+                    LogManagerService.Instance.Log($"export_curve_batch_protobuf completed. Requested wells:{request?.Count ?? 0}, returned curves:{obj?.Items?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
                     return obj;
                 }
                 else
@@ -400,7 +410,8 @@ namespace KindomDataAPIServer.DataService
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log($"export_curve_batch_protobuf filed: {ExceptionLogHelper.Format(ex)}");
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"export_curve_batch_protobuf failed. Requested wells:{request?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s. {ExceptionLogHelper.Format(ex)}");
                 throw;
             }
         }

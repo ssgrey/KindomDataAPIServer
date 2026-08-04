@@ -39,8 +39,14 @@
             <Button
                 Width="60"
                 Height="24"
+                Margin="0,0,8,0"
                 Click="ApplyLogSettings_Click"
                 Content="Apply" />
+            <Button
+                Width="112"
+                Height="24"
+                Click="OpenLogFolder_Click"
+                Content="Open Log Folder" />
         </StackPanel>
 
         <RichTextBox
