@@ -8,6 +8,7 @@ using KindomDataAPIServer.ViewModels;
 using Smt;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Security.Policy;
@@ -36,6 +37,7 @@ namespace KindomDataAPIServer.Views
         public SyncKindomDataView(string[] args, ApiConfig config)
         {
             InitializeComponent();
+            vlabel.Content = ConfigurationManager.AppSettings["Version"] ?? string.Empty;
             advancedSettingsItem.IsVisible = AdvancedSettingsConfig.IsAdvancedSettingsMenuVisible();
             apiData = config;
             Ini(args);
