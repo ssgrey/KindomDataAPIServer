@@ -31,6 +31,7 @@ namespace KindomDataAPIServer.Common
             {
                 EnsureLogFile(DateTime.Now);
                 CleanupExpiredLogFiles(DateTime.Now);
+                Log($"Log output directory: {_logDirectory}");
             }
         }
 
@@ -113,7 +114,7 @@ namespace KindomDataAPIServer.Common
                 var logFilePath = GetLogFilePath(logTime);
                 if (!File.Exists(logFilePath))
                 {
-                    File.WriteAllText(logFilePath, $"[{logTime:yyyy-MM-dd HH}:00] 日志文件已创建{Environment.NewLine}", Encoding.UTF8);
+                    File.WriteAllText(logFilePath, string.Empty, Encoding.UTF8);
                 }
             }
             catch(Exception)

@@ -749,7 +749,11 @@ namespace KindomDataAPIServer.KindomAPI
 
 
 
-                    formationNames = formationNames.Where(o => !string.IsNullOrEmpty(o.Name)).ToList();
+                    formationNames = formationNames
+                        .Where(o => !string.IsNullOrEmpty(o.Name))
+                        .GroupBy(o => o.Name)
+                        .Select(group => group.First())
+                        .ToList();
 
                     return new ProjectResponse
                     {
@@ -840,10 +844,17 @@ namespace KindomDataAPIServer.KindomAPI
                         {
                             FormationTop = x,
                             FormationTopName = x.FormationTopName,
+                            formNameID = x.FormationTopNameId,
                             boreholeId = x.BoreholeId,
                         },
-                        x => boreholeIds.Contains(x.BoreholeId),
-                        false).ToList();
+                        x => boreholeIds.Contains(x.BoreholeId),AuthorType.LoggedInAuthor,
+                        false)
+                        .Where(x => x.FormationTopName != null
+                            && !string.IsNullOrWhiteSpace(x.FormationTopName.Name)
+                            && x.FormationTop.Depth.HasValue)
+                        .GroupBy(x => x.formNameID)
+                        .Select(group => group.OrderBy(x => x.FormationTop.Id).First())
+                        .ToList();
 
                     long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
                     if (wellWebID != -1)
@@ -855,33 +866,26 @@ namespace KindomDataAPIServer.KindomAPI
 
                         foreach (var formItem in formations)
                         {
-                            if (formItem.FormationTop.Depth.HasValue)
+                            if (!checkNames.Contains(formItem.FormationTopName.Name))
                             {
-                                if (!checkNames.Contains(formItem.FormationTopName.Name))
-                                    continue;
-                                var res = pbWellFormation.Items.FirstOrDefault(o => (o.Name == formItem.FormationTopName.Name || o.Name == formItem.FormationTopName.Abbreviation) && o.Top == formItem.FormationTop.Depth.Value);
-                                if (res == null)
+                                continue;
+                            }
+
+                            var existingFormation = pbWellFormation.Items.FirstOrDefault(o =>
+                                o.Name == formItem.FormationTopName.Name
+                                || o.Name == formItem.FormationTopName.Abbreviation);
+                            if (existingFormation == null)
+                            {
+                                double top = IsDepthFeet
+                                    ? formItem.FormationTop.Depth.Value.ToMeters()
+                                    : formItem.FormationTop.Depth.Value;
+
+                                pbWellFormation.Items.Add(new PbFormationItem
                                 {
-       
-                                    if (IsDepthFeet)
-                                    {
-                                        pbWellFormation.Items.Add(new PbFormationItem()
-                                        {
-                                            Name = formItem.FormationTopName.Name,
-                                            Top = formItem.FormationTop.Depth.Value.ToMeters(),
-                                            Bottom = formItem.FormationTop.Depth.Value.ToMeters(),
-                                        });
-                                    }
-                                    else
-                                    {
-                                        pbWellFormation.Items.Add(new PbFormationItem()
-                                        {
-                                            Name = formItem.FormationTopName.Name,
-                                            Top = formItem.FormationTop.Depth.Value,
-                                            Bottom = formItem.FormationTop.Depth.Value,
-                                        });
-                                    }
-                                }
+                                    Name = formItem.FormationTopName.Name,
+                                    Top = top,
+                                    Bottom = top,
+                                });
                             }
                         }
 
@@ -896,13 +900,17 @@ namespace KindomDataAPIServer.KindomAPI
                 {
                     batchIndex++;
                     int batchItemCount = pbWellFormationList.Datas.Count;
+                    int batchFormationCount = pbWellFormationList.Datas.Sum(data => data.Items.Count);
                     var res = await wellDataService.batch_create_well_formation(pbWellFormationList);
-                    if (res != null)
+                    if (res == null)
                     {
-
                     }
-                    syncedFormationCount += batchItemCount;
-                    LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
+                    int failedFormationCount = res.Summary?.failed
+                        ?? res.Results?.Count(result => result.errorCode != 0)
+                        ?? 0;
+                    int successfulFormationCount = Math.Max(0, batchFormationCount - failedFormationCount);
+                    syncedFormationCount += successfulFormationCount;
+                    LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount} wells, {batchFormationCount} formations) synchronized. Failed {failedFormationCount} formations. Synced {processedWellCount}/{wellGroups.Count} wells.");
                     pbWellFormationList = new PbWellFormationList();
                 }
 
@@ -916,13 +924,19 @@ namespace KindomDataAPIServer.KindomAPI
             {
                 batchIndex++;
                 int batchItemCount = pbWellFormationList.Datas.Count;
+                int batchFormationCount = pbWellFormationList.Datas.Sum(data => data.Items.Count);
                 var res = await wellDataService.batch_create_well_formation(pbWellFormationList);
-                if (res != null)
+                if (res == null)
                 {
-
+                    throw new InvalidOperationException("WellFormation synchronization returned an empty response.");
                 }
-                syncedFormationCount += batchItemCount;
-                LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount}) synchronized. Synced {processedWellCount}/{wellGroups.Count} wells.");
+
+                int failedFormationCount = res.Summary?.failed
+                    ?? res.Results?.Count(result => result.errorCode != 0)
+                    ?? 0;
+                int successfulFormationCount = Math.Max(0, batchFormationCount - failedFormationCount);
+                syncedFormationCount += successfulFormationCount;
+                LogManagerService.Instance.Log($"WellFormation batch {batchIndex}({batchItemCount} wells, {batchFormationCount} formations) synchronized. Failed {failedFormationCount} formations. Synced {processedWellCount}/{wellGroups.Count} wells.");
             }
 
             LogManagerService.Instance.Log($"WellFormation synchronized. Synced {syncedFormationCount}");
