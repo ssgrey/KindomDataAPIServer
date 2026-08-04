@@ -22,6 +22,7 @@ namespace KindomDataAPIServer.Views
             WellProductionBatchDailyDataCount = AdvancedSettingsConfig.GetWellProductionBatchDailyDataCount();
             WellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
             WellFormationUploadConcurrency = AdvancedSettingsConfig.GetWellFormationUploadConcurrency();
+            WellFormationUseFileImport = AdvancedSettingsConfig.GetWellFormationUseFileImport();
             DataContext = this;
         }
 
@@ -34,6 +35,7 @@ namespace KindomDataAPIServer.Views
         public int WellProductionBatchDailyDataCount { get; set; }
         public int WellFormationBatchSize { get; set; }
         public int WellFormationUploadConcurrency { get; set; }
+        public bool WellFormationUseFileImport { get; set; }
 
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
@@ -48,6 +50,7 @@ namespace KindomDataAPIServer.Views
                 AdvancedSettingsConfig.SaveWellProductionBatchDailyDataCount(WellProductionBatchDailyDataCount);
                 AdvancedSettingsConfig.SaveWellFormationBatchSize(WellFormationBatchSize);
                 AdvancedSettingsConfig.SaveWellFormationUploadConcurrency(WellFormationUploadConcurrency);
+                AdvancedSettingsConfig.SaveWellFormationUseFileImport(WellFormationUseFileImport);
                 DialogResult = true;
                 Close();
             }

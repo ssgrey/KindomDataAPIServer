@@ -40,6 +40,7 @@ namespace KindomDataAPIServer.DataService
 
 
         Task<WellOperationResult> batch_create_well_formation(PbWellFormationList pbWellFormationList);
+        Task<int> import_well_formation_file(string filePath, string importOptionsJson, string formationMapJson);
         Task<WellOperationResult> batch_create_well_log(PbWellLogCreateList pbWellLogCreateList, string traceName = null);
 
         Task<WellOperationResult> batch_create_well_payzone_with_meta_infos(CreatePayzoneRequest wellDataRequest);

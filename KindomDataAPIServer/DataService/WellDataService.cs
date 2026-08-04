@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
@@ -286,35 +287,75 @@ namespace KindomDataAPIServer.DataService
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                string flag = "OverWrite";
-                var url = _apiClient.BuildUrl("dp/api/welldata/batch_create_well_formation");
-                var formData = new MultipartFormDataContent();
-                using (var stream = ProtoHelper.ToMemoryStream(pbWellFormationList))
+                var result = await _apiClient.PostMultipartAsync<WellOperationResult>(
+                    "dp/api/welldata/batch_create_well_formation",
+                    () =>
+                    {
+                        var formData = new MultipartFormDataContent();
+                        var stream = ProtoHelper.ToMemoryStream(pbWellFormationList);
+                        formData.Add(new StreamContent(stream), "File", "data.pbf");
+                        formData.Add(new StringContent("OverWrite"), "overwrite_flag");
+                        return formData;
+                    });
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"batch_create_well_formation completed. Wells:{pbWellFormationList?.Datas?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"batch_create_well_formation failed. Elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s. {ExceptionLogHelper.Format(ex)}");
+                throw;
+            }
+        }
+
+        public async Task<int> import_well_formation_file(string filePath, string importOptionsJson, string formationMapJson)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            try
+            {
+                string url = _apiClient.BuildUrl("dp/api/import/well_formation");
+                using (var formData = new MultipartFormDataContent())
                 {
-                    var streamContent = new StreamContent(stream);
-                    var stringContent = new StringContent(flag);
-                    formData.Add(streamContent, "File", "data.pbf");
-                    formData.Add(stringContent, "overwrite_flag");
-                    var httpResult = await _apiClient.Client.PostAsync(url, formData);
-                    var responseContent = await httpResult.Content.ReadAsStringAsync();
-                    LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
-                    if (httpResult.IsSuccessStatusCode)
+                    if (formData.Headers.ContentType != null)
                     {
-                        var result = JsonHelper.ConvertFrom<WellOperationResult>(responseContent);
-                        stopwatch.Stop();
-                        LogManagerService.Instance.Log($"batch_create_well_formation completed. Wells:{pbWellFormationList?.Datas?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
-                        return result;
+                        formData.Headers.ContentType.CharSet = "utf-8";
                     }
-                    else
+
+                    var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    var fileContent = new StreamContent(stream);
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+                    formData.Add(fileContent, "File", Path.GetFileName(filePath));
+
+                    var optionContent = new StringContent(importOptionsJson ?? string.Empty, Encoding.UTF8);
+                    formData.Add(optionContent, "Colmaps");
+
+                    var formationMapContent = new StringContent(formationMapJson ?? "{}", Encoding.UTF8);
+                    formData.Add(formationMapContent, "formation_map");
+
+                    using (var httpResult = await _apiClient.Client.PostAsync(url, formData))
                     {
-                        throw new HttpRequestException($"HTTP请求失败: {responseContent}");
+                        string responseContent = await httpResult.Content.ReadAsStringAsync();
+                        LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
+                        if (!httpResult.IsSuccessStatusCode)
+                        {
+                            throw new HttpRequestException($"HTTP请求失败: {responseContent}");
+                        }
+
+                        JToken response = JToken.Parse(responseContent);
+                        int importedObjectCount = response.Type == JTokenType.Array
+                            ? ((JArray)response).Count
+                            : 0;
+                        stopwatch.Stop();
+                        LogManagerService.Instance.Log($"import_well_formation_file completed. Returned objects:{importedObjectCount}, file bytes:{new FileInfo(filePath).Length}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
+                        return importedObjectCount;
                     }
                 }
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                LogManagerService.Instance.Log($"batch_create_well_formation failed. Elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s. {ExceptionLogHelper.Format(ex)}");
+                LogManagerService.Instance.Log($"import_well_formation_file failed. Elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s. {ExceptionLogHelper.Format(ex)}");
                 throw;
             }
         }

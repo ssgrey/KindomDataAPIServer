@@ -236,6 +236,7 @@
     <Compile Include="Common\JsonHelper.cs" />
     <Compile Include="Common\LogManagerService.cs" />
     <Compile Include="Common\SyncTaskReportService.cs" />
+    <Compile Include="Common\WellFormationFileImportService.cs" />
     <Compile Include="Common\MeasureUnit.cs" />
     <Compile Include="Common\Options.cs" />
     <Compile Include="Common\ProtoHelper.cs" />

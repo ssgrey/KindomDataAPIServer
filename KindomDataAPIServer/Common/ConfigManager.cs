@@ -143,6 +143,7 @@ namespace KindomDataAPIServer.Common
         public const string WellProductionBatchDailyDataCountKey = "well_production_batchDailyDataCount";
         public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
         public const string WellFormationUploadConcurrencyKey = "well_formation_uploadConcurrency";
+        public const string WellFormationUseFileImportKey = "well_formation_useFileImport";
         public const string ShowAdvancedSettingsMenuKey = "ShowAdvancedSettingsMenu";
         public const int DefaultWellHeaderBatchSize = 5000;
         public const int DefaultWellTrajectoryBatchSize = 3;
@@ -197,6 +198,12 @@ namespace KindomDataAPIServer.Common
         public static int GetWellFormationUploadConcurrency()
         {
             return GetBatchSize(WellFormationUploadConcurrencyKey, DefaultWellFormationUploadConcurrency);
+        }
+
+        public static bool GetWellFormationUseFileImport()
+        {
+            string value = ConfigurationManager.AppSettings[WellFormationUseFileImportKey];
+            return bool.TryParse(value, out bool useFileImport) && useFileImport;
         }
 
         public static bool IsAdvancedSettingsMenuVisible()
@@ -266,6 +273,11 @@ namespace KindomDataAPIServer.Common
             SaveBatchSize(WellFormationUploadConcurrencyKey, uploadConcurrency, DefaultWellFormationUploadConcurrency);
         }
 
+        public static void SaveWellFormationUseFileImport(bool useFileImport)
+        {
+            SaveSetting(WellFormationUseFileImportKey, useFileImport.ToString().ToLowerInvariant());
+        }
+
         private static void SaveBatchSize(string key, int batchSize, int defaultValue)
         {
             if (batchSize < 1)
@@ -273,14 +285,19 @@ namespace KindomDataAPIServer.Common
                 batchSize = defaultValue;
             }
 
+            SaveSetting(key, batchSize.ToString());
+        }
+
+        private static void SaveSetting(string key, string value)
+        {
             Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
             if (config.AppSettings.Settings[key] == null)
             {
-                config.AppSettings.Settings.Add(key, batchSize.ToString());
+                config.AppSettings.Settings.Add(key, value);
             }
             else
             {
-                config.AppSettings.Settings[key].Value = batchSize.ToString();
+                config.AppSettings.Settings[key].Value = value;
             }
 
             config.Save(ConfigurationSaveMode.Modified);

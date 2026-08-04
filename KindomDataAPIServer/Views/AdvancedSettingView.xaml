@@ -137,7 +137,7 @@
                             <Label
                                 Width="220"
                                 VerticalAlignment="Center"
-                                Content="Batch Size" />
+                                Content="Formation Count Batch Size" />
                             <dxe:SpinEdit
                                 Width="120"
                                 Height="25"
@@ -158,6 +158,15 @@
                                 MaxValue="100"
                                 IsFloatValue="False"
                                 EditValue="{Binding WellFormationUploadConcurrency, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
+                        </StackPanel>
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
+                                Content="Use File Import API" />
+                            <CheckBox
+                                VerticalAlignment="Center"
+                                IsChecked="{Binding WellFormationUseFileImport, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>

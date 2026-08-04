@@ -41,9 +41,10 @@ namespace KindomDataAPIServer.KindomAPI
             public int BatchIndex { get; set; }
             public int WellCount { get; set; }
             public int FormationCount { get; set; }
-            public int PayloadBytes { get; set; }
+            public long PayloadBytes { get; set; }
             public int CompletedWellCount { get; set; }
             public PbWellFormationList Request { get; set; }
+            public List<WellFormationFileRow> FileRows { get; set; }
         }
 
         private class WellTrajectoryUploadBatch
@@ -844,6 +845,10 @@ namespace KindomDataAPIServer.KindomAPI
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
             int wellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
             int uploadConcurrency = AdvancedSettingsConfig.GetWellFormationUploadConcurrency();
+            bool useFileImport = AdvancedSettingsConfig.GetWellFormationUseFileImport();
+            string fileImportOptionsJson = useFileImport
+                ? WellFormationFileImportService.BuildImportOptionsJson(Utils.GetDepthOrXYUnit(false))
+                : null;
             int uploadQueueCapacity = Math.Max(uploadConcurrency * 2, uploadConcurrency);
             int processedWellCount = 0;
             int syncedFormationCount = 0;
@@ -859,6 +864,7 @@ namespace KindomDataAPIServer.KindomAPI
             long totalUploadElapsedTicks = 0;
             var totalStopwatch = Stopwatch.StartNew();
             PbWellFormationList batchRequest = new PbWellFormationList();
+            List<WellFormationFileRow> batchFileRows = new List<WellFormationFileRow>();
 
             using (var uploadQueue = new BlockingCollection<WellFormationUploadBatch>(uploadQueueCapacity))
             using (var cancellationTokenSource = new CancellationTokenSource())
@@ -895,30 +901,60 @@ namespace KindomDataAPIServer.KindomAPI
                         {
                             foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                Interlocked.Add(ref totalUploadBytes, uploadBatch.PayloadBytes);
-                                SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
-                                SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload started. Wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, protobuf bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
-                                var uploadStopwatch = Stopwatch.StartNew();
-                                var res = await wellDataService.batch_create_well_formation(uploadBatch.Request);
-                                uploadStopwatch.Stop();
-                                Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
-                                SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
-                                if (res == null)
+                                string temporaryFilePath = null;
+                                try
                                 {
-                                    throw new InvalidOperationException("WellFormation synchronization returned an empty response.");
-                                }
+                                    long payloadBytes = uploadBatch.PayloadBytes;
+                                    string payloadType = "protobuf";
+                                    if (useFileImport)
+                                    {
+                                        WellFormationTemporaryFile temporaryFile = WellFormationFileImportService.CreateTemporaryFile(uploadBatch.FileRows);
+                                        temporaryFilePath = temporaryFile.FilePath;
+                                        payloadBytes = temporaryFile.PayloadBytes;
+                                        payloadType = "text file";
+                                    }
 
-                                int failedFormationCount = res.Summary?.failed
-                                    ?? res.Results?.Count(result => result.errorCode != 0)
-                                    ?? 0;
-                                int successfulFormationCount = Math.Max(0, uploadBatch.FormationCount - failedFormationCount);
-                                int currentSyncedFormationCount = Interlocked.Add(ref syncedFormationCount, successfulFormationCount);
-                                int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
-                                Interlocked.Add(ref totalUploadedWellCount, uploadBatch.WellCount);
-                                Interlocked.Add(ref totalUploadedFormationCount, uploadBatch.FormationCount);
-                                Interlocked.Add(ref totalFailedFormationCount, failedFormationCount);
-                                SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload completed. Wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, successful:{successfulFormationCount}, failed:{failedFormationCount}, protobuf bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced formations:{currentSyncedFormationCount}.");
-                                reportUploadedBatchProgress(uploadBatch);
+                                    Interlocked.Add(ref totalUploadBytes, payloadBytes);
+                                    SyncTaskReportService.Instance.RecordUploadAttempt(payloadBytes);
+                                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload started. Mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, {payloadType} bytes:{payloadBytes} ({payloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                    var uploadStopwatch = Stopwatch.StartNew();
+                                    int failedFormationCount = 0;
+                                    int returnedObjectCount = 0;
+                                    if (useFileImport)
+                                    {
+                                        string formationMapJson = WellFormationFileImportService.BuildFormationMapJson(uploadBatch.FileRows);
+                                        returnedObjectCount = await wellDataService.import_well_formation_file(temporaryFilePath, fileImportOptionsJson, formationMapJson);
+                                    }
+                                    else
+                                    {
+                                        var res = await wellDataService.batch_create_well_formation(uploadBatch.Request);
+                                        if (res == null)
+                                        {
+                                            throw new InvalidOperationException("WellFormation synchronization returned an empty response.");
+                                        }
+
+                                        failedFormationCount = res.Summary?.failed
+                                            ?? res.Results?.Count(result => result.errorCode != 0)
+                                            ?? 0;
+                                    }
+                                    uploadStopwatch.Stop();
+                                    Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
+                                    SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
+
+                                    int successfulFormationCount = Math.Max(0, uploadBatch.FormationCount - failedFormationCount);
+                                    int currentSyncedFormationCount = Interlocked.Add(ref syncedFormationCount, successfulFormationCount);
+                                    int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
+                                    Interlocked.Add(ref totalUploadedWellCount, uploadBatch.WellCount);
+                                    Interlocked.Add(ref totalUploadedFormationCount, uploadBatch.FormationCount);
+                                    Interlocked.Add(ref totalFailedFormationCount, failedFormationCount);
+                                    string returnedObjects = useFileImport ? $", returned objects:{returnedObjectCount}" : string.Empty;
+                                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload completed. Mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, successful:{successfulFormationCount}, failed:{failedFormationCount}{returnedObjects}, {payloadType} bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced formations:{currentSyncedFormationCount}.");
+                                    reportUploadedBatchProgress(uploadBatch);
+                                }
+                                finally
+                                {
+                                    WellFormationFileImportService.DeleteTemporaryFile(temporaryFilePath);
+                                }
                             }
                         }
                         catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
@@ -948,16 +984,18 @@ namespace KindomDataAPIServer.KindomAPI
                         FormationCount = batchRequest.Datas.Sum(data => data.Items.Count),
                         PayloadBytes = batchRequest.CalculateSize(),
                         CompletedWellCount = processedWellCount,
-                        Request = batchRequest
+                        Request = batchRequest,
+                        FileRows = batchFileRows
                     };
                     uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
-                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} queued. Wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, protobuf bytes:{uploadBatch.PayloadBytes}, read wells:{processedWellCount}/{wellGroups.Count}.");
+                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} queued. Mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, read wells:{processedWellCount}/{wellGroups.Count}.");
                     batchRequest = new PbWellFormationList();
+                    batchFileRows = new List<WellFormationFileRow>();
                 };
 
                 Exception producerException = null;
 
-                SyncTaskReportService.Instance.Log($"WellFormation synchronization started. Selected wells:{wellGroups.Count}, selected formation names:{checkNames.Count}, batch size:{wellFormationBatchSize}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}, author type:{AuthorType.LoggedInAuthor}, visible only:false.");
+                SyncTaskReportService.Instance.Log($"WellFormation synchronization started. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, selected formation names:{checkNames.Count}, formation count batch size:{wellFormationBatchSize}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}, author type:{AuthorType.LoggedInAuthor}, visible only:false.");
                 try
                 {
                     foreach (var wellGroup in wellGroups)
@@ -1025,13 +1063,21 @@ namespace KindomDataAPIServer.KindomAPI
                                             Top = top,
                                             Bottom = top,
                                         });
+                                        batchFileRows.Add(new WellFormationFileRow
+                                        {
+                                            WellName = wellGroup.Key,
+                                            FormationName = formItem.FormationTopName.Name,
+                                            Top = top,
+                                            Bottom = top
+                                        });
                                     }
                                 }
 
                                 if (pbWellFormation.Items.Count > 0)
                                 {
                                     batchRequest.Datas.Add(pbWellFormation);
-                                    if (batchRequest.Datas.Count >= wellFormationBatchSize)
+                                    int batchFormationCount = batchRequest.Datas.Sum(data => data.Items.Count);
+                                    if (batchFormationCount >= wellFormationBatchSize)
                                     {
                                         enqueueCurrentBatch();
                                     }
@@ -1084,7 +1130,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
 
             totalStopwatch.Stop();
-            SyncTaskReportService.Instance.LogSummary($"WellFormation synchronization completed. Selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, raw formations read:{totalReadFormationCount}, valid unique formations:{totalUniqueFormationCount}, uploaded wells:{totalUploadedWellCount}, uploaded formations:{totalUploadedFormationCount}, successful formations:{syncedFormationCount}, failed formations:{totalFailedFormationCount}, upload batches:{uploadedBatchCount}, total protobuf bytes:{totalUploadBytes} ({totalUploadBytes / 1024.0 / 1024.0:F3} MiB), read elapsed:{TimeSpan.FromTicks(totalReadElapsedTicks).TotalSeconds:F3}s, cumulative upload request elapsed:{TimeSpan.FromTicks(totalUploadElapsedTicks).TotalSeconds:F3}s, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
+            SyncTaskReportService.Instance.LogSummary($"WellFormation synchronization completed. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, raw formations read:{totalReadFormationCount}, valid unique formations:{totalUniqueFormationCount}, uploaded wells:{totalUploadedWellCount}, uploaded formations:{totalUploadedFormationCount}, successful formations:{syncedFormationCount}, failed formations:{totalFailedFormationCount}, upload batches:{uploadedBatchCount}, total payload bytes:{totalUploadBytes} ({totalUploadBytes / 1024.0 / 1024.0:F3} MiB), read elapsed:{TimeSpan.FromTicks(totalReadElapsedTicks).TotalSeconds:F3}s, cumulative upload request elapsed:{TimeSpan.FromTicks(totalUploadElapsedTicks).TotalSeconds:F3}s, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
             return syncedFormationCount;
         }
 
