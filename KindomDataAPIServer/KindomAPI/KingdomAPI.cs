@@ -29,6 +29,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Markup;
 using System.Windows.Media;
 using Tet.Transport.Protobuf.Metaobjs;
 using Tet.Transport.Protobuf.Well;
@@ -1354,7 +1355,7 @@ namespace KindomDataAPIServer.KindomAPI
                             int readSurveyCount = deviationSurveys.Count(item => item.data != null);
                             int readPointCount = deviationSurveys
                                 .Where(item => item.data != null)
-                                .Sum(item => item.data.MD.Count);
+                                .Sum(item => item.data.MD?.Count ?? 0);
                             totalReadSurveyCount += readSurveyCount;
                             totalTrajectoryPointCount += readPointCount;
                             totalReadElapsedTicks += readStopwatch.Elapsed.Ticks;
@@ -1369,6 +1370,82 @@ namespace KindomDataAPIServer.KindomAPI
                                     cancellationTokenSource.Token.ThrowIfCancellationRequested();
                                     if (formItem.data != null)
                                     {
+                                        var trajectorySourceData = new
+                                        {
+                                            formItem.data.MD,
+                                            formItem.data.TVD,
+                                            formItem.data.DX,
+                                            formItem.data.DY,
+                                            formItem.data.Azimuth,
+                                            formItem.data.Inclination
+                                        };
+                                        var missingFields = new List<string>();
+                                        if (formItem.data.MD == null)
+                                        {
+                                            missingFields.Add("MD");
+                                        }
+                                        if (formItem.data.TVD == null)
+                                        {
+                                            missingFields.Add("TVD");
+                                        }
+                                        if (formItem.data.DX == null)
+                                        {
+                                            missingFields.Add("DX");
+                                        }
+                                        if (formItem.data.DY == null)
+                                        {
+                                            missingFields.Add("DY");
+                                        }
+                                        if (missingFields.Count > 0)
+                                        {
+                                            SyncTaskReportService.Instance.RecordDataValidationError(
+                                                "WellTrajs",
+                                                "WellTrajectoryValidationErrors",
+                                                wellGroup.Key,
+                                                $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}",
+                                                $"missing required data fields: {string.Join(",", missingFields)}",
+                                                trajectorySourceData);
+                                            continue;
+                                        }
+
+                                        int trajectoryPointCount = formItem.data.MD.Count;
+                                        if (trajectoryPointCount == 0)
+                                        {
+                                            continue;
+                                        }
+
+                                        var hasInconsistentFieldLengths =
+                                            formItem.data.TVD.Count != trajectoryPointCount ||
+                                            formItem.data.DX.Count != trajectoryPointCount ||
+                                            formItem.data.DY.Count != trajectoryPointCount ||
+                                            formItem.data.Azimuth.Count != trajectoryPointCount ||
+                                            formItem.data.Inclination.Count != trajectoryPointCount;
+                                        if (hasInconsistentFieldLengths)
+                                        {
+                                            SyncTaskReportService.Instance.RecordDataValidationError(
+                                                "WellTrajs",
+                                                "WellTrajectoryValidationErrors",
+                                                wellGroup.Key,
+                                                $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}",
+                                                $"inconsistent data field lengths (MD:{trajectoryPointCount}, TVD:{formItem.data.TVD.Count}, DX:{formItem.data.DX.Count}, DY:{formItem.data.DY.Count}, Azimuth:{formItem.data.Azimuth.Count}, Inclination:{formItem.data.Inclination.Count})",
+                                                trajectorySourceData);
+                                            continue;
+                                        }
+
+                                        var hasInvalidCoordinates =
+                                            formItem.data.DX.Any(double.IsNaN) || formItem.data.DY.Any(double.IsNaN) ||
+                                            formItem.data.DX.Any(double.IsInfinity) || formItem.data.DY.Any(double.IsInfinity);
+                                        if (hasInvalidCoordinates)
+                                        {
+                                            SyncTaskReportService.Instance.RecordDataValidationError(
+                                                "WellTrajs",
+                                                "WellTrajectoryValidationErrors",
+                                                wellGroup.Key,
+                                                $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}",
+                                                "invalid coordinates (NaN or Infinity) in DX or DY",
+                                                trajectorySourceData);
+                                            continue;
+                                        }
                                         WellTrajData wellTrajData = new WellTrajData();
                                         wellTrajData.MetaInfoList = MetaInfoList;
                                         wellTrajData.WellId = wellWebID;
@@ -1394,17 +1471,31 @@ namespace KindomDataAPIServer.KindomAPI
                                             }
 
                                             wellTrajData.CoordList.Add(coordData);
-                                            AimuthData aimuthData = new AimuthData()
+
+                                            try
                                             {
-                                                Md = formItem.data.MD[i],
-                                                Azim = formItem.data.Azimuth[i],
-                                                Devi = formItem.data.Inclination[i],
-                                            };
-                                            if (IsDepthFeet)
-                                            {
-                                                aimuthData.Md = aimuthData.Md.ToMeters();
+                                                AimuthData aimuthData = new AimuthData()
+                                                {
+                                                    Md = formItem.data.MD[i],
+                                                    Azim = formItem.data.Azimuth[i],
+                                                    Devi = formItem.data.Inclination[i],
+                                                };
+                                                if (IsDepthFeet)
+                                                {
+                                                    aimuthData.Md = aimuthData.Md.ToMeters();
+                                                }
+                                                wellTrajData.AimuthList.Add(aimuthData);
                                             }
-                                            wellTrajData.AimuthList.Add(aimuthData);
+                                            catch(Exception ex)
+                                            {
+                                                SyncTaskReportService.Instance.RecordDataValidationError(
+                                                    "WellTrajs",
+                                                    "WellTrajectoryValidationErrors",
+                                                    wellGroup.Key,
+                                                    $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}, point index:{i}",
+                                                    $"failed to create AimuthData: {ex.Message}",
+                                                    trajectorySourceData);
+                                            }
                                         }
                                         batchRequest.Items.Add(wellTrajData);
                                         batchWellUwisById[wellWebID] = wellGroup.Key;

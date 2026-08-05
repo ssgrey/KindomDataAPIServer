@@ -1816,7 +1816,10 @@ namespace KindomDataAPIServer.ViewModels
                 }
                 else
                 {
-                    taskError = $"Synchronization completed with {SyncTaskReportService.Instance.ErrorCount} error(s). Check the task report for details.";
+                    string errorDetailsLocation = string.IsNullOrWhiteSpace(SyncTaskReportService.Instance.CurrentReportPath)
+                        ? "Check the application log for details."
+                        : "Check the task report for details.";
+                    taskError = $"Synchronization completed with {SyncTaskReportService.Instance.ErrorCount} error(s). {errorDetailsLocation}";
                     LogManagerService.Instance.Log(taskError);
                 }
                 LogManagerService.Instance.Log($"Kindom data synchronize to web elapsed time: {stopwatch.Elapsed:hh\\:mm\\:ss\\.fff}.");

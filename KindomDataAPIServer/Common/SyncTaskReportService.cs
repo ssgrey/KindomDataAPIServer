@@ -20,7 +20,7 @@ namespace KindomDataAPIServer.Common
             new Lazy<SyncTaskReportService>(() => new SyncTaskReportService());
 
         private readonly object _syncRoot = new object();
-        private readonly string _reportDirectory;
+        private string _reportDirectory;
         private readonly Dictionary<string, int> _recordedUploadErrorCounts = new Dictionary<string, int>();
         private string _currentReportPath;
         private long _apiReadCount;
@@ -37,7 +37,16 @@ namespace KindomDataAPIServer.Common
 
         public static SyncTaskReportService Instance => _instance.Value;
 
-        public string ReportDirectory => _reportDirectory;
+        public string ReportDirectory
+        {
+            get
+            {
+                lock (_syncRoot)
+                {
+                    return _reportDirectory;
+                }
+            }
+        }
 
         public long ErrorCount
         {
@@ -65,6 +74,11 @@ namespace KindomDataAPIServer.Common
         {
             lock (_syncRoot)
             {
+                if (string.IsNullOrWhiteSpace(_reportDirectory) || !TryEnsureWritableDirectory(_reportDirectory))
+                {
+                    _reportDirectory = ResolveReportDirectory();
+                }
+
                 if (string.IsNullOrWhiteSpace(_reportDirectory))
                 {
                     _currentReportPath = null;
@@ -153,7 +167,8 @@ namespace KindomDataAPIServer.Common
                 WriteReportLine($"Error: {errorMessage}");
             }
 
-            LogManagerService.Instance.Log($"Sync task report completed. Status:{status}, path:{CurrentReportPath}");
+            string reportPath = CurrentReportPath;
+            LogManagerService.Instance.Log($"Sync task report completed. Status:{status}, path:{reportPath ?? "unavailable"}");
             DisplayCurrentReportInApplicationLog();
         }
 
@@ -216,6 +231,77 @@ namespace KindomDataAPIServer.Common
                 response,
                 additionalRequestParameters);
             RecordError($"{operationName} batch {batchIndex} synchronization failed. Failed:{failedCount}, UWIs:[{failedUwis ?? batchUwis}], first errorCode:{firstFailedItem?.errorCode}, first errorMessage:{firstFailedItem?.Message}, request details:{detailsPath ?? "unavailable"}");
+        }
+
+        public void RecordDataValidationError(
+            string operationName,
+            string errorDirectoryName,
+            string uwi,
+            string itemDescription,
+            string validationMessage,
+            object sourceData)
+        {
+            string detailsPath = null;
+            if (TryReserveUploadError(operationName + "DataValidation"))
+            {
+                detailsPath = WriteDataValidationErrorDetails(
+                    operationName,
+                    errorDirectoryName,
+                    uwi,
+                    itemDescription,
+                    validationMessage,
+                    sourceData);
+            }
+
+            RecordError($"{operationName} synchronization skipped for UWI:{uwi}, {itemDescription} due to {validationMessage}. Source data details:{detailsPath ?? "unavailable"}");
+        }
+
+        private string WriteDataValidationErrorDetails(
+            string operationName,
+            string errorDirectoryName,
+            string uwi,
+            string itemDescription,
+            string validationMessage,
+            object sourceData)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_reportDirectory))
+                {
+                    LogManagerService.Instance.Log($"Failed to write {operationName} data validation error details because no writable log directory is available.");
+                    return null;
+                }
+
+                string logDirectory = Directory.GetParent(_reportDirectory)?.FullName;
+                if (string.IsNullOrWhiteSpace(logDirectory))
+                {
+                    LogManagerService.Instance.Log($"Failed to resolve the log directory for {operationName} data validation error details.");
+                    return null;
+                }
+
+                string errorDirectory = Path.Combine(logDirectory, SanitizeFileName(errorDirectoryName));
+                Directory.CreateDirectory(errorDirectory);
+                string fileNamePrefix = SanitizeFileName(uwi);
+                string filePath = Path.Combine(errorDirectory, $"{fileNamePrefix}-{Guid.NewGuid():N}.txt");
+
+                var details = new StringBuilder();
+                details.AppendLine(operationName + " Data Validation Error Details");
+                details.AppendLine(new string('=', 48));
+                details.AppendLine($"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                details.AppendLine($"UWI: {uwi ?? string.Empty}");
+                details.AppendLine($"Item: {itemDescription ?? string.Empty}");
+                details.AppendLine($"Validation error: {validationMessage ?? string.Empty}");
+                details.AppendLine(new string('-', 48));
+                details.AppendLine("Source data JSON:");
+                details.AppendLine(JsonHelper.ToJson(sourceData));
+                File.WriteAllText(filePath, details.ToString(), Encoding.UTF8);
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"Failed to write {operationName} data validation error details: " + ExceptionLogHelper.Format(ex));
+                return null;
+            }
         }
 
         private string WriteUploadErrorDetails(
