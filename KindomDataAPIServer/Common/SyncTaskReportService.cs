@@ -1,4 +1,7 @@
+using Google.Protobuf;
+using KindomDataAPIServer.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,14 +13,15 @@ namespace KindomDataAPIServer.Common
         private const string AppDataDirectoryName = "KindomDataAPIServer";
         private const string LogDirectoryName = "Logs";
         private const string ReportDirectoryName = "TaskReports";
-        private const string WellTrajectoryErrorDirectoryName = "WellTrajectoryUploadErrors";
         private const string ReportFilePattern = "sync-task-*.txt";
+        private const int MaxRecordedUploadErrorsPerOperation = 10;
 
         private static readonly Lazy<SyncTaskReportService> _instance =
             new Lazy<SyncTaskReportService>(() => new SyncTaskReportService());
 
         private readonly object _syncRoot = new object();
         private readonly string _reportDirectory;
+        private readonly Dictionary<string, int> _recordedUploadErrorCounts = new Dictionary<string, int>();
         private string _currentReportPath;
         private long _apiReadCount;
         private long _uploadRequestCount;
@@ -75,6 +79,7 @@ namespace KindomDataAPIServer.Common
                 _apiReadElapsedTicks = 0;
                 _uploadElapsedTicks = 0;
                 _errorCount = 0;
+                _recordedUploadErrorCounts.Clear();
                 _currentReportPath = Path.Combine(
                     _reportDirectory,
                     $"sync-task-{now:yyyyMMdd-HHmmss-fff}.txt");
@@ -129,7 +134,7 @@ namespace KindomDataAPIServer.Common
         public void Complete(bool succeeded, TimeSpan elapsed, string errorMessage = null)
         {
             bool completedSuccessfully = succeeded && ErrorCount == 0;
-            string status = completedSuccessfully ? "Succeeded" : "Failed";
+            string status = completedSuccessfully ? "Succeeded" : "Completed";
             WriteReportLine(new string('-', 48));
             lock (_syncRoot)
             {
@@ -178,44 +183,95 @@ namespace KindomDataAPIServer.Common
             }
         }
 
-        public string WriteWellTrajectoryUploadErrorDetails(
+        public void RecordUploadResponseErrors(
+            string operationName,
+            string errorDirectoryName,
+            string endpoint,
+            string batchUwis,
+            string failedUwis,
+            int batchIndex,
+            long payloadBytes,
+            object request,
+            WellOperationResult response,
+            string additionalRequestParameters = null)
+        {
+            int failedCount = response?.Summary?.failed
+                ?? response?.Results?.Count(result => result.errorCode != 0)
+                ?? 0;
+            if (failedCount <= 0 || !TryReserveUploadError(operationName))
+            {
+                return;
+            }
+
+            WellOperationDetail firstFailedItem = response.Results?
+                .FirstOrDefault(result => result.errorCode != 0);
+            string detailsPath = WriteUploadErrorDetails(
+                operationName,
+                errorDirectoryName,
+                endpoint,
+                batchUwis,
+                batchIndex,
+                payloadBytes,
+                request,
+                response,
+                additionalRequestParameters);
+            RecordError($"{operationName} batch {batchIndex} synchronization failed. Failed:{failedCount}, UWIs:[{failedUwis ?? batchUwis}], first errorCode:{firstFailedItem?.errorCode}, first errorMessage:{firstFailedItem?.Message}, request details:{detailsPath ?? "unavailable"}");
+        }
+
+        private string WriteUploadErrorDetails(
+            string operationName,
+            string errorDirectoryName,
+            string endpoint,
             string batchUwis,
             int batchIndex,
             long payloadBytes,
             object request,
-            object response)
+            object response,
+            string additionalRequestParameters)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(_reportDirectory))
                 {
-                    LogManagerService.Instance.Log("Failed to write well trajectory upload error details because no writable log directory is available.");
+                    LogManagerService.Instance.Log($"Failed to write {operationName} upload error details because no writable log directory is available.");
                     return null;
                 }
 
                 string logDirectory = Directory.GetParent(_reportDirectory)?.FullName;
                 if (string.IsNullOrWhiteSpace(logDirectory))
                 {
-                    LogManagerService.Instance.Log("Failed to resolve the log directory for well trajectory upload error details.");
+                    LogManagerService.Instance.Log($"Failed to resolve the log directory for {operationName} upload error details.");
                     return null;
                 }
 
-                string errorDirectory = Path.Combine(logDirectory, WellTrajectoryErrorDirectoryName);
+                string errorDirectory = Path.Combine(logDirectory, SanitizeFileName(errorDirectoryName));
                 Directory.CreateDirectory(errorDirectory);
                 string fileNamePrefix = SanitizeFileName(batchUwis);
                 string filePath = Path.Combine(errorDirectory, $"{fileNamePrefix}-{Guid.NewGuid():N}.txt");
+                IMessage protobufRequest = request as IMessage;
+                string requestFormat = protobufRequest == null
+                    ? "Request JSON"
+                    : "Request Protobuf JSON representation";
+                string requestContent = protobufRequest == null
+                    ? JsonHelper.ToJson(request)
+                    : JsonFormatter.Default.Format(protobufRequest);
 
                 var details = new StringBuilder();
-                details.AppendLine("Well Trajectory Upload Error Details");
+                details.AppendLine(operationName + " Upload Error Details");
                 details.AppendLine(new string('=', 48));
                 details.AppendLine($"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                details.AppendLine("Endpoint: dp/api/welldata/batch_create_well_trajectory_with_meta_infos");
+                details.AppendLine($"Endpoint: {endpoint}");
                 details.AppendLine($"Batch: {batchIndex}");
                 details.AppendLine($"UWIs: {batchUwis ?? string.Empty}");
-                details.AppendLine($"JSON payload bytes: {payloadBytes}");
+                details.AppendLine($"Payload bytes: {payloadBytes}");
+                if (!string.IsNullOrWhiteSpace(additionalRequestParameters))
+                {
+                    details.AppendLine("Additional request parameters:");
+                    details.AppendLine(additionalRequestParameters);
+                }
                 details.AppendLine(new string('-', 48));
-                details.AppendLine("Request JSON:");
-                details.AppendLine(JsonHelper.ToJson(request));
+                details.AppendLine(requestFormat + ":");
+                details.AppendLine(requestContent);
                 details.AppendLine(new string('-', 48));
                 details.AppendLine("Response JSON:");
                 details.AppendLine(JsonHelper.ToJson(response));
@@ -224,8 +280,24 @@ namespace KindomDataAPIServer.Common
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("Failed to write well trajectory upload error details: " + ExceptionLogHelper.Format(ex));
+                LogManagerService.Instance.Log($"Failed to write {operationName} upload error details: " + ExceptionLogHelper.Format(ex));
                 return null;
+            }
+        }
+
+        private bool TryReserveUploadError(string operationName)
+        {
+            lock (_syncRoot)
+            {
+                string key = operationName ?? string.Empty;
+                _recordedUploadErrorCounts.TryGetValue(key, out int currentCount);
+                if (currentCount >= MaxRecordedUploadErrorsPerOperation)
+                {
+                    return false;
+                }
+
+                _recordedUploadErrorCounts[key] = currentCount + 1;
+                return true;
             }
         }
 

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -177,15 +176,17 @@ namespace KindomDataAPIServer.Common
             try
             {
                 var earliestRetainedDate = now.Date.AddDays(1 - RetainedLogDays);
-                foreach (var logFilePath in Directory.EnumerateFiles(_logDirectory, LogFilePrefix + "*" + LogFileExtension))
+                foreach (var logFilePath in EnumerateLogFiles(_logDirectory))
                 {
-                    var fileName = Path.GetFileNameWithoutExtension(logFilePath);
-                    var datePart = fileName.Substring(LogFilePrefix.Length);
-                    DateTime logDate;
-                    if (TryParseLogFileDate(datePart, out logDate)
-                        && logDate.Date < earliestRetainedDate)
+                    try
                     {
-                        File.Delete(logFilePath);
+                        if (File.GetLastWriteTime(logFilePath).Date < earliestRetainedDate)
+                        {
+                            File.Delete(logFilePath);
+                        }
+                    }
+                    catch
+                    {
                     }
                 }
 
@@ -203,10 +204,52 @@ namespace KindomDataAPIServer.Common
             return Path.Combine(_logDirectory, $"{LogFilePrefix}{logTime:yyyy-MM-dd-HH}{LogFileExtension}");
         }
 
-        private static bool TryParseLogFileDate(string datePart, out DateTime logDate)
+        private static IEnumerable<string> EnumerateLogFiles(string rootDirectory)
         {
-            return DateTime.TryParseExact(datePart, "yyyy-MM-dd-HH", CultureInfo.InvariantCulture, DateTimeStyles.None, out logDate)
-                || DateTime.TryParseExact(datePart, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out logDate);
+            var pendingDirectories = new Stack<string>();
+            pendingDirectories.Push(rootDirectory);
+            while (pendingDirectories.Count > 0)
+            {
+                string currentDirectory = pendingDirectories.Pop();
+                string[] files;
+                try
+                {
+                    files = Directory.GetFiles(currentDirectory);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (string file in files)
+                {
+                    yield return file;
+                }
+
+                string[] subdirectories;
+                try
+                {
+                    subdirectories = Directory.GetDirectories(currentDirectory);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (string subdirectory in subdirectories)
+                {
+                    try
+                    {
+                        if ((File.GetAttributes(subdirectory) & FileAttributes.ReparsePoint) == 0)
+                        {
+                            pendingDirectories.Push(subdirectory);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
 using DevExpress.Mvvm;
 using DevExpress.Spreadsheet.Functions;
 using DevExpress.Xpf.Core;
+using DevExpress.Xpf.Core.Native;
 using DevExpress.Xpf.Grid.Hierarchy;
 using DevExpress.Xpo.Logger;
 using Google.Protobuf;
@@ -45,6 +46,7 @@ namespace KindomDataAPIServer.KindomAPI
             public int CompletedWellCount { get; set; }
             public PbWellFormationList Request { get; set; }
             public List<WellFormationFileRow> FileRows { get; set; }
+            public Dictionary<long, string> WellUwisById { get; set; }
         }
 
         private class WellTrajectoryUploadBatch
@@ -66,6 +68,7 @@ namespace KindomDataAPIServer.KindomAPI
             public int PayloadBytes { get; set; }
             public int CompletedWellCount { get; set; }
             public PbWellLogCreateList Request { get; set; }
+            public Dictionary<long, string> WellUwisById { get; set; }
         }
 
         private class WellProductionUploadBatch
@@ -75,6 +78,7 @@ namespace KindomDataAPIServer.KindomAPI
             public int PayloadBytes { get; set; }
             public int CompletedWellCount { get; set; }
             public WellProductionDataRequest Request { get; set; }
+            public Dictionary<long, string> WellUwisById { get; set; }
         }
 
         private static KingdomAPI _instance = null;
@@ -676,25 +680,6 @@ namespace KindomDataAPIServer.KindomAPI
 
                     var boreholeIds = boreholes.Select(b => b.BoreholeId).ToList();
 
-                    //var digitalLogs = context.Get(new LogData(),
-                    //    x => new
-                    //    {
-                    //        LogData = x,
-                    //        LogCurveName = x.LogCurveName,
-                    //    },
-                    //    x => boreholeIds.Contains(x.BoreholeId),
-                    //    false).ToList();
-
-                    //var formations = context.Get(new FormationTopPick(),
-                    //        x => new
-                    //        {
-                    //            FormationTop = x,
-                    //            FormationTopName = x.FormationTopName
-                    //        },
-                    //        x => boreholeIds.Contains(x.BoreholeId),
-                    //        false).ToList();
-
-
                     var wells = new List<WellExport>();
                     foreach (var bh in boreholes)
                     {
@@ -756,22 +741,23 @@ namespace KindomDataAPIServer.KindomAPI
                     }
 
 
-                    var formationNames = context.Get(new FormationTopName(),
-                         x => new CheckNameExport
-                         {
-                             Name = x.Name,
-                         },
-                         x => true,
-                         false).ToList();
+                    List<CheckNameExport> formationNames = new List<CheckNameExport>();
+                    if (AdvancedSettingsConfig.IsFormationAndLogSelectionRequired())
+                    {
+                        formationNames = context.Get(new FormationTopName(),
+                             x => new CheckNameExport
+                             {
+                                 Name = x.Name,
+                             },
+                             x => true,
+                             false).ToList();
 
-
-
-
-                    formationNames = formationNames
-                        .Where(o => !string.IsNullOrEmpty(o.Name))
-                        .GroupBy(o => o.Name)
-                        .Select(group => group.First())
-                        .ToList();
+                        formationNames = formationNames
+                            .Where(o => !string.IsNullOrEmpty(o.Name))
+                            .GroupBy(o => o.Name)
+                            .Select(group => group.First())
+                            .ToList();
+                    }
 
                     return new ProjectResponse
                     {
@@ -841,6 +827,7 @@ namespace KindomDataAPIServer.KindomAPI
         public async Task<int> GetWellFormation(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, SyncKindomDataViewModel syncKindomDataViewModel)
         {
             List<WellExport> Wells = KingDomData.Wells;
+            bool selectionRequired = AdvancedSettingsConfig.IsFormationAndLogSelectionRequired();
             var checkNames = new HashSet<string>(KingDomData.FormationNames.Where(o => o.IsChecked).Select(o => o.Name));
             var wellGroups = Wells.Where(o => o.IsChecked && !string.IsNullOrEmpty(o.Uwi)).GroupBy(o => o.Uwi).ToList();
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
@@ -866,6 +853,7 @@ namespace KindomDataAPIServer.KindomAPI
             var totalStopwatch = Stopwatch.StartNew();
             PbWellFormationList batchRequest = new PbWellFormationList();
             List<WellFormationFileRow> batchFileRows = new List<WellFormationFileRow>();
+            var batchFormationWellUwisById = new Dictionary<long, string>();
 
             using (var uploadQueue = new BlockingCollection<WellFormationUploadBatch>(uploadQueueCapacity))
             using (var cancellationTokenSource = new CancellationTokenSource())
@@ -903,6 +891,7 @@ namespace KindomDataAPIServer.KindomAPI
                             foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
                                 string temporaryFilePath = null;
+                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
                                 try
                                 {
                                     long payloadBytes = uploadBatch.PayloadBytes;
@@ -917,10 +906,11 @@ namespace KindomDataAPIServer.KindomAPI
 
                                     Interlocked.Add(ref totalUploadBytes, payloadBytes);
                                     SyncTaskReportService.Instance.RecordUploadAttempt(payloadBytes);
-                                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload started. Mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, {payloadType} bytes:{payloadBytes} ({payloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, {payloadType} bytes:{payloadBytes} ({payloadBytes / 1024.0 / 1024.0:F3} MiB).");
                                     var uploadStopwatch = Stopwatch.StartNew();
                                     int failedFormationCount = 0;
                                     int returnedObjectCount = 0;
+                                    WellOperationResult response = null;
                                     if (useFileImport)
                                     {
                                         string formationMapJson = WellFormationFileImportService.BuildFormationMapJson(uploadBatch.FileRows);
@@ -928,15 +918,15 @@ namespace KindomDataAPIServer.KindomAPI
                                     }
                                     else
                                     {
-                                        var res = await wellDataService.batch_create_well_formation(uploadBatch.Request);
-                                        if (res == null)
+                                        response = await wellDataService.batch_create_well_formation(uploadBatch.Request);
+                                        if (response == null)
                                         {
-                                            SyncTaskReportService.Instance.RecordError($"WellFormation batch {uploadBatch.BatchIndex} synchronization returned an empty response");
+                                            SyncTaskReportService.Instance.RecordError($"WellFormation batch {uploadBatch.BatchIndex} synchronization returned an empty response. UWIs:[{batchUwis}]");
                                             continue;
                                         }
 
-                                        failedFormationCount = res.Summary?.failed
-                                            ?? res.Results?.Count(result => result.errorCode != 0)
+                                        failedFormationCount = response.Summary?.failed
+                                            ?? response.Results?.Count(result => result.errorCode != 0)
                                             ?? 0;
                                     }
                                     uploadStopwatch.Stop();
@@ -950,7 +940,26 @@ namespace KindomDataAPIServer.KindomAPI
                                     Interlocked.Add(ref totalUploadedFormationCount, uploadBatch.FormationCount);
                                     Interlocked.Add(ref totalFailedFormationCount, failedFormationCount);
                                     string returnedObjects = useFileImport ? $", returned objects:{returnedObjectCount}" : string.Empty;
-                                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload completed. Mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, successful:{successfulFormationCount}, failed:{failedFormationCount}{returnedObjects}, {payloadType} bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced formations:{currentSyncedFormationCount}.");
+                                    SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, successful:{successfulFormationCount}, failed:{failedFormationCount}{returnedObjects}, {payloadType} bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced formations:{currentSyncedFormationCount}.");
+                                    if (!useFileImport && response != null)
+                                    {
+                                        string failedUwis = string.Join(",", response.Results?
+                                            .Where(result => result.errorCode != 0)
+                                            .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
+                                            .Distinct() ?? Enumerable.Empty<string>());
+                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                            "WellFormation",
+                                            "WellFormationUploadErrors",
+                                            "dp/api/welldata/batch_create_well_formation",
+                                            batchUwis,
+                                            string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                            uploadBatch.BatchIndex,
+                                            uploadBatch.PayloadBytes,
+                                            uploadBatch.Request,
+                                            response,
+                                            "File: data.pbf (protobuf request shown below)" + Environment.NewLine +
+                                            "overwrite_flag: OverWrite");
+                                    }
                                     reportUploadedBatchProgress(uploadBatch);
                                 }
                                 catch (Exception ex)
@@ -991,17 +1000,20 @@ namespace KindomDataAPIServer.KindomAPI
                         PayloadBytes = batchRequest.CalculateSize(),
                         CompletedWellCount = processedWellCount,
                         Request = batchRequest,
-                        FileRows = batchFileRows
+                        FileRows = batchFileRows,
+                        WellUwisById = new Dictionary<long, string>(batchFormationWellUwisById)
                     };
                     uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
                     SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} queued. Mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, read wells:{processedWellCount}/{wellGroups.Count}.");
                     batchRequest = new PbWellFormationList();
                     batchFileRows = new List<WellFormationFileRow>();
+                    batchFormationWellUwisById = new Dictionary<long, string>();
                 };
 
                 Exception producerException = null;
 
-                SyncTaskReportService.Instance.Log($"WellFormation synchronization started. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, selected formation names:{checkNames.Count}, formation count batch size:{wellFormationBatchSize}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}, author type:{AuthorType.LoggedInAuthor}, visible only:false.");
+                string formationSelection = selectionRequired ? checkNames.Count.ToString() : "all";
+                SyncTaskReportService.Instance.Log($"WellFormation synchronization started. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, selected formation names:{formationSelection}, formation count batch size:{wellFormationBatchSize}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}, author type:{AuthorType.LoggedInAuthor}, visible only:false.");
                 try
                 {
                     foreach (var wellGroup in wellGroups)
@@ -1049,7 +1061,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 foreach (var formItem in formations)
                                 {
                                     cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                                    if (!checkNames.Contains(formItem.FormationTopName.Name))
+                                    if (selectionRequired && !checkNames.Contains(formItem.FormationTopName.Name))
                                     {
                                         continue;
                                     }
@@ -1082,6 +1094,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 if (pbWellFormation.Items.Count > 0)
                                 {
                                     batchRequest.Datas.Add(pbWellFormation);
+                                    batchFormationWellUwisById[wellWebID] = wellGroup.Key;
                                     int batchFormationCount = batchRequest.Datas.Sum(data => data.Items.Count);
                                     if (batchFormationCount >= wellFormationBatchSize)
                                     {
@@ -1177,7 +1190,6 @@ namespace KindomDataAPIServer.KindomAPI
             int batchIndex = 0;
             int totalReadSurveyCount = 0;
             int totalTrajectoryPointCount = 0;
-            int recordedUploadErrorCount = 0;
             long totalUploadBytes = 0;
             long totalReadElapsedTicks = 0;
             long totalUploadElapsedTicks = 0;
@@ -1243,8 +1255,7 @@ namespace KindomDataAPIServer.KindomAPI
                                         ?? res.Results?.Count(result => result.errorCode != 0)
                                         ?? 0;
                                     SyncTaskReportService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], trajectories:{uploadBatch.ItemCount}, points:{uploadBatch.DataPointCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced trajectories:{currentSyncedCount}.");
-                                    const int maxRecordedUploadErrorCount = 10;
-                                    if (failedCount > 0 && Interlocked.Increment(ref recordedUploadErrorCount) <= maxRecordedUploadErrorCount)
+                                    if (failedCount > 0)
                                     {
                                         var failedItems = res.Results?.Where(result => result.errorCode != 0).ToList();
                                         var failedUwis = failedItems == null
@@ -1258,14 +1269,16 @@ namespace KindomDataAPIServer.KindomAPI
                                             failedUwis.AddRange(uploadBatch.WellUwisById.Values.Distinct());
                                         }
 
-                                        var firstFailedItem = failedItems?.FirstOrDefault();
-                                        string detailsPath = SyncTaskReportService.Instance.WriteWellTrajectoryUploadErrorDetails(
+                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                            "WellTrajs",
+                                            "WellTrajectoryUploadErrors",
+                                            "dp/api/welldata/batch_create_well_trajectory_with_meta_infos",
                                             batchUwis,
+                                            string.Join(",", failedUwis),
                                             uploadBatch.BatchIndex,
                                             uploadBatch.PayloadBytes,
                                             uploadBatch.Request,
                                             res);
-                                        SyncTaskReportService.Instance.RecordError($"WellTrajs batch {uploadBatch.BatchIndex} synchronization failed. Failed:{failedCount}, UWIs:[{string.Join(",", failedUwis)}], first errorCode:{firstFailedItem?.errorCode}, first errorMessage:{firstFailedItem?.Message}, request details:{detailsPath ?? "unavailable"}");
                                     }
 
                                     reportUploadedBatchProgress(uploadBatch);
@@ -1337,14 +1350,6 @@ namespace KindomDataAPIServer.KindomAPI
                                 x => boreholeIds.Contains(x.BoreholeId),
                                 false).ToList();
 
-                            var deviationSurveys2 = context.Get(new Smt.Entities.DeviationSurvey(),
-                                 x => new
-                                 {
-                                     boreholeId = x.BoreholeId,
-                                     data = x,
-                                 },
-                                 x => boreholeIds.Contains(x.BoreholeId),
-                                 false).ToList();
                             readStopwatch.Stop();
                             int readSurveyCount = deviationSurveys.Count(item => item.data != null);
                             int readPointCount = deviationSurveys
@@ -1376,6 +1381,7 @@ namespace KindomDataAPIServer.KindomAPI
                                                 Dx = formItem.data.DX[i],
                                                 Dy = formItem.data.DY[i]
                                             };
+
                                             if (IsDepthFeet)
                                             {
                                                 coordData.Md = coordData.Md.ToMeters();
@@ -1456,6 +1462,7 @@ namespace KindomDataAPIServer.KindomAPI
         {
             long dataSetId = long.Parse(resdataSetID);
             List<WellExport> Wells = KingDomData.Wells;
+            bool selectionRequired = AdvancedSettingsConfig.IsFormationAndLogSelectionRequired();
             var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
 
@@ -1508,7 +1515,7 @@ namespace KindomDataAPIServer.KindomAPI
                         {
                             if (formItem.LogData != null)
                             {
-                                if (!checkNames.Contains(formItem.LogCurveName.Name))
+                                if (selectionRequired && !checkNames.Contains(formItem.LogCurveName.Name))
                                     continue;
                                 Console.WriteLine("count" + formItem.LogData.ValuesCount);
                                 var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o);
@@ -1541,6 +1548,7 @@ namespace KindomDataAPIServer.KindomAPI
             if(!string.IsNullOrEmpty(resdataSetID))
                 dataSetId =long.Parse(resdataSetID);
             List<WellExport> Wells = KingDomData.Wells;
+            bool selectionRequired = AdvancedSettingsConfig.IsFormationAndLogSelectionRequired();
             var checkNames = KingDomData.LogNames.Where(o => o.IsChecked).Select(o => o.Name).ToList();
             List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
             int uploadConcurrency = AdvancedSettingsConfig.GetWellLogUploadConcurrency();
@@ -1558,6 +1566,7 @@ namespace KindomDataAPIServer.KindomAPI
             long totalUploadElapsedTicks = 0;
             var missingLogTypeNames = new HashSet<string>();
             var totalStopwatch = Stopwatch.StartNew();
+            var batchLogWellUwisById = new Dictionary<long, string>();
 
             using (var uploadQueue = new BlockingCollection<WellLogUploadBatch>(uploadQueueCapacity))
             using (var cancellationTokenSource = new CancellationTokenSource())
@@ -1594,11 +1603,12 @@ namespace KindomDataAPIServer.KindomAPI
                         {
                             foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
+                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
                                 try
                                 {
                                     Interlocked.Add(ref totalUploadBytes, uploadBatch.PayloadBytes);
                                     SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
-                                    SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} upload started. Curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, protobuf bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                    SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, protobuf bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
                                     var uploadStopwatch = Stopwatch.StartNew();
                                     var res4 = await wellDataService.batch_create_well_log(uploadBatch.Request, $"WellLogs batch {uploadBatch.BatchIndex}");
                                     uploadStopwatch.Stop();
@@ -1606,7 +1616,7 @@ namespace KindomDataAPIServer.KindomAPI
                                     SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
                                     if (res4 == null)
                                     {
-                                        SyncTaskReportService.Instance.RecordError($"WellLogs batch {uploadBatch.BatchIndex} synchronization returned an empty response");
+                                        SyncTaskReportService.Instance.RecordError($"WellLogs batch {uploadBatch.BatchIndex} synchronization returned an empty response. UWIs:[{batchUwis}]");
                                         continue;
                                     }
 
@@ -1615,7 +1625,23 @@ namespace KindomDataAPIServer.KindomAPI
                                     int failedCount = res4.Summary?.failed
                                         ?? res4.Results?.Count(result => result.errorCode != 0)
                                         ?? 0;
-                                    SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} upload completed. Curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, failed:{failedCount}, protobuf bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced curves:{currentSyncedCount}.");
+                                    SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, failed:{failedCount}, protobuf bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced curves:{currentSyncedCount}.");
+                                    string failedUwis = string.Join(",", res4.Results?
+                                        .Where(result => result.errorCode != 0)
+                                        .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
+                                        .Distinct() ?? Enumerable.Empty<string>());
+                                    SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                        "WellLogs",
+                                        "WellLogUploadErrors",
+                                        "dp/api/well_log/batch_create_well_log",
+                                        batchUwis,
+                                        string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                        uploadBatch.BatchIndex,
+                                        uploadBatch.PayloadBytes,
+                                        uploadBatch.Request,
+                                        res4,
+                                        "proto_creation_data: data.pbf (protobuf request shown below)" + Environment.NewLine +
+                                        "overwrite_flag: OverWrite");
                                     reportUploadedBatchProgress(uploadBatch);
                                 }
                                 catch (Exception ex)
@@ -1654,14 +1680,17 @@ namespace KindomDataAPIServer.KindomAPI
                         SampleCount = batchLogList.LogList.Sum(item => item.Samples.Count),
                         PayloadBytes = batchLogList.CalculateSize(),
                         CompletedWellCount = processedWellCount,
-                        Request = batchLogList
+                        Request = batchLogList,
+                        WellUwisById = new Dictionary<long, string>(batchLogWellUwisById)
                     };
                     uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
                     SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} queued. Curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, protobuf bytes:{uploadBatch.PayloadBytes}, read wells:{processedWellCount}/{BoreholeIds.Count}.");
                     batchLogList = new PbWellLogCreateList();
+                    batchLogWellUwisById = new Dictionary<long, string>();
                 };
 
-                SyncTaskReportService.Instance.Log($"WellLogs synchronization started. Selected wells:{BoreholeIds.Count}, selected curve names:{checkNames.Count}, data set ID:{dataSetId}, batch curve count:{wellLogBatchCurveCount}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}.");
+                string logSelection = selectionRequired ? checkNames.Count.ToString() : "all";
+                SyncTaskReportService.Instance.Log($"WellLogs synchronization started. Selected wells:{BoreholeIds.Count}, selected curve names:{logSelection}, data set ID:{dataSetId}, batch curve count:{wellLogBatchCurveCount}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}.");
                 try
                 {
                     foreach (var borID in BoreholeIds)
@@ -1688,11 +1717,11 @@ namespace KindomDataAPIServer.KindomAPI
                             int selectedCurveCount = formations.Count(item =>
                                 item.LogData != null
                                 && item.LogCurveName != null
-                                && checkNames.Contains(item.LogCurveName.Name));
+                                && (!selectionRequired || checkNames.Contains(item.LogCurveName.Name)));
                             long selectedSampleCount = formations
                                 .Where(item => item.LogData != null
                                     && item.LogCurveName != null
-                                    && checkNames.Contains(item.LogCurveName.Name))
+                                    && (!selectionRequired || checkNames.Contains(item.LogCurveName.Name)))
                                 .Sum(item => (long)item.LogData.ValuesCount);
                             totalReadCurveCount += formations.Count;
                             totalSelectedCurveCount += selectedCurveCount;
@@ -1728,7 +1757,7 @@ namespace KindomDataAPIServer.KindomAPI
                                 {
                                     if (formItem.LogData != null && formItem.LogCurveName != null)
                                     {
-                                        if (!checkNames.Contains(formItem.LogCurveName.Name))
+                                        if (selectionRequired && !checkNames.Contains(formItem.LogCurveName.Name))
                                             continue;
                                         var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o).ToArray();
                                         PbWellLogCreateParams logObj = new PbWellLogCreateParams
@@ -1762,6 +1791,7 @@ namespace KindomDataAPIServer.KindomAPI
 
                                         logObj.Samples.AddRange(dataArray);
                                         batchLogList.LogList.Add(logObj);
+                                        batchLogWellUwisById[wellWebID] = item.Key;
                                         if (batchLogList.LogList.Count >= wellLogBatchCurveCount)
                                         {
                                             enqueueCurrentBatch();
@@ -2037,11 +2067,12 @@ namespace KindomDataAPIServer.KindomAPI
                             {
                                 foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                                 {
+                                    string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
                                     try
                                     {
                                         Interlocked.Add(ref totalUploadBytes, uploadBatch.PayloadBytes);
                                         SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
-                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload started. Daily items:{uploadBatch.ItemCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], daily items:{uploadBatch.ItemCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
                                         var uploadStopwatch = Stopwatch.StartNew();
                                         var res4 = await wellDataService.batch_create_well_production_with_meta_infos(uploadBatch.Request, $"WellProduction batch {uploadBatch.BatchIndex}");
                                         uploadStopwatch.Stop();
@@ -2049,7 +2080,7 @@ namespace KindomDataAPIServer.KindomAPI
                                         SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
                                         if (res4 == null)
                                         {
-                                            SyncTaskReportService.Instance.RecordError($"WellProduction batch {uploadBatch.BatchIndex} synchronization returned an empty response");
+                                            SyncTaskReportService.Instance.RecordError($"WellProduction batch {uploadBatch.BatchIndex} synchronization returned an empty response. UWIs:[{batchUwis}]");
                                             continue;
                                         }
 
@@ -2058,7 +2089,21 @@ namespace KindomDataAPIServer.KindomAPI
                                         int failedCount = res4.Summary?.failed
                                             ?? res4.Results?.Count(result => result.errorCode != 0)
                                             ?? 0;
-                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload completed. Daily items:{uploadBatch.ItemCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced daily items:{currentSyncedCount}.");
+                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], daily items:{uploadBatch.ItemCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced daily items:{currentSyncedCount}.");
+                                        string failedUwis = string.Join(",", res4.Results?
+                                            .Where(result => result.errorCode != 0)
+                                            .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
+                                            .Distinct() ?? Enumerable.Empty<string>());
+                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                            "WellProduction",
+                                            "WellProductionUploadErrors",
+                                            "dp/api/welldata/batch_create_well_production_with_meta_infos",
+                                            batchUwis,
+                                            string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                            uploadBatch.BatchIndex,
+                                            uploadBatch.PayloadBytes,
+                                            uploadBatch.Request,
+                                            res4);
                                         reportUploadedBatchProgress(uploadBatch);
                                     }
                                     catch (Exception ex)
@@ -2174,7 +2219,11 @@ namespace KindomDataAPIServer.KindomAPI
                                             ItemCount = productionDataBatch.DailyList.Count,
                                             PayloadBytes = GetJsonPayloadByteCount(request),
                                             CompletedWellCount = i == productionDataBatches.Count - 1 ? processedWellCount : processedWellCount - 1,
-                                            Request = request
+                                            Request = request,
+                                            WellUwisById = new Dictionary<long, string>
+                                            {
+                                                [wellWebID] = WellUWI
+                                            }
                                         };
                                         uploadQueue.Add(uploadBatch, cancellationTokenSource.Token);
                                         SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} queued. Daily items:{uploadBatch.ItemCount}, JSON bytes:{uploadBatch.PayloadBytes}, read wells:{processedWellCount}/{BoreholeIds.Count}.");

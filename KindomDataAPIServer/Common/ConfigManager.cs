@@ -144,6 +144,7 @@ namespace KindomDataAPIServer.Common
         public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
         public const string WellFormationUploadConcurrencyKey = "well_formation_uploadConcurrency";
         public const string WellFormationUseFileImportKey = "well_formation_useFileImport";
+        public const string RequireFormationAndLogSelectionKey = "RequireFormationAndLogSelection";
         public const string ShowAdvancedSettingsMenuKey = "ShowAdvancedSettingsMenu";
         public const int DefaultWellHeaderBatchSize = 5000;
         public const int DefaultWellTrajectoryBatchSize = 3;
@@ -204,6 +205,17 @@ namespace KindomDataAPIServer.Common
         {
             string value = ConfigurationManager.AppSettings[WellFormationUseFileImportKey];
             return bool.TryParse(value, out bool useFileImport) && useFileImport;
+        }
+
+        public static bool IsFormationAndLogSelectionRequired()
+        {
+            string value = ConfigurationManager.AppSettings[RequireFormationAndLogSelectionKey];
+            if (bool.TryParse(value, out bool isRequired))
+            {
+                return isRequired;
+            }
+
+            return true;
         }
 
         public static bool IsAdvancedSettingsMenuVisible()

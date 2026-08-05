@@ -77,9 +77,26 @@ namespace KindomDataAPIServer.ViewModels
 
         private DispatcherTimer delayTimer;
 
+        public bool IsFormationAndLogSelectionRequired { get; private set; }
+
+        private bool _IsFormationSelectionVisible;
+        public bool IsFormationSelectionVisible
+        {
+            get
+            {
+                return _IsFormationSelectionVisible;
+            }
+            private set
+            {
+                SetProperty(ref _IsFormationSelectionVisible, value, nameof(IsFormationSelectionVisible));
+            }
+        }
+
         public SyncKindomDataViewModel(ApiConfig ApiConfig)
         {
             this.ApiConfig = ApiConfig;
+            IsFormationAndLogSelectionRequired = AdvancedSettingsConfig.IsFormationAndLogSelectionRequired();
+            IsFormationSelectionVisible = IsFormationAndLogSelectionRequired && IsSyncWellFormation;
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
             Sync2Command = new DevExpress.Mvvm.AsyncCommand(Sync2CommandAction);
@@ -882,6 +899,7 @@ namespace KindomDataAPIServer.ViewModels
             set
             {
                 SetProperty(ref _IsSyncWellFormation, value, nameof(IsSyncWellFormation));
+                IsFormationSelectionVisible = IsFormationAndLogSelectionRequired && value;
             }
         }
 
@@ -1298,7 +1316,7 @@ namespace KindomDataAPIServer.ViewModels
             bool taskSucceeded = false;
             string taskError = null;
             SyncTaskReportService.Instance.BeginTask(ProjectPath, LoginName);
-            SyncTaskReportService.Instance.Log($"Synchronization options. Selected wells:{selectedWellCount}, well formation:{IsSyncWellFormation}, well trajectory:{IsSyncTrajectory}, well production:{IsSyncProduction}, well logs:{IsSyncWellLog}.");
+            SyncTaskReportService.Instance.Log($"Synchronization options. Selected wells:{selectedWellCount}, well formation:{IsSyncWellFormation}, well trajectory:{IsSyncTrajectory}, well production:{IsSyncProduction}, well logs:{IsSyncWellLog}, formation/log selection required:{IsFormationAndLogSelectionRequired}.");
             IsEnable = false;
             try
             {
@@ -1381,6 +1399,45 @@ namespace KindomDataAPIServer.ViewModels
                     {
                         int wellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
                         int wellHeaderCount = wellDataRequest.Items.Count;
+                        Func<WellDataRequest, int, int, Task> synchronizeWellHeaderBatch = async (batchRequest, currentBatchIndex, totalBatchCount) =>
+                        {
+                            string batchUwis = string.Join(",", batchRequest.Items
+                                .Select(item => item.WellName)
+                                .Where(uwi => !string.IsNullOrWhiteSpace(uwi))
+                                .Distinct());
+                            int payloadBytes = Encoding.UTF8.GetByteCount(JsonHelper.ToJson(batchRequest));
+                            SyncTaskReportService.Instance.RecordUploadAttempt(payloadBytes);
+                            SyncTaskReportService.Instance.Log($"WellHeader batch {currentBatchIndex}/{totalBatchCount} upload started. UWIs:[{batchUwis}], wells:{batchRequest.Items.Count}, JSON bytes:{payloadBytes} ({payloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                            var uploadStopwatch = Stopwatch.StartNew();
+                            WellOperationResult response = await wellDataService.batch_create_well_header(batchRequest);
+                            uploadStopwatch.Stop();
+                            SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
+                            if (response == null)
+                            {
+                                SyncTaskReportService.Instance.RecordError($"WellHeader batch {currentBatchIndex}/{totalBatchCount} synchronization returned an empty response. UWIs:[{batchUwis}]");
+                                return;
+                            }
+
+                            int failedCount = response.Summary?.failed
+                                ?? response.Results?.Count(result => result.errorCode != 0)
+                                ?? 0;
+                            SyncTaskReportService.Instance.Log($"WellHeader batch {currentBatchIndex}/{totalBatchCount} upload completed. UWIs:[{batchUwis}], wells:{batchRequest.Items.Count}, failed:{failedCount}, JSON bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s.");
+                            string failedUwis = string.Join(",", response.Results?
+                                .Where(result => result.errorCode != 0)
+                                .Select(result => result.InputWellName ?? result.wellName ?? result.FinalWellName)
+                                .Where(uwi => !string.IsNullOrWhiteSpace(uwi))
+                                .Distinct() ?? Enumerable.Empty<string>());
+                            SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                "WellHeader",
+                                "WellHeaderUploadErrors",
+                                "dp/api/well_manager/batch_create_well_header",
+                                batchUwis,
+                                string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                currentBatchIndex,
+                                payloadBytes,
+                                batchRequest,
+                                response);
+                        };
                         if (wellHeaderCount > wellHeaderBatchSize)
                         {
                             int batchCount = (wellHeaderCount + wellHeaderBatchSize - 1) / wellHeaderBatchSize;
@@ -1394,7 +1451,7 @@ namespace KindomDataAPIServer.ViewModels
                                 };
                                 try
                                 {
-                                    await wellDataService.batch_create_well_header(batchRequest);
+                                    await synchronizeWellHeaderBatch(batchRequest, batchIndex + 1, batchCount);
                                 }
                                 catch (Exception ex)
                                 {
@@ -1408,7 +1465,7 @@ namespace KindomDataAPIServer.ViewModels
                         }
                         else
                         {
-                            await wellDataService.batch_create_well_header(wellDataRequest);
+                            await synchronizeWellHeaderBatch(wellDataRequest, 1, 1);
                         }
                         LogManagerService.Instance.Log($"WellHeader({wellHeaderCount}) synchronize over!");
                     }
@@ -1607,7 +1664,43 @@ namespace KindomDataAPIServer.ViewModels
                         {
                             try
                             {
-                                await wellDataService.batch_create_well_oil_test_with_meta_infos(tempList[i]);
+                                WellOilTestDataRequset request = tempList[i];
+                                string batchUwis = string.Join(",", request.Items
+                                    .Select(item => Utils.GetWellNameOrUWIByWellID(item.WellId.ToString(), WellIDandNameList))
+                                    .Where(uwi => !string.IsNullOrWhiteSpace(uwi))
+                                    .Distinct());
+                                int payloadBytes = Encoding.UTF8.GetByteCount(JsonHelper.ToJson(request));
+                                SyncTaskReportService.Instance.RecordUploadAttempt(payloadBytes);
+                                SyncTaskReportService.Instance.Log($"WellOilTest batch {i + 1}/{tempList.Count} upload started. UWIs:[{batchUwis}], wells:{request.Items.Count}, JSON bytes:{payloadBytes} ({payloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                var uploadStopwatch = Stopwatch.StartNew();
+                                WellOperationResult response = await wellDataService.batch_create_well_oil_test_with_meta_infos(request);
+                                uploadStopwatch.Stop();
+                                SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
+                                if (response == null)
+                                {
+                                    SyncTaskReportService.Instance.RecordError($"WellOilTest batch {i + 1}/{tempList.Count} synchronization returned an empty response. UWIs:[{batchUwis}]");
+                                    continue;
+                                }
+
+                                int failedCount = response.Summary?.failed
+                                    ?? response.Results?.Count(result => result.errorCode != 0)
+                                    ?? 0;
+                                SyncTaskReportService.Instance.Log($"WellOilTest batch {i + 1}/{tempList.Count} upload completed. UWIs:[{batchUwis}], wells:{request.Items.Count}, failed:{failedCount}, JSON bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s.");
+                                string failedUwis = string.Join(",", response.Results?
+                                    .Where(result => result.errorCode != 0)
+                                    .Select(result => Utils.GetWellNameOrUWIByWellID(result.wellId.ToString(), WellIDandNameList))
+                                    .Where(uwi => !string.IsNullOrWhiteSpace(uwi))
+                                    .Distinct() ?? Enumerable.Empty<string>());
+                                SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                    "WellOilTest",
+                                    "WellOilTestUploadErrors",
+                                    "dp/api/welldata/batch_create_well_oil_test_with_meta_infos",
+                                    batchUwis,
+                                    string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                    i + 1,
+                                    payloadBytes,
+                                    request,
+                                    response);
                             }
                             catch (Exception ex)
                             {
