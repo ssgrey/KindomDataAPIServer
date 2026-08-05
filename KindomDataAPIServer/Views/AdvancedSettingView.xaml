@@ -150,6 +150,19 @@
                             <Label
                                 Width="220"
                                 VerticalAlignment="Center"
+                                Content="Read UWI Batch Size" />
+                            <dxe:SpinEdit
+                                Width="120"
+                                Height="25"
+                                MinValue="1"
+                                MaxValue="1000"
+                                IsFloatValue="False"
+                                EditValue="{Binding WellFormationReadUwiBatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalToIntConverter}}" />
+                        </StackPanel>
+                        <StackPanel Height="32" Orientation="Horizontal">
+                            <Label
+                                Width="220"
+                                VerticalAlignment="Center"
                                 Content="Upload Concurrency" />
                             <dxe:SpinEdit
                                 Width="120"

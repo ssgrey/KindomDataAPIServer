@@ -833,6 +833,7 @@ namespace KindomDataAPIServer.KindomAPI
             var wellGroups = Wells.Where(o => o.IsChecked && !string.IsNullOrEmpty(o.Uwi)).GroupBy(o => o.Uwi).ToList();
             var wellDataService = ServiceLocator.GetService<IDataWellService>();
             int wellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
+            int wellFormationReadUwiBatchSize = AdvancedSettingsConfig.GetWellFormationReadUwiBatchSize();
             int uploadConcurrency = AdvancedSettingsConfig.GetWellFormationUploadConcurrency();
             bool useFileImport = AdvancedSettingsConfig.GetWellFormationUseFileImport();
             string fileImportOptionsJson = useFileImport
@@ -942,18 +943,26 @@ namespace KindomDataAPIServer.KindomAPI
                                     Interlocked.Add(ref totalFailedFormationCount, failedFormationCount);
                                     string returnedObjects = useFileImport ? $", returned objects:{returnedObjectCount}" : string.Empty;
                                     SyncTaskReportService.Instance.Log($"WellFormation batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], mode:{(useFileImport ? "file import" : "protobuf")}, wells:{uploadBatch.WellCount}, formations:{uploadBatch.FormationCount}, successful:{successfulFormationCount}, failed:{failedFormationCount}{returnedObjects}, {payloadType} bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced formations:{currentSyncedFormationCount}.");
-                                    if (!useFileImport && response != null)
+                                    if (!useFileImport && response != null && failedFormationCount > 0)
                                     {
-                                        string failedUwis = string.Join(",", response.Results?
-                                            .Where(result => result.errorCode != 0)
-                                            .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
-                                            .Distinct() ?? Enumerable.Empty<string>());
+                                        var failedItems = response.Results?.Where(result => result.errorCode != 0).ToList();
+                                        var failedUwis = failedItems == null
+                                            ? new List<string>()
+                                            : failedItems
+                                                .Select(item => uploadBatch.WellUwisById.TryGetValue(item.wellId, out string uwi) ? uwi : "Unknown")
+                                                .Distinct()
+                                                .ToList();
+                                        if (failedUwis.Count == 0)
+                                        {
+                                            failedUwis.AddRange(uploadBatch.WellUwisById.Values.Distinct());
+                                        }
+
                                         SyncTaskReportService.Instance.RecordUploadResponseErrors(
                                             "WellFormation",
                                             "WellFormationUploadErrors",
                                             "dp/api/welldata/batch_create_well_formation",
                                             batchUwis,
-                                            string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                            string.Join(",", failedUwis),
                                             uploadBatch.BatchIndex,
                                             uploadBatch.PayloadBytes,
                                             uploadBatch.Request,
@@ -1014,92 +1023,118 @@ namespace KindomDataAPIServer.KindomAPI
                 Exception producerException = null;
 
                 string formationSelection = selectionRequired ? checkNames.Count.ToString() : "all";
-                SyncTaskReportService.Instance.Log($"WellFormation synchronization started. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, selected formation names:{formationSelection}, formation count batch size:{wellFormationBatchSize}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}, author type:{AuthorType.LoggedInAuthor}, visible only:false.");
+                SyncTaskReportService.Instance.Log($"WellFormation synchronization started. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, selected formation names:{formationSelection}, read UWI batch size:{wellFormationReadUwiBatchSize}, formation count upload batch size:{wellFormationBatchSize}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}, author type:{AuthorType.LoggedInAuthor}, visible only:false, change tracking:false.");
                 try
                 {
-                    foreach (var wellGroup in wellGroups)
+                    var dataAccessSettings = new DataAccessSettings
                     {
-                        cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                        processedWellCount++;
-                        List<int> boreholeIds = wellGroup.Select(o => o.BoreholeId).ToList();
-                        using (var context = project.GetKingdom())
+                        ChangeTrackingForRead = false
+                    };
+                    using (var context = project.GetKingdom(dataAccessSettings))
+                    {
+                        int readBatchIndex = 0;
+                        for (int batchStart = 0; batchStart < wellGroups.Count; batchStart += wellFormationReadUwiBatchSize)
                         {
+                            cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                            readBatchIndex++;
+                            var readBatchWellGroups = wellGroups
+                                .Skip(batchStart)
+                                .Take(wellFormationReadUwiBatchSize)
+                                .ToList();
+                            List<int> readBatchBoreholeIds = readBatchWellGroups
+                                .SelectMany(group => group.Select(well => well.BoreholeId))
+                                .Distinct()
+                                .ToList();
+                            string readBatchUwis = string.Join(",", readBatchWellGroups.Select(group => group.Key));
+
                             var readStopwatch = Stopwatch.StartNew();
                             var rawFormations = context.Get(new FormationTopPick(),
                                 x => new
                                 {
-                                    FormationTop = x,
-                                    FormationTopName = x.FormationTopName,
-                                    formNameID = x.FormationTopNameId,
-                                    boreholeId = x.BoreholeId,
+                                    Id = x.Id,
+                                    Depth = x.Depth,
+                                    BoreholeId = x.BoreholeId,
+                                    FormationTopNameId = x.FormationTopNameId,
+                                    FormationTopName = x.FormationTopName.Name,
+                                    FormationTopAbbreviation = x.FormationTopName.Abbreviation
                                 },
-                                x => boreholeIds.Contains(x.BoreholeId), AuthorType.LoggedInAuthor,
+                                x => readBatchBoreholeIds.Contains(x.BoreholeId), AuthorType.LoggedInAuthor,
                                 false).ToList();
                             readStopwatch.Stop();
 
-                            var formations = rawFormations
-                                .Where(x => x.FormationTopName != null
-                                    && !string.IsNullOrWhiteSpace(x.FormationTopName.Name)
-                                    && x.FormationTop.Depth.HasValue)
-                                .GroupBy(x => x.formNameID)
-                                .Select(group => group.OrderBy(x => x.FormationTop.Id).First())
-                                .ToList();
-
                             totalReadFormationCount += rawFormations.Count;
-                            totalUniqueFormationCount += formations.Count;
                             totalReadElapsedTicks += readStopwatch.Elapsed.Ticks;
                             SyncTaskReportService.Instance.RecordApiRead(readStopwatch.Elapsed);
-                            SyncTaskReportService.Instance.Log($"FormationTopPick read completed. UWI:{wellGroup.Key}, borehole IDs:[{string.Join(",", boreholeIds)}], author type:{AuthorType.LoggedInAuthor}, visible only:false, raw count:{rawFormations.Count}, valid unique count:{formations.Count}, elapsed:{readStopwatch.Elapsed.TotalSeconds:F3}s.");
+                            SyncTaskReportService.Instance.Log($"FormationTopPick read batch {readBatchIndex} completed. UWIs:[{readBatchUwis}], UWI count:{readBatchWellGroups.Count}, borehole IDs:[{string.Join(",", readBatchBoreholeIds)}], borehole count:{readBatchBoreholeIds.Count}, author type:{AuthorType.LoggedInAuthor}, visible only:false, change tracking:false, raw count:{rawFormations.Count}, elapsed:{readStopwatch.Elapsed.TotalSeconds:F3}s.");
 
-                            long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
-                            if (wellWebID != -1)
+                            var formationsByBoreholeId = rawFormations.ToLookup(formation => formation.BoreholeId);
+                            foreach (var wellGroup in readBatchWellGroups)
                             {
-                                var pbWellFormation = new PbWellFormation
-                                {
-                                    WellId = wellWebID
-                                };
+                                cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                processedWellCount++;
+                                List<int> wellBoreholeIds = wellGroup
+                                    .Select(well => well.BoreholeId)
+                                    .Distinct()
+                                    .ToList();
+                                var formations = wellBoreholeIds
+                                    .SelectMany(boreholeId => formationsByBoreholeId[boreholeId])
+                                    .Where(formation => !string.IsNullOrWhiteSpace(formation.FormationTopName)
+                                        && formation.Depth.HasValue)
+                                    .GroupBy(formation => formation.FormationTopNameId)
+                                    .Select(group => group.OrderBy(formation => formation.Id).First())
+                                    .ToList();
+                                totalUniqueFormationCount += formations.Count;
 
-                                foreach (var formItem in formations)
+                                long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
+                                if (wellWebID != -1)
                                 {
-                                    cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                                    if (selectionRequired && !checkNames.Contains(formItem.FormationTopName.Name))
+                                    var pbWellFormation = new PbWellFormation
                                     {
-                                        continue;
+                                        WellId = wellWebID
+                                    };
+
+                                    foreach (var formItem in formations)
+                                    {
+                                        cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                        if (selectionRequired && !checkNames.Contains(formItem.FormationTopName))
+                                        {
+                                            continue;
+                                        }
+
+                                        var existingFormation = pbWellFormation.Items.FirstOrDefault(o =>
+                                            o.Name == formItem.FormationTopName
+                                            || o.Name == formItem.FormationTopAbbreviation);
+                                        if (existingFormation == null)
+                                        {
+                                            double top = IsDepthFeet
+                                                ? formItem.Depth.Value.ToMeters()
+                                                : formItem.Depth.Value;
+
+                                            pbWellFormation.Items.Add(new PbFormationItem
+                                            {
+                                                Name = formItem.FormationTopName,
+                                                Top = top,
+                                                Bottom = top,
+                                            });
+                                            batchFileRows.Add(new WellFormationFileRow
+                                            {
+                                                WellName = wellGroup.Key,
+                                                FormationName = formItem.FormationTopName,
+                                                Top = top,
+                                                Bottom = top
+                                            });
+                                        }
                                     }
 
-                                    var existingFormation = pbWellFormation.Items.FirstOrDefault(o =>
-                                        o.Name == formItem.FormationTopName.Name
-                                        || o.Name == formItem.FormationTopName.Abbreviation);
-                                    if (existingFormation == null)
+                                    if (pbWellFormation.Items.Count > 0)
                                     {
-                                        double top = IsDepthFeet
-                                            ? formItem.FormationTop.Depth.Value.ToMeters()
-                                            : formItem.FormationTop.Depth.Value;
-
-                                        pbWellFormation.Items.Add(new PbFormationItem
+                                        batchRequest.Datas.Add(pbWellFormation);
+                                        batchFormationWellUwisById[wellWebID] = wellGroup.Key;
+                                        int batchFormationCount = batchRequest.Datas.Sum(data => data.Items.Count);
+                                        if (batchFormationCount >= wellFormationBatchSize)
                                         {
-                                            Name = formItem.FormationTopName.Name,
-                                            Top = top,
-                                            Bottom = top,
-                                        });
-                                        batchFileRows.Add(new WellFormationFileRow
-                                        {
-                                            WellName = wellGroup.Key,
-                                            FormationName = formItem.FormationTopName.Name,
-                                            Top = top,
-                                            Bottom = top
-                                        });
-                                    }
-                                }
-
-                                if (pbWellFormation.Items.Count > 0)
-                                {
-                                    batchRequest.Datas.Add(pbWellFormation);
-                                    batchFormationWellUwisById[wellWebID] = wellGroup.Key;
-                                    int batchFormationCount = batchRequest.Datas.Sum(data => data.Items.Count);
-                                    if (batchFormationCount >= wellFormationBatchSize)
-                                    {
-                                        enqueueCurrentBatch();
+                                            enqueueCurrentBatch();
+                                        }
                                     }
                                 }
                             }
@@ -1142,7 +1177,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
 
             totalStopwatch.Stop();
-            SyncTaskReportService.Instance.LogSummary($"WellFormation synchronization completed. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, raw formations read:{totalReadFormationCount}, valid unique formations:{totalUniqueFormationCount}, uploaded wells:{totalUploadedWellCount}, uploaded formations:{totalUploadedFormationCount}, successful formations:{syncedFormationCount}, failed formations:{totalFailedFormationCount}, upload batches:{uploadedBatchCount}, total payload bytes:{totalUploadBytes} ({totalUploadBytes / 1024.0 / 1024.0:F3} MiB), read elapsed:{TimeSpan.FromTicks(totalReadElapsedTicks).TotalSeconds:F3}s, cumulative upload request elapsed:{TimeSpan.FromTicks(totalUploadElapsedTicks).TotalSeconds:F3}s, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
+            SyncTaskReportService.Instance.LogSummary($"WellFormation synchronization completed. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, read UWI batch size:{wellFormationReadUwiBatchSize}, raw formations read:{totalReadFormationCount}, valid unique formations:{totalUniqueFormationCount}, uploaded wells:{totalUploadedWellCount}, uploaded formations:{totalUploadedFormationCount}, successful formations:{syncedFormationCount}, failed formations:{totalFailedFormationCount}, upload batches:{uploadedBatchCount}, total payload bytes:{totalUploadBytes} ({totalUploadBytes / 1024.0 / 1024.0:F3} MiB), read elapsed:{TimeSpan.FromTicks(totalReadElapsedTicks).TotalSeconds:F3}s, cumulative upload request elapsed:{TimeSpan.FromTicks(totalUploadElapsedTicks).TotalSeconds:F3}s, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
             return syncedFormationCount;
         }
 

@@ -142,6 +142,7 @@ namespace KindomDataAPIServer.Common
         public const string WellProductionUploadConcurrencyKey = "well_production_uploadConcurrency";
         public const string WellProductionBatchDailyDataCountKey = "well_production_batchDailyDataCount";
         public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
+        public const string WellFormationReadUwiBatchSizeKey = "well_formation_readUwiBatchSize";
         public const string WellFormationUploadConcurrencyKey = "well_formation_uploadConcurrency";
         public const string WellFormationUseFileImportKey = "well_formation_useFileImport";
         public const string RequireFormationAndLogSelectionKey = "RequireFormationAndLogSelection";
@@ -154,6 +155,7 @@ namespace KindomDataAPIServer.Common
         public const int DefaultWellProductionUploadConcurrency = 3;
         public const int DefaultWellProductionBatchDailyDataCount = 300;
         public const int DefaultWellFormationBatchSize = 100;
+        public const int DefaultWellFormationReadUwiBatchSize = 20;
         public const int DefaultWellFormationUploadConcurrency = 2;
 
         public static int GetWellHeaderBatchSize()
@@ -194,6 +196,11 @@ namespace KindomDataAPIServer.Common
         public static int GetWellFormationBatchSize()
         {
             return GetBatchSize(WellFormationBatchSizeKey, DefaultWellFormationBatchSize);
+        }
+
+        public static int GetWellFormationReadUwiBatchSize()
+        {
+            return GetBatchSize(WellFormationReadUwiBatchSizeKey, DefaultWellFormationReadUwiBatchSize);
         }
 
         public static int GetWellFormationUploadConcurrency()
@@ -278,6 +285,11 @@ namespace KindomDataAPIServer.Common
         public static void SaveWellFormationBatchSize(int batchSize)
         {
             SaveBatchSize(WellFormationBatchSizeKey, batchSize, DefaultWellFormationBatchSize);
+        }
+
+        public static void SaveWellFormationReadUwiBatchSize(int batchSize)
+        {
+            SaveBatchSize(WellFormationReadUwiBatchSizeKey, batchSize, DefaultWellFormationReadUwiBatchSize);
         }
 
         public static void SaveWellFormationUploadConcurrency(int uploadConcurrency)
