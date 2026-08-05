@@ -10,6 +10,7 @@ namespace KindomDataAPIServer.Common
         private const string AppDataDirectoryName = "KindomDataAPIServer";
         private const string LogDirectoryName = "Logs";
         private const string ReportDirectoryName = "TaskReports";
+        private const string WellTrajectoryErrorDirectoryName = "WellTrajectoryUploadErrors";
         private const string ReportFilePattern = "sync-task-*.txt";
 
         private static readonly Lazy<SyncTaskReportService> _instance =
@@ -177,6 +178,57 @@ namespace KindomDataAPIServer.Common
             }
         }
 
+        public string WriteWellTrajectoryUploadErrorDetails(
+            string batchUwis,
+            int batchIndex,
+            long payloadBytes,
+            object request,
+            object response)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_reportDirectory))
+                {
+                    LogManagerService.Instance.Log("Failed to write well trajectory upload error details because no writable log directory is available.");
+                    return null;
+                }
+
+                string logDirectory = Directory.GetParent(_reportDirectory)?.FullName;
+                if (string.IsNullOrWhiteSpace(logDirectory))
+                {
+                    LogManagerService.Instance.Log("Failed to resolve the log directory for well trajectory upload error details.");
+                    return null;
+                }
+
+                string errorDirectory = Path.Combine(logDirectory, WellTrajectoryErrorDirectoryName);
+                Directory.CreateDirectory(errorDirectory);
+                string fileNamePrefix = SanitizeFileName(batchUwis);
+                string filePath = Path.Combine(errorDirectory, $"{fileNamePrefix}-{Guid.NewGuid():N}.txt");
+
+                var details = new StringBuilder();
+                details.AppendLine("Well Trajectory Upload Error Details");
+                details.AppendLine(new string('=', 48));
+                details.AppendLine($"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                details.AppendLine("Endpoint: dp/api/welldata/batch_create_well_trajectory_with_meta_infos");
+                details.AppendLine($"Batch: {batchIndex}");
+                details.AppendLine($"UWIs: {batchUwis ?? string.Empty}");
+                details.AppendLine($"JSON payload bytes: {payloadBytes}");
+                details.AppendLine(new string('-', 48));
+                details.AppendLine("Request JSON:");
+                details.AppendLine(JsonHelper.ToJson(request));
+                details.AppendLine(new string('-', 48));
+                details.AppendLine("Response JSON:");
+                details.AppendLine(JsonHelper.ToJson(response));
+                File.WriteAllText(filePath, details.ToString(), Encoding.UTF8);
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log("Failed to write well trajectory upload error details: " + ExceptionLogHelper.Format(ex));
+                return null;
+            }
+        }
+
         public string GetLatestReportPath()
         {
             try
@@ -286,6 +338,25 @@ namespace KindomDataAPIServer.Common
             {
                 return false;
             }
+        }
+
+        private static string SanitizeFileName(string value)
+        {
+            string fileName = string.IsNullOrWhiteSpace(value) ? "unknown-uwi" : value;
+            char[] invalidCharacters = Path.GetInvalidFileNameChars();
+            fileName = new string(fileName
+                .Select(character => invalidCharacters.Contains(character) ? '_' : character)
+                .ToArray())
+                .Trim();
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                fileName = "unknown-uwi";
+            }
+
+            const int maxPrefixLength = 120;
+            return fileName.Length <= maxPrefixLength
+                ? fileName
+                : fileName.Substring(0, maxPrefixLength);
         }
     }
 }

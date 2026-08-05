@@ -49,6 +49,11 @@ namespace KindomDataAPIServer.Views
             logView = new LogView();
             try
             {
+                if (apiData == null)
+                {
+                    return;
+                }
+
                 if (args != null && args.Length > 0)
                 {
                     string decodedArgs = System.Uri.UnescapeDataString(args[0]);
@@ -82,6 +87,11 @@ namespace KindomDataAPIServer.Views
         private void SyncKindomDataView_Loaded(object sender, RoutedEventArgs e)
         {
             //Waiter.DeferedVisibility = true;
+            if (apiData == null)
+            {
+                return;
+            }
+
             ViewModel = new SyncKindomDataViewModel(apiData);
             this.DataContext = ViewModel;
             //Waiter.DeferedVisibility = false;
@@ -89,6 +99,11 @@ namespace KindomDataAPIServer.Views
 
         private void Open_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)
         {
+            if (ViewModel == null)
+            {
+                return;
+            }
+
             if (ViewModel.IsInitial)
             {
                 DXMessageBox.Show("It's loading unit config from web,please wait...");
@@ -114,7 +129,10 @@ namespace KindomDataAPIServer.Views
 
         private void root_Closed(object sender, EventArgs e)
         {
-            KingdomAPI.Instance.Close();
+            if (ViewModel != null)
+            {
+                KingdomAPI.Instance.Close();
+            }
         }
 
         private void Exit_Click(object sender, DevExpress.Xpf.Bars.ItemClickEventArgs e)

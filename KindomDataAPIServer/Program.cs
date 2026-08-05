@@ -97,10 +97,10 @@ namespace KindomDataAPIServer
                         client.SetBaseUrl($"https://{apiData.ip}/tet/");
                     }
                 }
-                else
+#if DEBUG
+                else if (File.Exists("tempArgs.txt"))
                 {
                     string decodedArgs = File.ReadAllText("tempArgs.txt");
-                    string joinedArgs = string.Join(" ", args);
                     apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
                     client.SetHeaders(apiData.token, apiData.tetproj);
@@ -113,6 +113,7 @@ namespace KindomDataAPIServer
                         client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
                     }
                 }
+#endif
             }
             catch (Exception ex)
             {

@@ -487,7 +487,7 @@ namespace KindomDataAPIServer.ViewModels
 
 
 
-        private bool _IsSyncToKingdom = true;
+        private bool _IsSyncToKingdom = false;
         public bool IsSyncToKingdom
         {
             get
@@ -1745,10 +1745,8 @@ namespace KindomDataAPIServer.ViewModels
                 IsEnable = true;
             }
 
-            if (taskSucceeded)
-            {
-                DXMessageBox.Show("Kindom data synchronize to web over!");
-            }
+            DXMessageBox.Show("Kindom data synchronize to web over!");
+
         }
 
         private async Task Sync2CommandAction()
