@@ -1100,8 +1100,7 @@ namespace KindomDataAPIServer.KindomAPI
                                         {
                                             continue;
                                         }
-
-                                        var existingFormation = pbWellFormation.Items.FirstOrDefault(o =>
+                                         .var existingFormation = pbWellFormation.Items.FirstOrDefault(o =>
                                             o.Name == formItem.FormationTopName
                                             || o.Name == formItem.FormationTopAbbreviation);
                                         if (existingFormation == null)

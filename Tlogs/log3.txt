@@ -1,0 +1,81 @@
+2026-08-06 12:20:57.720 | Log output directory: C:\Program Files (x86)\tet\KingdomSync\Logs
+2026-08-06 12:20:57.720 | Web args:kingdomapi://{"token":"Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXQtdWFhIiwiYXVkIjoidXNlciIsImp0aSI6ImRRbS0wSXV1aTMxbUJzdC1ib0NDWUEiLCJpYXQiOjE3ODQ2ODQ2NzIsIm5iZiI6MTc4NDY4NDU1Miwic3ViIjoibG9naW4iLCJzZXNzaW9uVG9rZW4iOiJlMmRiZDNlZTg1NmUxMWYxYmFkNjAyNDJhYzE1MDAwNiIsIm9wZW5JZCI6IjEiLCJ1c2VybmFtZSI6InJvb3QiLCJleHRyYURhdGEiOnsiY29tcGFueSI6InRldCJ9fQ.WLWPRS1TQV-CZACFNpZkTw2yDxh7xGBE0SgUo3Tt_t8","tetproj":"ca20f5ef0a7c446c8976f11b1ac3a079","ip":"10.10.4.167","port":"443","type":0}/
+2026-08-06 12:20:57.720 | Start getting user credentials by api-token.
+2026-08-06 12:20:58.131 | Successfully got user credentials by api-token.
+2026-08-06 12:20:59.309 | start load config...
+2026-08-06 12:20:59.319 | OnceSyncWellCount_Logs:5
+2026-08-06 12:20:59.319 | OnceSyncWellCount_Intervals:50
+2026-08-06 12:20:59.327 | [REQ-1] POST dp/api/well_log/get_log_dic https://10.10.4.167/tet/dp/api/well_log/get_log_dic started.
+2026-08-06 12:20:59.939 | [REQ-1] POST dp/api/well_log/get_log_dic https://10.10.4.167/tet/dp/api/well_log/get_log_dic    OK elapsed:0.612s
+2026-08-06 12:20:59.947 | [REQ-2] POST dp/api/well_log/get_dataset_list https://10.10.4.167/tet/dp/api/well_log/get_dataset_list started.
+2026-08-06 12:21:00.207 | [REQ-2] POST dp/api/well_log/get_dataset_list https://10.10.4.167/tet/dp/api/well_log/get_dataset_list    OK elapsed:0.259s
+2026-08-06 12:21:00.212 | load config over!
+2026-08-06 12:21:16.534 | Project D:\DownLoad\KindomFile\Kingdom_Demo_Projects_2020\SOONER3\sooner3d.tks Kindom data loading successful！
+2026-08-06 12:21:18.383 | Sync task report started: C:\Program Files (x86)\tet\KingdomSync\Logs\TaskReports\sync-task-20260806-122118-383.txt
+2026-08-06 12:21:18.383 | Synchronization options. Selected wells:100, well formation:True, well trajectory:False, well production:False, well logs:False, formation/log selection required:False.
+2026-08-06 12:21:18.387 | Kindom Data Synchronization start.
+2026-08-06 12:21:18.388 | Synchronization progress. Step:WellHeader, step progress:0.0%, overall progress:0.0%.
+2026-08-06 12:21:18.401 | WellHeader batch 1/1 upload started. UWIs:[UWI000013,UWI000014,UWI000015,UWI000016,UWI000017,UWI000018,UWI000019,UWI000020,UWI000021,UWI000022,UWI000023,UWI000024,UWI000012,UWI000038,UWI000039,UWI000040,UWI000041,UWI000042,UWI000043,UWI000044,UWI000045,UWI000046,UWI000047,UWI000048,UWI000049,UWI000050,UWI000051,UWI000052,UWI000053,UWI000054,UWI000055,UWI000056,UWI000057,UWI000058,UWI000059,UWI000060,UWI000061,UWI000011,UWI000010,UWI000009,UWI000008,UWI000007,UWI000006,UWI000068,UWI000069,UWI000070,UWI000071,UWI000072,UWI000073,UWI000074,UWI000075,UWI000076,UWI000077,UWI000078,UWI000079,UWI000080,UWI000081,UWI000082,UWI000083,UWI000084,UWI000085,UWI000086,UWI000087,UWI000088,UWI000089,UWI000090,UWI000091,UWI000092,UWI000093,UWI000094,UWI000095,UWI000096,UWI000097,UWI000098,UWI000005,UWI000004,UWI000003,UWI000002,UWI000001,UWI000037,UWI000036,UWI000035,UWI000034,UWI000033,UWI000032,UWI000031,UWI000030,UWI000029,UWI000028,UWI000027,UWI000026,UWI000025,UWI000062,UWI000063,UWI000064,UWI000065,UWI000066,UWI000067,UWI000099,UWI000100], wells:100, JSON bytes:38878 (0.037 MiB).
+2026-08-06 12:21:18.402 | [REQ-3] POST dp/api/well_manager/batch_create_well_header https://10.10.4.167/tet/dp/api/well_manager/batch_create_well_header started.
+2026-08-06 12:21:19.491 | [REQ-3] POST dp/api/well_manager/batch_create_well_header https://10.10.4.167/tet/dp/api/well_manager/batch_create_well_header    OK elapsed:1.089s
+2026-08-06 12:21:19.497 | WellHeader batch 1/1 upload completed. UWIs:[UWI000013,UWI000014,UWI000015,UWI000016,UWI000017,UWI000018,UWI000019,UWI000020,UWI000021,UWI000022,UWI000023,UWI000024,UWI000012,UWI000038,UWI000039,UWI000040,UWI000041,UWI000042,UWI000043,UWI000044,UWI000045,UWI000046,UWI000047,UWI000048,UWI000049,UWI000050,UWI000051,UWI000052,UWI000053,UWI000054,UWI000055,UWI000056,UWI000057,UWI000058,UWI000059,UWI000060,UWI000061,UWI000011,UWI000010,UWI000009,UWI000008,UWI000007,UWI000006,UWI000068,UWI000069,UWI000070,UWI000071,UWI000072,UWI000073,UWI000074,UWI000075,UWI000076,UWI000077,UWI000078,UWI000079,UWI000080,UWI000081,UWI000082,UWI000083,UWI000084,UWI000085,UWI000086,UWI000087,UWI000088,UWI000089,UWI000090,UWI000091,UWI000092,UWI000093,UWI000094,UWI000095,UWI000096,UWI000097,UWI000098,UWI000005,UWI000004,UWI000003,UWI000002,UWI000001,UWI000037,UWI000036,UWI000035,UWI000034,UWI000033,UWI000032,UWI000031,UWI000030,UWI000029,UWI000028,UWI000027,UWI000026,UWI000025,UWI000062,UWI000063,UWI000064,UWI000065,UWI000066,UWI000067,UWI000099,UWI000100], wells:100, failed:0, JSON bytes:38878, elapsed:1.095s.
+2026-08-06 12:21:19.498 | WellHeader(100) synchronize over!
+2026-08-06 12:21:19.499 | Synchronization progress. Step:WellHeader, step progress:100.0%, overall progress:40.0%.
+2026-08-06 12:21:19.844 | https://10.10.4.167/tet/dp/api/dpobjects/get_all_meta_objects_by_objecttype_in_protobuf  OK
+2026-08-06 12:21:19.865 | get_all_meta_objects_by_objecttype_in_protobuf completed. Object types:[WellInformation], returned items:115, elapsed:0.365s.
+2026-08-06 12:21:19.865 | Synchronization progress. Step:WellFormation, step progress:0.0%, overall progress:40.0%.
+2026-08-06 12:21:19.872 | WellFormation synchronization started. Upload mode:protobuf, selected wells:100, selected formation names:all, read UWI batch size:100, formation count upload batch size:200, upload concurrency:2, queue capacity:4, author type:LoggedInAuthor, visible only:false, change tracking:false.
+2026-08-06 12:21:20.077 | FormationTopPick read batch 1 completed. UWIs:[UWI000013,UWI000014,UWI000015,UWI000016,UWI000017,UWI000018,UWI000019,UWI000020,UWI000021,UWI000022,UWI000023,UWI000024,UWI000012,UWI000038,UWI000039,UWI000040,UWI000041,UWI000042,UWI000043,UWI000044,UWI000045,UWI000046,UWI000047,UWI000048,UWI000049,UWI000050,UWI000051,UWI000052,UWI000053,UWI000054,UWI000055,UWI000056,UWI000057,UWI000058,UWI000059,UWI000060,UWI000061,UWI000011,UWI000010,UWI000009,UWI000008,UWI000007,UWI000006,UWI000068,UWI000069,UWI000070,UWI000071,UWI000072,UWI000073,UWI000074,UWI000075,UWI000076,UWI000077,UWI000078,UWI000079,UWI000080,UWI000081,UWI000082,UWI000083,UWI000084,UWI000085,UWI000086,UWI000087,UWI000088,UWI000089,UWI000090,UWI000091,UWI000092,UWI000093,UWI000094,UWI000095,UWI000096,UWI000097,UWI000098,UWI000005,UWI000004,UWI000003,UWI000002,UWI000001,UWI000037,UWI000036,UWI000035,UWI000034,UWI000033,UWI000032,UWI000031,UWI000030,UWI000029,UWI000028,UWI000027,UWI000026,UWI000025,UWI000062,UWI000063,UWI000064,UWI000065,UWI000066,UWI000067,UWI000099,UWI000100], UWI count:100, borehole IDs:[3212,3213,3214,3215,3216,3217,3218,3219,3220,3221,3222,3223,3211,3237,3238,3239,3240,3241,3242,3243,3244,3245,3246,3247,3248,3249,3250,3251,3252,3253,3254,3255,3256,3257,3258,3259,3260,3210,3209,3208,3207,3206,3205,3267,3268,3269,3270,3271,3272,3273,3274,3275,3276,3277,3278,3279,3280,3281,3282,3283,3284,3285,3286,3287,3288,3289,3290,3291,3292,3293,3294,3295,3296,3297,3204,3203,3202,3201,3200,3236,3235,3234,3233,3232,3231,3230,3229,3228,3227,3226,3225,3224,3261,3262,3263,3264,3265,3266,3298,3299], borehole count:100, author type:LoggedInAuthor, visible only:false, change tracking:false, raw count:18358, elapsed:0.199s.
+2026-08-06 12:21:20.095 | WellFormation batch 1 queued. Mode:protobuf, wells:31, formations:205, read wells:31/100.
+2026-08-06 12:21:20.095 | WellFormation batch 1 upload started. UWIs:[UWI000013,UWI000014,UWI000015,UWI000016,UWI000017,UWI000018,UWI000019,UWI000020,UWI000021,UWI000022,UWI000023,UWI000024,UWI000012,UWI000038,UWI000039,UWI000040,UWI000041,UWI000042,UWI000043,UWI000044,UWI000045,UWI000046,UWI000047,UWI000048,UWI000049,UWI000050,UWI000051,UWI000052,UWI000053,UWI000054,UWI000055], mode:protobuf, wells:31, formations:205, protobuf bytes:6672 (0.006 MiB).
+2026-08-06 12:21:20.096 | WellFormation batch 2 queued. Mode:protobuf, wells:30, formations:200, read wells:61/100.
+2026-08-06 12:21:20.096 | WellFormation batch 2 upload started. UWIs:[UWI000056,UWI000057,UWI000058,UWI000059,UWI000060,UWI000061,UWI000011,UWI000010,UWI000009,UWI000008,UWI000007,UWI000006,UWI000068,UWI000069,UWI000070,UWI000071,UWI000072,UWI000073,UWI000074,UWI000075,UWI000076,UWI000077,UWI000078,UWI000079,UWI000080,UWI000081,UWI000082,UWI000083,UWI000084,UWI000085], mode:protobuf, wells:30, formations:200, protobuf bytes:6506 (0.006 MiB).
+2026-08-06 12:21:20.096 | WellFormation batch 3 queued. Mode:protobuf, wells:31, formations:204, read wells:92/100.
+2026-08-06 12:21:20.097 | WellFormation batch 4 queued. Mode:protobuf, wells:8, formations:53, read wells:100/100.
+2026-08-06 12:21:20.099 | [REQ-4] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation started.
+2026-08-06 12:21:20.099 | [REQ-5] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation started.
+2026-08-06 12:21:21.038 | [REQ-5] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation    OK elapsed:0.937s
+2026-08-06 12:21:21.042 | batch_create_well_formation completed. Wells:30, elapsed:0.944s.
+2026-08-06 12:21:21.042 | WellFormation batch 2 upload completed. UWIs:[UWI000056,UWI000057,UWI000058,UWI000059,UWI000060,UWI000061,UWI000011,UWI000010,UWI000009,UWI000008,UWI000007,UWI000006,UWI000068,UWI000069,UWI000070,UWI000071,UWI000072,UWI000073,UWI000074,UWI000075,UWI000076,UWI000077,UWI000078,UWI000079,UWI000080,UWI000081,UWI000082,UWI000083,UWI000084,UWI000085], mode:protobuf, wells:30, formations:200, successful:200, failed:0, protobuf bytes:6506, elapsed:0.945s, uploaded batches:1, synced formations:200.
+2026-08-06 12:21:21.043 | WellFormation batch 3 upload started. UWIs:[UWI000086,UWI000087,UWI000088,UWI000089,UWI000090,UWI000091,UWI000092,UWI000093,UWI000094,UWI000095,UWI000096,UWI000097,UWI000098,UWI000005,UWI000004,UWI000003,UWI000002,UWI000001,UWI000037,UWI000036,UWI000035,UWI000034,UWI000033,UWI000032,UWI000031,UWI000030,UWI000029,UWI000028,UWI000027,UWI000026,UWI000025], mode:protobuf, wells:31, formations:204, protobuf bytes:6637 (0.006 MiB).
+2026-08-06 12:21:21.044 | [REQ-6] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation started.
+2026-08-06 12:21:21.375 | [REQ-4] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation    OK elapsed:1.275s
+2026-08-06 12:21:21.376 | batch_create_well_formation completed. Wells:31, elapsed:1.279s.
+2026-08-06 12:21:21.377 | WellFormation batch 1 upload completed. UWIs:[UWI000013,UWI000014,UWI000015,UWI000016,UWI000017,UWI000018,UWI000019,UWI000020,UWI000021,UWI000022,UWI000023,UWI000024,UWI000012,UWI000038,UWI000039,UWI000040,UWI000041,UWI000042,UWI000043,UWI000044,UWI000045,UWI000046,UWI000047,UWI000048,UWI000049,UWI000050,UWI000051,UWI000052,UWI000053,UWI000054,UWI000055], mode:protobuf, wells:31, formations:205, successful:205, failed:0, protobuf bytes:6672, elapsed:1.281s, uploaded batches:2, synced formations:405.
+2026-08-06 12:21:21.377 | Synchronization progress. Step:WellFormation, step progress:31.0%, overall progress:58.6%.
+2026-08-06 12:21:21.378 | Synchronization progress. Step:WellFormation, step progress:61.0%, overall progress:76.6%.
+2026-08-06 12:21:21.378 | WellFormation batch 4 upload started. UWIs:[UWI000062,UWI000063,UWI000064,UWI000065,UWI000066,UWI000067,UWI000099,UWI000100], mode:protobuf, wells:8, formations:53, protobuf bytes:1725 (0.002 MiB).
+2026-08-06 12:21:21.378 | [REQ-7] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation started.
+2026-08-06 12:21:22.036 | [REQ-7] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation    OK elapsed:0.658s
+2026-08-06 12:21:22.038 | batch_create_well_formation completed. Wells:8, elapsed:0.660s.
+2026-08-06 12:21:22.039 | WellFormation batch 4 upload completed. UWIs:[UWI000062,UWI000063,UWI000064,UWI000065,UWI000066,UWI000067,UWI000099,UWI000100], mode:protobuf, wells:8, formations:53, successful:53, failed:0, protobuf bytes:1725, elapsed:0.660s, uploaded batches:3, synced formations:458.
+2026-08-06 12:21:22.132 | [REQ-6] POST dp/api/welldata/batch_create_well_formation https://10.10.4.167/tet/dp/api/welldata/batch_create_well_formation    OK elapsed:1.088s
+2026-08-06 12:21:22.134 | batch_create_well_formation completed. Wells:31, elapsed:1.090s.
+2026-08-06 12:21:22.135 | WellFormation batch 3 upload completed. UWIs:[UWI000086,UWI000087,UWI000088,UWI000089,UWI000090,UWI000091,UWI000092,UWI000093,UWI000094,UWI000095,UWI000096,UWI000097,UWI000098,UWI000005,UWI000004,UWI000003,UWI000002,UWI000001,UWI000037,UWI000036,UWI000035,UWI000034,UWI000033,UWI000032,UWI000031,UWI000030,UWI000029,UWI000028,UWI000027,UWI000026,UWI000025], mode:protobuf, wells:31, formations:204, successful:204, failed:0, protobuf bytes:6637, elapsed:1.091s, uploaded batches:4, synced formations:662.
+2026-08-06 12:21:22.136 | Synchronization progress. Step:WellFormation, step progress:92.0%, overall progress:95.2%.
+2026-08-06 12:21:22.136 | Synchronization progress. Step:WellFormation, step progress:100.0%, overall progress:100.0%.
+2026-08-06 12:21:22.137 | WellFormation synchronization completed. Upload mode:protobuf, selected wells:100, processed wells:100, read UWI batch size:100, raw formations read:18358, valid unique formations:662, uploaded wells:100, uploaded formations:662, successful formations:662, failed formations:0, upload batches:4, total payload bytes:21540 (0.021 MiB), read elapsed:0.199s, cumulative upload request elapsed:3.977s, total elapsed:2.264s.
+2026-08-06 12:21:22.140 | WellFormation(662) synchronize over.
+2026-08-06 12:21:22.140 | Kindom data synchronize to web over!.
+2026-08-06 12:21:22.140 | Kindom data synchronize to web elapsed time: 00:00:03.757.
+2026-08-06 12:21:22.141 | Sync task report completed. Status:Succeeded, path:C:\Program Files (x86)\tet\KingdomSync\Logs\TaskReports\sync-task-20260806-122118-383.txt
+2026-08-06 12:21:22.142 | Task report:
+Kingdom Data Synchronization Task Report
+================================================
+Started: 2026-08-06 12:21:18.383
+Project: D:\DownLoad\KindomFile\Kingdom_Demo_Projects_2020\SOONER3\sooner3d.tks
+Author: GEO
+Report: C:\Program Files (x86)\tet\KingdomSync\Logs\TaskReports\sync-task-20260806-122118-383.txt
+------------------------------------------------
+2026-08-06 12:21:22.137 | WellFormation synchronization completed. Upload mode:protobuf, selected wells:100, processed wells:100, read UWI batch size:100, raw formations read:18358, valid unique formations:662, uploaded wells:100, uploaded formations:662, successful formations:662, failed formations:0, upload batches:4, total payload bytes:21540 (0.021 MiB), read elapsed:0.199s, cumulative upload request elapsed:3.977s, total elapsed:2.264s.
+2026-08-06 12:21:22.141 | ------------------------------------------------
+2026-08-06 12:21:22.141 | Overall API reads: 1
+2026-08-06 12:21:22.141 | Overall upload requests: 5
+2026-08-06 12:21:22.141 | Overall upload payload bytes: 60418 (0.058 MiB)
+2026-08-06 12:21:22.141 | Overall API read elapsed: 0.199s
+2026-08-06 12:21:22.141 | Cumulative upload request elapsed: 5.073s
+2026-08-06 12:21:22.141 | Overall synchronization errors: 0
+2026-08-06 12:21:22.141 | Task status: Succeeded
+2026-08-06 12:21:22.141 | Finished: 2026-08-06 12:21:22.141
+2026-08-06 12:21:22.141 | Total task elapsed: 00:00:03.757
+

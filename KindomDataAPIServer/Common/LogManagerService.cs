@@ -45,11 +45,24 @@ namespace KindomDataAPIServer.Common
 
         public void Log(string message)
         {
+            WriteLog(message, true);
+        }
+
+        public void LogToFile(string message)
+        {
+            WriteLog(message, false);
+        }
+
+        private void WriteLog(string message, bool includeInUi)
+        {
             var now = DateTime.Now;
             var logEntry = $"{now:yyyy-MM-dd HH:mm:ss.fff} | {message}";
             try
             {
-                EnqueueUiLog(logEntry);
+                if (includeInUi)
+                {
+                    EnqueueUiLog(logEntry);
+                }
 
                 if (_isFileLoggingEnabled)
                 {

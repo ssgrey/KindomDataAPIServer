@@ -59,7 +59,7 @@ namespace KindomDataAPIServer.Views
                     string decodedArgs = System.Uri.UnescapeDataString(args[0]);
                     string joinedArgs = string.Join(" ", args);
 
-                    LogManagerService.Instance.Log("Web args:" + decodedArgs);
+                    LogManagerService.Instance.LogToFile("Web args:" + decodedArgs);
                 }
                 InitializeUserCredentialRequest();
             }

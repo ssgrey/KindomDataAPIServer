@@ -248,12 +248,12 @@
                                             <Label Content="Well Header"></Label>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <dxe:CheckEdit IsChecked="{Binding IsSyncTrajectory,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
-                                            <Label Content="Deviation Survey"></Label>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal">
                                             <dxe:CheckEdit IsChecked="{Binding IsSyncWellFormation,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
                                             <Label Content="Formation Tops"></Label>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <dxe:CheckEdit IsChecked="{Binding IsSyncTrajectory,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
+                                            <Label Content="Deviation Survey"></Label>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <dxe:CheckEdit IsChecked="{Binding IsSyncWellLog,UpdateSourceTrigger=PropertyChanged}"></dxe:CheckEdit>
