@@ -10,6 +10,26 @@ namespace KindomDataAPIServer.Common
 {
     public sealed class SyncTaskReportService
     {
+        private sealed class ConfigurationRecommendation
+        {
+            public string OperationName { get; set; }
+            public string ConfigKey { get; set; }
+            public int CurrentValue { get; set; }
+            public int RecommendedValue { get; set; }
+            public string Reason { get; set; }
+        }
+
+        private sealed class OperationTimingSummary
+        {
+            public string OperationName { get; set; }
+            public TimeSpan LocalReadElapsed { get; set; }
+            public TimeSpan UploadWallElapsed { get; set; }
+            public TimeSpan CumulativeLocalReadElapsed { get; set; }
+            public int LocalReadCount { get; set; }
+            public TimeSpan CumulativeUploadResponseElapsed { get; set; }
+            public int UploadResponseCount { get; set; }
+        }
+
         private const string AppDataDirectoryName = "KindomDataAPIServer";
         private const string LogDirectoryName = "Logs";
         private const string ReportDirectoryName = "TaskReports";
@@ -22,6 +42,8 @@ namespace KindomDataAPIServer.Common
         private readonly object _syncRoot = new object();
         private string _reportDirectory;
         private readonly Dictionary<string, int> _recordedUploadErrorCounts = new Dictionary<string, int>();
+        private readonly List<ConfigurationRecommendation> _configurationRecommendations = new List<ConfigurationRecommendation>();
+        private readonly List<OperationTimingSummary> _operationTimingSummaries = new List<OperationTimingSummary>();
         private string _currentReportPath;
         private long _apiReadCount;
         private long _uploadRequestCount;
@@ -94,6 +116,8 @@ namespace KindomDataAPIServer.Common
                 _uploadElapsedTicks = 0;
                 _errorCount = 0;
                 _recordedUploadErrorCounts.Clear();
+                _configurationRecommendations.Clear();
+                _operationTimingSummaries.Clear();
                 _currentReportPath = Path.Combine(
                     _reportDirectory,
                     $"sync-task-{now:yyyyMMdd-HHmmss-fff}.txt");
@@ -133,6 +157,58 @@ namespace KindomDataAPIServer.Common
             WriteReportLine(message);
         }
 
+        public void RecordConfigurationRecommendation(
+            string operationName,
+            string configKey,
+            int currentValue,
+            int recommendedValue,
+            string reason)
+        {
+            var recommendation = new ConfigurationRecommendation
+            {
+                OperationName = operationName,
+                ConfigKey = configKey,
+                CurrentValue = currentValue,
+                RecommendedValue = recommendedValue,
+                Reason = reason
+            };
+
+            lock (_syncRoot)
+            {
+                _configurationRecommendations.RemoveAll(item => item.OperationName == operationName);
+                _configurationRecommendations.Add(recommendation);
+            }
+
+            LogSummary($"{operationName} configuration recommendation. Key:{configKey}, current:{currentValue}, recommended:{recommendedValue}, reason:{reason}");
+        }
+
+        public void RecordOperationTiming(
+            string operationName,
+            TimeSpan localReadElapsed,
+            TimeSpan uploadWallElapsed,
+            TimeSpan cumulativeLocalReadElapsed,
+            int localReadCount,
+            TimeSpan cumulativeUploadResponseElapsed,
+            int uploadResponseCount)
+        {
+            var timingSummary = new OperationTimingSummary
+            {
+                OperationName = operationName,
+                LocalReadElapsed = localReadElapsed,
+                UploadWallElapsed = uploadWallElapsed,
+                CumulativeLocalReadElapsed = cumulativeLocalReadElapsed,
+                LocalReadCount = localReadCount,
+                CumulativeUploadResponseElapsed = cumulativeUploadResponseElapsed,
+                UploadResponseCount = uploadResponseCount
+            };
+
+            lock (_syncRoot)
+            {
+                _operationTimingSummaries.RemoveAll(item => item.OperationName == operationName);
+                _operationTimingSummaries.Add(timingSummary);
+            }
+        }
+
         public void RecordError(string context, Exception exception = null)
         {
             string message = exception == null
@@ -149,6 +225,8 @@ namespace KindomDataAPIServer.Common
         {
             bool completedSuccessfully = succeeded && ErrorCount == 0;
             string status = completedSuccessfully ? "Succeeded" : "Completed";
+            List<ConfigurationRecommendation> recommendations;
+            List<OperationTimingSummary> operationTimings;
             WriteReportLine(new string('-', 48));
             lock (_syncRoot)
             {
@@ -158,6 +236,37 @@ namespace KindomDataAPIServer.Common
                 WriteReportLine($"Overall API read elapsed: {TimeSpan.FromTicks(_apiReadElapsedTicks).TotalSeconds:F3}s");
                 WriteReportLine($"Cumulative upload request elapsed: {TimeSpan.FromTicks(_uploadElapsedTicks).TotalSeconds:F3}s");
                 WriteReportLine($"Overall synchronization errors: {_errorCount}");
+                recommendations = _configurationRecommendations.ToList();
+                operationTimings = _operationTimingSummaries.ToList();
+            }
+            foreach (OperationTimingSummary operationTiming in operationTimings)
+            {
+                double measuredSeconds = operationTiming.LocalReadElapsed.TotalSeconds
+                    + operationTiming.UploadWallElapsed.TotalSeconds;
+                double localReadShare = measuredSeconds <= 0
+                    ? 0
+                    : operationTiming.LocalReadElapsed.TotalSeconds * 100.0 / measuredSeconds;
+                double uploadShare = measuredSeconds <= 0
+                    ? 0
+                    : operationTiming.UploadWallElapsed.TotalSeconds * 100.0 / measuredSeconds;
+                double averageUploadResponseSeconds = operationTiming.UploadResponseCount <= 0
+                    ? 0
+                    : operationTiming.CumulativeUploadResponseElapsed.TotalSeconds / operationTiming.UploadResponseCount;
+                double averageLocalReadSeconds = operationTiming.LocalReadCount <= 0
+                    ? 0
+                    : operationTiming.CumulativeLocalReadElapsed.TotalSeconds / operationTiming.LocalReadCount;
+                WriteReportLine($"{operationTiming.OperationName} actual timing: local read elapsed:{operationTiming.LocalReadElapsed.TotalSeconds:F3}s, upload wall elapsed:{operationTiming.UploadWallElapsed.TotalSeconds:F3}s, local read time share:{localReadShare:F1}%, upload time share:{uploadShare:F1}%, average upload API response elapsed:{averageUploadResponseSeconds:F3}s, average local read elapsed:{averageLocalReadSeconds:F3}s.");
+            }
+            if (recommendations.Count > 0)
+            {
+                var recommendationBlock = new StringBuilder();
+                recommendationBlock.AppendLine("Recommended appSettings for the next run (keep all unlisted settings unchanged):");
+                foreach (ConfigurationRecommendation recommendation in recommendations)
+                {
+                    recommendationBlock.AppendLine($"<!-- {recommendation.OperationName}: {recommendation.Reason} -->");
+                    recommendationBlock.AppendLine($"<add key=\"{recommendation.ConfigKey}\" value=\"{recommendation.RecommendedValue}\" />");
+                }
+                WriteReportLine(recommendationBlock.ToString().TrimEnd());
             }
             WriteReportLine($"Task status: {status}");
             WriteReportLine($"Finished: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");

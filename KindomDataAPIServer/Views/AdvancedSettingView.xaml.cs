@@ -15,9 +15,12 @@ namespace KindomDataAPIServer.Views
             InitializeComponent();
             WellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
             WellTrajectoryBatchSize = AdvancedSettingsConfig.GetWellTrajectoryBatchSize();
+            WellTrajectoryReadUwiBatchSize = AdvancedSettingsConfig.GetWellTrajectoryReadUwiBatchSize();
             WellTrajectoryUploadConcurrency = AdvancedSettingsConfig.GetWellTrajectoryUploadConcurrency();
+            WellLogReadUwiBatchSize = AdvancedSettingsConfig.GetWellLogReadUwiBatchSize();
             WellLogUploadConcurrency = AdvancedSettingsConfig.GetWellLogUploadConcurrency();
             WellLogBatchCurveCount = AdvancedSettingsConfig.GetWellLogBatchCurveCount();
+            WellProductionReadUwiBatchSize = AdvancedSettingsConfig.GetWellProductionReadUwiBatchSize();
             WellProductionUploadConcurrency = AdvancedSettingsConfig.GetWellProductionUploadConcurrency();
             WellProductionBatchDailyDataCount = AdvancedSettingsConfig.GetWellProductionBatchDailyDataCount();
             WellFormationBatchSize = AdvancedSettingsConfig.GetWellFormationBatchSize();
@@ -29,9 +32,12 @@ namespace KindomDataAPIServer.Views
 
         public int WellHeaderBatchSize { get; set; }
         public int WellTrajectoryBatchSize { get; set; }
+        public int WellTrajectoryReadUwiBatchSize { get; set; }
         public int WellTrajectoryUploadConcurrency { get; set; }
+        public int WellLogReadUwiBatchSize { get; set; }
         public int WellLogUploadConcurrency { get; set; }
         public int WellLogBatchCurveCount { get; set; }
+        public int WellProductionReadUwiBatchSize { get; set; }
         public int WellProductionUploadConcurrency { get; set; }
         public int WellProductionBatchDailyDataCount { get; set; }
         public int WellFormationBatchSize { get; set; }
@@ -45,9 +51,12 @@ namespace KindomDataAPIServer.Views
             {
                 AdvancedSettingsConfig.SaveWellHeaderBatchSize(WellHeaderBatchSize);
                 AdvancedSettingsConfig.SaveWellTrajectoryBatchSize(WellTrajectoryBatchSize);
+                AdvancedSettingsConfig.SaveWellTrajectoryReadUwiBatchSize(WellTrajectoryReadUwiBatchSize);
                 AdvancedSettingsConfig.SaveWellTrajectoryUploadConcurrency(WellTrajectoryUploadConcurrency);
+                AdvancedSettingsConfig.SaveWellLogReadUwiBatchSize(WellLogReadUwiBatchSize);
                 AdvancedSettingsConfig.SaveWellLogUploadConcurrency(WellLogUploadConcurrency);
                 AdvancedSettingsConfig.SaveWellLogBatchCurveCount(WellLogBatchCurveCount);
+                AdvancedSettingsConfig.SaveWellProductionReadUwiBatchSize(WellProductionReadUwiBatchSize);
                 AdvancedSettingsConfig.SaveWellProductionUploadConcurrency(WellProductionUploadConcurrency);
                 AdvancedSettingsConfig.SaveWellProductionBatchDailyDataCount(WellProductionBatchDailyDataCount);
                 AdvancedSettingsConfig.SaveWellFormationBatchSize(WellFormationBatchSize);
