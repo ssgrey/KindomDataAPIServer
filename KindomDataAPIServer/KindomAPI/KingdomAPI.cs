@@ -845,7 +845,7 @@ namespace KindomDataAPIServer.KindomAPI
             int uploadedBatchCount = 0;
             int batchIndex = 0;
             int totalReadFormationCount = 0;
-            int totalUniqueFormationCount = 0;
+            int totalValidFormationCount = 0;
             int totalUploadedWellCount = 0;
             int totalUploadedFormationCount = 0;
             int totalFailedFormationCount = 0;
@@ -1051,12 +1051,9 @@ namespace KindomDataAPIServer.KindomAPI
                             var rawFormations = context.Get(new FormationTopPick(),
                                 x => new
                                 {
-                                    Id = x.Id,
                                     Depth = x.Depth,
                                     BoreholeId = x.BoreholeId,
-                                    FormationTopNameId = x.FormationTopNameId,
-                                    FormationTopName = x.FormationTopName.Name,
-                                    FormationTopAbbreviation = x.FormationTopName.Abbreviation
+                                    FormationTopName = x.FormationTopName.Name
                                 },
                                 x => readBatchBoreholeIds.Contains(x.BoreholeId), AuthorType.LoggedInAuthor,
                                 false).ToList();
@@ -1080,10 +1077,9 @@ namespace KindomDataAPIServer.KindomAPI
                                     .SelectMany(boreholeId => formationsByBoreholeId[boreholeId])
                                     .Where(formation => !string.IsNullOrWhiteSpace(formation.FormationTopName)
                                         && formation.Depth.HasValue)
-                                    .GroupBy(formation => formation.FormationTopNameId)
-                                    .Select(group => group.OrderBy(formation => formation.Id).First())
+                                    .OrderBy(formation => formation.Depth.Value)
                                     .ToList();
-                                totalUniqueFormationCount += formations.Count;
+                                totalValidFormationCount += formations.Count;
 
                                 long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
                                 if (wellWebID != -1)
@@ -1093,36 +1089,38 @@ namespace KindomDataAPIServer.KindomAPI
                                         WellId = wellWebID
                                     };
 
-                                    foreach (var formItem in formations)
+                                    for (int formationIndex = 0; formationIndex < formations.Count; formationIndex++)
                                     {
                                         cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                        var formItem = formations[formationIndex];
                                         if (selectionRequired && !checkNames.Contains(formItem.FormationTopName))
                                         {
                                             continue;
                                         }
-                                         .var existingFormation = pbWellFormation.Items.FirstOrDefault(o =>
-                                            o.Name == formItem.FormationTopName
-                                            || o.Name == formItem.FormationTopAbbreviation);
-                                        if (existingFormation == null)
-                                        {
-                                            double top = IsDepthFeet
-                                                ? formItem.Depth.Value.ToMeters()
-                                                : formItem.Depth.Value;
 
-                                            pbWellFormation.Items.Add(new PbFormationItem
-                                            {
-                                                Name = formItem.FormationTopName,
-                                                Top = top,
-                                                Bottom = top,
-                                            });
-                                            batchFileRows.Add(new WellFormationFileRow
-                                            {
-                                                WellName = wellGroup.Key,
-                                                FormationName = formItem.FormationTopName,
-                                                Top = top,
-                                                Bottom = top
-                                            });
-                                        }
+                                        double top = IsDepthFeet
+                                            ? formItem.Depth.Value.ToMeters()
+                                            : formItem.Depth.Value;
+                                        double bottomDepth = formationIndex < formations.Count - 1
+                                            ? formations[formationIndex + 1].Depth.Value
+                                            : formItem.Depth.Value;
+                                        double bottom = IsDepthFeet
+                                            ? bottomDepth.ToMeters()
+                                            : bottomDepth;
+
+                                        pbWellFormation.Items.Add(new PbFormationItem
+                                        {
+                                            Name = formItem.FormationTopName,
+                                            Top = top,
+                                            Bottom = bottom,
+                                        });
+                                        batchFileRows.Add(new WellFormationFileRow
+                                        {
+                                            WellName = wellGroup.Key,
+                                            FormationName = formItem.FormationTopName,
+                                            Top = top,
+                                            Bottom = bottom
+                                        });
                                     }
 
                                     if (pbWellFormation.Items.Count > 0)
@@ -1176,7 +1174,7 @@ namespace KindomDataAPIServer.KindomAPI
             }
 
             totalStopwatch.Stop();
-            SyncTaskReportService.Instance.LogSummary($"WellFormation synchronization completed. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, read UWI batch size:{wellFormationReadUwiBatchSize}, raw formations read:{totalReadFormationCount}, valid unique formations:{totalUniqueFormationCount}, uploaded wells:{totalUploadedWellCount}, uploaded formations:{totalUploadedFormationCount}, successful formations:{syncedFormationCount}, failed formations:{totalFailedFormationCount}, upload batches:{uploadedBatchCount}, total payload bytes:{totalUploadBytes} ({totalUploadBytes / 1024.0 / 1024.0:F3} MiB), read elapsed:{TimeSpan.FromTicks(totalReadElapsedTicks).TotalSeconds:F3}s, cumulative upload request elapsed:{TimeSpan.FromTicks(totalUploadElapsedTicks).TotalSeconds:F3}s, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
+            SyncTaskReportService.Instance.LogSummary($"WellFormation synchronization completed. Upload mode:{(useFileImport ? "file import" : "protobuf")}, selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, read UWI batch size:{wellFormationReadUwiBatchSize}, raw formations read:{totalReadFormationCount}, valid formations:{totalValidFormationCount}, uploaded wells:{totalUploadedWellCount}, uploaded formations:{totalUploadedFormationCount}, successful formations:{syncedFormationCount}, failed formations:{totalFailedFormationCount}, upload batches:{uploadedBatchCount}, total payload bytes:{totalUploadBytes} ({totalUploadBytes / 1024.0 / 1024.0:F3} MiB), read elapsed:{TimeSpan.FromTicks(totalReadElapsedTicks).TotalSeconds:F3}s, cumulative upload request elapsed:{TimeSpan.FromTicks(totalUploadElapsedTicks).TotalSeconds:F3}s, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
             return syncedFormationCount;
         }
 
