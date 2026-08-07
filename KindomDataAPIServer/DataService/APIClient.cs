@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -19,6 +20,8 @@ namespace KindomDataAPIServer.DataService
     {
         private const int MaxRetryCount = 3;
         private static int _requestSequence;
+        private static readonly ConcurrentDictionary<string, ApiRequestTelemetry> RequestTelemetries =
+            new ConcurrentDictionary<string, ApiRequestTelemetry>(StringComparer.OrdinalIgnoreCase);
 
         #region 单例实现
         //private static readonly Lazy<ApiClient> _instance = new Lazy<ApiClient>(() => new ApiClient());
@@ -141,6 +144,11 @@ namespace KindomDataAPIServer.DataService
             string requestId = CreateRequestId();
             string operationLabel = BuildOperationLabel(requestId, traceName, "POST", endpoint);
             var totalStopwatch = Stopwatch.StartNew();
+            int attemptCount = 0;
+            int? finalStatusCode = null;
+            bool retried = false;
+            bool succeeded = false;
+            string signal = null;
             try
             {
                 OnRequestStarted($"{operationLabel} - 开始");
@@ -151,12 +159,14 @@ namespace KindomDataAPIServer.DataService
                 LogManagerService.Instance.LogDebug($"{operationLabel} {url} started.");
                 for (int attempt = 1; attempt <= MaxRetryCount + 1; attempt++)
                 {
+                    attemptCount = attempt;
                     try
                     {
                         var attemptStopwatch = Stopwatch.StartNew();
                         using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
                         using (var response = await Client.PostAsync(url, content))
                         {
+                            finalStatusCode = (int)response.StatusCode;
                             attemptStopwatch.Stop();
                             LogManagerService.Instance.LogDebug($"{operationLabel} {url}    {response.StatusCode} elapsed:{attemptStopwatch.Elapsed.TotalSeconds:F3}s");
 
@@ -166,6 +176,7 @@ namespace KindomDataAPIServer.DataService
                                 var result = JsonHelper.ConvertFrom<TResponse>(responseContent);
 
                                 totalStopwatch.Stop();
+                                succeeded = true;
                                 OnRequestCompleted($"{operationLabel} - 成功 elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s");
                                 return result;
 
@@ -175,6 +186,8 @@ namespace KindomDataAPIServer.DataService
                                 var responseContent = await response.Content.ReadAsStringAsync();
                                 if (ShouldRetryStatusCode(response.StatusCode) && attempt <= MaxRetryCount)
                                 {
+                                    retried = true;
+                                    signal = GetStatusSignal(response.StatusCode);
                                     await DelayForRetryAsync(operationLabel, attempt, response.StatusCode);
                                     continue;
                                 }
@@ -190,6 +203,8 @@ namespace KindomDataAPIServer.DataService
                             throw;
                         }
 
+                        retried = true;
+                        signal = GetExceptionSignal(ex);
                         await DelayForRetryAsync(operationLabel, attempt, ex);
                     }
                 }
@@ -199,8 +214,14 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 totalStopwatch.Stop();
+                signal = signal ?? GetExceptionSignal(ex);
                 OnRequestFailed($"{operationLabel} - 失败 elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s: {ExceptionLogHelper.Format(ex)}");
                 throw;
+            }
+            finally
+            {
+                totalStopwatch.Stop();
+                PublishTelemetry(traceName, finalStatusCode, succeeded, retried, attemptCount, totalStopwatch.Elapsed, signal);
             }
         }
 
@@ -273,6 +294,11 @@ namespace KindomDataAPIServer.DataService
             string requestId = CreateRequestId();
             string operationLabel = BuildOperationLabel(requestId, traceName, "POST", endpoint);
             var totalStopwatch = Stopwatch.StartNew();
+            int attemptCount = 0;
+            int? finalStatusCode = null;
+            bool retried = false;
+            bool succeeded = false;
+            string signal = null;
             try
             {
                 OnRequestStarted($"{operationLabel} - 开始");
@@ -281,12 +307,14 @@ namespace KindomDataAPIServer.DataService
                 LogManagerService.Instance.LogDebug($"{operationLabel} {url} started.");
                 for (int attempt = 1; attempt <= MaxRetryCount + 1; attempt++)
                 {
+                    attemptCount = attempt;
                     try
                     {
                         var attemptStopwatch = Stopwatch.StartNew();
                         using (var content = contentFactory())
                         using (var response = await Client.PostAsync(url, content))
                         {
+                            finalStatusCode = (int)response.StatusCode;
                             attemptStopwatch.Stop();
                             LogManagerService.Instance.LogDebug($"{operationLabel} {url}    {response.StatusCode} elapsed:{attemptStopwatch.Elapsed.TotalSeconds:F3}s");
 
@@ -295,12 +323,15 @@ namespace KindomDataAPIServer.DataService
                             {
                                 var result = JsonHelper.ConvertFrom<TResponse>(responseContent);
                                 totalStopwatch.Stop();
+                                succeeded = true;
                                 OnRequestCompleted($"{operationLabel} - 成功 elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s");
                                 return result;
                             }
 
                             if (ShouldRetryStatusCode(response.StatusCode) && attempt <= MaxRetryCount)
                             {
+                                retried = true;
+                                signal = GetStatusSignal(response.StatusCode);
                                 await DelayForRetryAsync(operationLabel, attempt, response.StatusCode);
                                 continue;
                             }
@@ -315,6 +346,8 @@ namespace KindomDataAPIServer.DataService
                             throw;
                         }
 
+                        retried = true;
+                        signal = GetExceptionSignal(ex);
                         await DelayForRetryAsync(operationLabel, attempt, ex);
                     }
                 }
@@ -324,8 +357,14 @@ namespace KindomDataAPIServer.DataService
             catch (Exception ex)
             {
                 totalStopwatch.Stop();
+                signal = signal ?? GetExceptionSignal(ex);
                 OnRequestFailed($"{operationLabel} - 失败 elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s: {ExceptionLogHelper.Format(ex)}");
                 throw;
+            }
+            finally
+            {
+                totalStopwatch.Stop();
+                PublishTelemetry(traceName, finalStatusCode, succeeded, retried, attemptCount, totalStopwatch.Elapsed, signal);
             }
         }
 
@@ -440,6 +479,50 @@ namespace KindomDataAPIServer.DataService
             return statusCode == HttpStatusCode.RequestTimeout ||
                    statusCodeValue == 429 ||
                    statusCodeValue >= 500;
+        }
+
+        public static ApiRequestTelemetry TakeRequestTelemetry(string traceName)
+        {
+            if (string.IsNullOrWhiteSpace(traceName))
+            {
+                return null;
+            }
+            RequestTelemetries.TryRemove(traceName, out ApiRequestTelemetry telemetry);
+            return telemetry;
+        }
+
+        private static void PublishTelemetry(string traceName, int? finalStatusCode, bool succeeded, bool retried, int attemptCount, TimeSpan elapsed, string signal)
+        {
+            if (string.IsNullOrWhiteSpace(traceName))
+            {
+                return;
+            }
+            RequestTelemetries[traceName] = new ApiRequestTelemetry
+            {
+                TraceName = traceName,
+                FinalStatusCode = finalStatusCode,
+                Succeeded = succeeded,
+                Retried = retried,
+                AttemptCount = attemptCount,
+                TotalElapsed = elapsed,
+                Signal = signal
+            };
+        }
+
+        private static string GetStatusSignal(HttpStatusCode statusCode)
+        {
+            int value = (int)statusCode;
+            if (value == 408) return "timeout";
+            if (value == 429) return "http-429";
+            if (value >= 500) return "http-5xx";
+            return "http-retry";
+        }
+
+        private static string GetExceptionSignal(Exception ex)
+        {
+            if (ex is TaskCanceledException || ex is TimeoutException) return "timeout";
+            if (ex is HttpRequestException) return "network-retry";
+            return "request-failure";
         }
 
         private bool ShouldRetryException(Exception ex)

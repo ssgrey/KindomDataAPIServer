@@ -282,7 +282,7 @@ namespace KindomDataAPIServer.DataService
 
 
 
-        public async Task<WellOperationResult>  batch_create_well_formation(PbWellFormationList pbWellFormationList)
+        public async Task<WellOperationResult>  batch_create_well_formation(PbWellFormationList pbWellFormationList, string traceName = null)
         {
             var stopwatch = Stopwatch.StartNew();
             try
@@ -296,7 +296,7 @@ namespace KindomDataAPIServer.DataService
                         formData.Add(new StreamContent(stream), "File", "data.pbf");
                         formData.Add(new StringContent("OverWrite"), "overwrite_flag");
                         return formData;
-                    });
+                    }, traceName);
                 stopwatch.Stop();
                 LogManagerService.Instance.Log($"batch_create_well_formation completed. Wells:{pbWellFormationList?.Datas?.Count ?? 0}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
                 return result;
@@ -309,48 +309,39 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
-        public async Task<int> import_well_formation_file(string filePath, string importOptionsJson, string formationMapJson)
+        public async Task<int> import_well_formation_file(string filePath, string importOptionsJson, string formationMapJson, string traceName = null)
         {
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                string url = _apiClient.BuildUrl("dp/api/import/well_formation");
-                using (var formData = new MultipartFormDataContent())
-                {
-                    if (formData.Headers.ContentType != null)
+                JArray response = await _apiClient.PostMultipartAsync<JArray>(
+                    "dp/api/import/well_formation",
+                    () =>
                     {
-                        formData.Headers.ContentType.CharSet = "utf-8";
-                    }
-
-                    var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    var fileContent = new StreamContent(stream);
-                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
-                    formData.Add(fileContent, "File", Path.GetFileName(filePath));
-
-                    var optionContent = new StringContent(importOptionsJson ?? string.Empty, Encoding.UTF8);
-                    formData.Add(optionContent, "Colmaps");
-
-                    var formationMapContent = new StringContent(formationMapJson ?? "{}", Encoding.UTF8);
-                    formData.Add(formationMapContent, "formation_map");
-
-                    using (var httpResult = await _apiClient.Client.PostAsync(url, formData))
-                    {
-                        string responseContent = await httpResult.Content.ReadAsStringAsync();
-                        LogManagerService.Instance.LogDebug(url + "  " + httpResult.StatusCode);
-                        if (!httpResult.IsSuccessStatusCode)
+                        var formData = new MultipartFormDataContent();
+                        if (formData.Headers.ContentType != null)
                         {
-                            throw new HttpRequestException($"HTTP请求失败: {responseContent}");
+                            formData.Headers.ContentType.CharSet = "utf-8";
                         }
 
-                        JToken response = JToken.Parse(responseContent);
-                        int importedObjectCount = response.Type == JTokenType.Array
-                            ? ((JArray)response).Count
-                            : 0;
-                        stopwatch.Stop();
-                        LogManagerService.Instance.Log($"import_well_formation_file completed. Returned objects:{importedObjectCount}, file bytes:{new FileInfo(filePath).Length}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
-                        return importedObjectCount;
-                    }
-                }
+                        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        var fileContent = new StreamContent(stream);
+                        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+                        formData.Add(fileContent, "File", Path.GetFileName(filePath));
+
+                        var optionContent = new StringContent(importOptionsJson ?? string.Empty, Encoding.UTF8);
+                        formData.Add(optionContent, "Colmaps");
+
+                        var formationMapContent = new StringContent(formationMapJson ?? "{}", Encoding.UTF8);
+                        formData.Add(formationMapContent, "formation_map");
+                        return formData;
+                    },
+                    traceName);
+
+                int importedObjectCount = response?.Count ?? 0;
+                stopwatch.Stop();
+                LogManagerService.Instance.Log($"import_well_formation_file completed. Returned objects:{importedObjectCount}, file bytes:{new FileInfo(filePath).Length}, elapsed:{stopwatch.Elapsed.TotalSeconds:F3}s.");
+                return importedObjectCount;
             }
             catch (Exception ex)
             {

@@ -1,0 +1,72 @@
+{
+  // 配置文件版本。当前只支持版本 1。
+  "version": 1,
+
+  // 自适应总开关。关闭后仍使用下面配置的初始批量、Payload 和并发，但运行过程中不再自动调整。
+  "enabled": true,
+
+  // 所有数据类型共用的自适应控制规则。
+  "common": {
+    // 快速增长阶段满足条件时，Payload 目标每次提高的百分比。
+    "fastPayloadGrowthPercent": 75,
+    // 稳定阶段吞吐量继续改善时，Payload 目标每次提高的百分比。
+    "stablePayloadGrowthPercent": 25,
+    // 当前窗口吞吐量相对基准至少提高该百分比，才认为增大 Payload 有收益。
+    "throughputImprovementPercent": 10,
+    // 连续多少个窗口没有改善后，回退到历史最佳 Payload。
+    "rollbackAfterNoImprovementWindows": 2,
+    // 回退或触发 HTTP 保护后，暂停增长的评估窗口数量。
+    "cooldownWindows": 2,
+    // 是否允许程序自动提高上传并发；关闭时只允许保护性降低并发。
+    "allowConcurrencyIncrease": false
+  },
+
+  // 不参与动态学习、每次任务都直接使用的固定配置。
+  "fixed": {
+    // 井头信息单次上传的最大井数量。
+    "wellHeaderUploadBatchSize": 5000,
+    // 地层上传方式：true 使用文件导入接口，false 使用 Protobuf 接口。
+    "useFileImport": true
+  },
+
+  // 各数据类型独立的读取与上传配置。
+  "dataTypes": {
+    // 地层数据。
+    "formation": {
+      // Kingdom SDK 本地读取批量：initial 为无学习状态时的起始井数，max 为允许增长到的最大井数，
+      // targetSeconds 为单次 SDK 读取目标秒数，超过后读取批量会保护性减半。
+      "readBatch": { "initial": 20, "max": 100, "targetSeconds": 3 },
+      // initialPayloadMiB 是冷启动上传目标，maxPayloadMiB 是自适应增长上限；
+      // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 4 个成功请求评估一次；
+      // maxFormationCount 是单次上传的地层条数安全上限，也用于防止一次 SDK 读取返回异常多的数据。
+      "upload": { "initialPayloadMiB": 0.5, "maxPayloadMiB": 64, "concurrency": 2, "stableEvaluationRequests": 4, "maxFormationCount": 100000 }
+    },
+
+    // 井轨迹数据。
+    "trajectory": {
+      // 读取批量单位为井数；targetSeconds 只控制 Kingdom SDK 读取，不是 HTTP 上传超时。
+      "readBatch": { "initial": 5, "max": 100, "targetSeconds": 2 },
+      // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 6 个成功请求评估一次；
+      // maxPointCount 是单次上传的轨迹点数安全上限。实际分批同时受 Payload 和点数限制，先达到者生效。
+      "upload": { "initialPayloadMiB": 8, "maxPayloadMiB": 64, "concurrency": 3, "stableEvaluationRequests": 6, "maxPointCount": 2000000 }
+    },
+
+    // 生产历史数据。
+    "production": {
+      // 读取批量单位为井数。
+      "readBatch": { "initial": 2, "max": 50, "targetSeconds": 3 },
+      // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 6 个成功请求评估一次；
+      // maxDailyDataCount 是生产历史展开为日数据后，单次上传允许的最大记录数。
+      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 64, "concurrency": 3, "stableEvaluationRequests": 6, "maxDailyDataCount": 1000000 }
+    },
+
+    // 井曲线数据。
+    "wellLog": {
+      // 读取批量单位为井数；井曲线数据量较大，读取增长应比其他类型更谨慎。
+      "readBatch": { "initial": 3, "max": 20, "targetSeconds": 3 },
+      // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 10 个成功请求评估一次；
+      // maxSampleCount 是单次上传的曲线样点数安全上限。实际分批同时受 Payload 和样点数限制。
+      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 64, "concurrency": 5, "stableEvaluationRequests": 10, "maxSampleCount": 5000000 }
+    }
+  }
+}

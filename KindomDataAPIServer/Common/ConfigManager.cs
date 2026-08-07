@@ -1,11 +1,8 @@
-﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KindomDataAPIServer.Common
 {
@@ -19,10 +16,9 @@ namespace KindomDataAPIServer.Common
 
     public class ConfigManager
     {
-        private static readonly string ConfigFileName = "userconfig.json";
+        private const string ConfigFileName = "userconfig.json";
         private static string _configPath;
-
-        private static List<UserConfig> UserConfigs = new List<UserConfig>();
+        private static List<UserConfig> _userConfigs = new List<UserConfig>();
 
         static ConfigManager()
         {
@@ -31,37 +27,29 @@ namespace KindomDataAPIServer.Common
 
         private static void InitializeConfigPath()
         {
-            // 优先尝试软件安装目录
             string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string configPath = Path.Combine(appDirectory, ConfigFileName);
-
             try
             {
-                // 测试是否有写入权限
                 string testFile = Path.Combine(appDirectory, ".test_write");
                 File.WriteAllText(testFile, "test");
                 File.Delete(testFile);
-
                 _configPath = configPath;
             }
-            catch(Exception ex)
+            catch (Exception appDirectoryException)
             {
                 try
                 {
-                    // 如果没有权限，使用用户目录
                     string userDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    string appFolder = Path.Combine(userDirectory, "KindomDataSync"); // 替换为你的应用名称
-
-                    if (!Directory.Exists(appFolder))
-                    {
-                        Directory.CreateDirectory(appFolder);
-                    }
-
+                    string appFolder = Path.Combine(userDirectory, "KindomDataSync");
+                    Directory.CreateDirectory(appFolder);
                     _configPath = Path.Combine(appFolder, ConfigFileName);
                 }
-                catch (Exception ex2)
+                catch (Exception userDirectoryException)
                 {
-                    LogManagerService.Instance.Log("Failed to access app directory for config: " + ExceptionLogHelper.Format(ex) + " | " + ExceptionLogHelper.Format(ex2));
+                    LogManagerService.Instance.Log("Failed to access app directory for config: " +
+                        ExceptionLogHelper.Format(appDirectoryException) + " | " +
+                        ExceptionLogHelper.Format(userDirectoryException));
                 }
             }
         }
@@ -71,59 +59,42 @@ namespace KindomDataAPIServer.Common
             try
             {
                 string projectName = Path.GetFileName(projPath);
-                var userc = UserConfigs.FirstOrDefault(o => o.ProjectName == projectName);
-                if (userc != null)
+                UserConfig userConfig = _userConfigs.FirstOrDefault(item => item.ProjectName == projectName);
+                if (userConfig == null)
                 {
-                    userc.Username = username;
-                    userc.Password = password;
-                    userc.IsRememberPassword = rememberPassword;
+                    userConfig = new UserConfig { ProjectName = projectName };
                 }
-                else
-                {
-                    userc = new UserConfig
-                    {
-                        ProjectName = projectName,
-                        Username = username,
-                        Password = rememberPassword ? password : string.Empty,
-                        IsRememberPassword = rememberPassword,
-                    };
-                }
+                userConfig.Username = username;
+                userConfig.Password = rememberPassword ? password : string.Empty;
+                userConfig.IsRememberPassword = rememberPassword;
 
-                if (userc.IsRememberPassword && !UserConfigs.Contains(userc))
+                _userConfigs.RemoveAll(item => item.ProjectName == projectName);
+                if (rememberPassword)
                 {
-                    UserConfigs.Add(userc);
+                    _userConfigs.Add(userConfig);
                 }
-                else
-                {
-                    UserConfigs.Remove(userc);
-                }
-                string json = JsonHelper.ToJson(UserConfigs);
-                File.WriteAllText(_configPath, json);
+                File.WriteAllText(_configPath, JsonHelper.ToJson(_userConfigs));
             }
             catch (Exception ex)
             {
-                LogManagerService.Instance.Log("SaveConfig failed !" + ExceptionLogHelper.Format(ex));
+                LogManagerService.Instance.Log("SaveConfig failed: " + ExceptionLogHelper.Format(ex));
             }
         }
 
         public static UserConfig LoadConfig(string projPath)
         {
-            string projectName = Path.GetFileName(projPath);
             if (!File.Exists(_configPath))
             {
                 return null;
             }
             try
             {
-                string json = File.ReadAllText(_configPath);
-
-                UserConfigs = JsonHelper.ConvertFrom<List<UserConfig>>(json) ?? new List<UserConfig>();
-                UserConfig userConfig = null;
-                if (!string.IsNullOrEmpty(projectName))
-                {
-                    userConfig = UserConfigs.FirstOrDefault(u => u.ProjectName == projectName);
-                }
-                return userConfig;
+                _userConfigs = JsonHelper.ConvertFrom<List<UserConfig>>(File.ReadAllText(_configPath))
+                    ?? new List<UserConfig>();
+                string projectName = Path.GetFileName(projPath);
+                return string.IsNullOrEmpty(projectName)
+                    ? null
+                    : _userConfigs.FirstOrDefault(item => item.ProjectName == projectName);
             }
             catch
             {
@@ -132,236 +103,14 @@ namespace KindomDataAPIServer.Common
         }
     }
 
-    public static class AdvancedSettingsConfig
+    public static class SyncSelectionConfig
     {
-        public const string WellHeaderBatchSizeKey = "OnceSyncWellCount_WellHeader";
-        public const string WellTrajectoryBatchSizeKey = "OnceSyncWellCount_WellTrajectory";
-        public const string WellTrajectoryReadUwiBatchSizeKey = "well_trajectory_readUwiBatchSize";
-        public const string WellTrajectoryUploadConcurrencyKey = "well_trajectory_uploadConcurrency";
-        public const string WellLogReadUwiBatchSizeKey = "well_log_readUwiBatchSize";
-        public const string WellLogUploadConcurrencyKey = "well_log_uploadConcurrency";
-        public const string WellLogBatchCurveCountKey = "well_log_batchCurveCount";
-        public const string WellProductionReadUwiBatchSizeKey = "well_production_readUwiBatchSize";
-        public const string WellProductionUploadConcurrencyKey = "well_production_uploadConcurrency";
-        public const string WellProductionBatchDailyDataCountKey = "well_production_batchDailyDataCount";
-        public const string WellFormationBatchSizeKey = "OnceSyncWellCount_WellFormation";
-        public const string WellFormationReadUwiBatchSizeKey = "well_formation_readUwiBatchSize";
-        public const string WellFormationUploadConcurrencyKey = "well_formation_uploadConcurrency";
-        public const string WellFormationUseFileImportKey = "well_formation_useFileImport";
-        public const string RequireFormationAndLogSelectionKey = "RequireFormationAndLogSelection";
-        public const string ShowAdvancedSettingsMenuKey = "ShowAdvancedSettingsMenu";
-        public const int DefaultWellHeaderBatchSize = 5000;
-        public const int DefaultWellTrajectoryBatchSize = 3;
-        public const int DefaultWellTrajectoryReadUwiBatchSize = 20;
-        public const int DefaultWellTrajectoryUploadConcurrency = 3;
-        public const int DefaultWellLogReadUwiBatchSize = 20;
-        public const int DefaultWellLogUploadConcurrency = 3;
-        public const int DefaultWellLogBatchCurveCount = 3;
-        public const int DefaultWellProductionReadUwiBatchSize = 20;
-        public const int DefaultWellProductionUploadConcurrency = 3;
-        public const int DefaultWellProductionBatchDailyDataCount = 300;
-        public const int DefaultWellFormationBatchSize = 100;
-        public const int DefaultWellFormationReadUwiBatchSize = 20;
-        public const int DefaultWellFormationUploadConcurrency = 2;
-
-        public static int GetWellHeaderBatchSize()
-        {
-            return GetBatchSize(WellHeaderBatchSizeKey, DefaultWellHeaderBatchSize);
-        }
-
-        public static int GetWellTrajectoryBatchSize()
-        {
-            return GetBatchSize(WellTrajectoryBatchSizeKey, DefaultWellTrajectoryBatchSize);
-        }
-
-        public static int GetWellTrajectoryReadUwiBatchSize()
-        {
-            return GetBatchSize(WellTrajectoryReadUwiBatchSizeKey, DefaultWellTrajectoryReadUwiBatchSize);
-        }
-
-        public static int GetWellTrajectoryUploadConcurrency()
-        {
-            return GetBatchSize(WellTrajectoryUploadConcurrencyKey, DefaultWellTrajectoryUploadConcurrency);
-        }
-
-        public static int GetWellLogReadUwiBatchSize()
-        {
-            return GetBatchSize(WellLogReadUwiBatchSizeKey, DefaultWellLogReadUwiBatchSize);
-        }
-
-        public static int GetWellLogUploadConcurrency()
-        {
-            return GetBatchSize(WellLogUploadConcurrencyKey, DefaultWellLogUploadConcurrency);
-        }
-
-        public static int GetWellLogBatchCurveCount()
-        {
-            return GetBatchSize(WellLogBatchCurveCountKey, DefaultWellLogBatchCurveCount);
-        }
-
-        public static int GetWellProductionReadUwiBatchSize()
-        {
-            return GetBatchSize(WellProductionReadUwiBatchSizeKey, DefaultWellProductionReadUwiBatchSize);
-        }
-
-        public static int GetWellProductionUploadConcurrency()
-        {
-            return GetBatchSize(WellProductionUploadConcurrencyKey, DefaultWellProductionUploadConcurrency);
-        }
-
-        public static int GetWellProductionBatchDailyDataCount()
-        {
-            return GetBatchSize(WellProductionBatchDailyDataCountKey, DefaultWellProductionBatchDailyDataCount);
-        }
-
-        public static int GetWellFormationBatchSize()
-        {
-            return GetBatchSize(WellFormationBatchSizeKey, DefaultWellFormationBatchSize);
-        }
-
-        public static int GetWellFormationReadUwiBatchSize()
-        {
-            return GetBatchSize(WellFormationReadUwiBatchSizeKey, DefaultWellFormationReadUwiBatchSize);
-        }
-
-        public static int GetWellFormationUploadConcurrency()
-        {
-            return GetBatchSize(WellFormationUploadConcurrencyKey, DefaultWellFormationUploadConcurrency);
-        }
-
-        public static bool GetWellFormationUseFileImport()
-        {
-            string value = ConfigurationManager.AppSettings[WellFormationUseFileImportKey];
-            return bool.TryParse(value, out bool useFileImport) && useFileImport;
-        }
+        private const string RequireFormationAndLogSelectionKey = "RequireFormationAndLogSelection";
 
         public static bool IsFormationAndLogSelectionRequired()
         {
             string value = ConfigurationManager.AppSettings[RequireFormationAndLogSelectionKey];
-            if (bool.TryParse(value, out bool isRequired))
-            {
-                return isRequired;
-            }
-
-            return true;
-        }
-
-        public static bool IsAdvancedSettingsMenuVisible()
-        {
-            string value = ConfigurationManager.AppSettings[ShowAdvancedSettingsMenuKey];
-            if (bool.TryParse(value, out bool isVisible))
-            {
-                return isVisible;
-            }
-
-            return false;
-        }
-
-        private static int GetBatchSize(string key, int defaultValue)
-        {
-            string value = ConfigurationManager.AppSettings[key];
-            if (!int.TryParse(value, out int batchSize) || batchSize < 1)
-            {
-                return defaultValue;
-            }
-
-            return batchSize;
-        }
-
-        public static void SaveWellHeaderBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellHeaderBatchSizeKey, batchSize, DefaultWellHeaderBatchSize);
-        }
-
-        public static void SaveWellTrajectoryBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellTrajectoryBatchSizeKey, batchSize, DefaultWellTrajectoryBatchSize);
-        }
-
-        public static void SaveWellTrajectoryReadUwiBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellTrajectoryReadUwiBatchSizeKey, batchSize, DefaultWellTrajectoryReadUwiBatchSize);
-        }
-
-        public static void SaveWellTrajectoryUploadConcurrency(int uploadConcurrency)
-        {
-            SaveBatchSize(WellTrajectoryUploadConcurrencyKey, uploadConcurrency, DefaultWellTrajectoryUploadConcurrency);
-        }
-
-        public static void SaveWellLogReadUwiBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellLogReadUwiBatchSizeKey, batchSize, DefaultWellLogReadUwiBatchSize);
-        }
-
-        public static void SaveWellLogUploadConcurrency(int uploadConcurrency)
-        {
-            SaveBatchSize(WellLogUploadConcurrencyKey, uploadConcurrency, DefaultWellLogUploadConcurrency);
-        }
-
-        public static void SaveWellLogBatchCurveCount(int batchCurveCount)
-        {
-            SaveBatchSize(WellLogBatchCurveCountKey, batchCurveCount, DefaultWellLogBatchCurveCount);
-        }
-
-        public static void SaveWellProductionReadUwiBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellProductionReadUwiBatchSizeKey, batchSize, DefaultWellProductionReadUwiBatchSize);
-        }
-
-        public static void SaveWellProductionUploadConcurrency(int uploadConcurrency)
-        {
-            SaveBatchSize(WellProductionUploadConcurrencyKey, uploadConcurrency, DefaultWellProductionUploadConcurrency);
-        }
-
-        public static void SaveWellProductionBatchDailyDataCount(int batchDailyDataCount)
-        {
-            SaveBatchSize(WellProductionBatchDailyDataCountKey, batchDailyDataCount, DefaultWellProductionBatchDailyDataCount);
-        }
-
-        public static void SaveWellFormationBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellFormationBatchSizeKey, batchSize, DefaultWellFormationBatchSize);
-        }
-
-        public static void SaveWellFormationReadUwiBatchSize(int batchSize)
-        {
-            SaveBatchSize(WellFormationReadUwiBatchSizeKey, batchSize, DefaultWellFormationReadUwiBatchSize);
-        }
-
-        public static void SaveWellFormationUploadConcurrency(int uploadConcurrency)
-        {
-            SaveBatchSize(WellFormationUploadConcurrencyKey, uploadConcurrency, DefaultWellFormationUploadConcurrency);
-        }
-
-        public static void SaveWellFormationUseFileImport(bool useFileImport)
-        {
-            SaveSetting(WellFormationUseFileImportKey, useFileImport.ToString().ToLowerInvariant());
-        }
-
-        private static void SaveBatchSize(string key, int batchSize, int defaultValue)
-        {
-            if (batchSize < 1)
-            {
-                batchSize = defaultValue;
-            }
-
-            SaveSetting(key, batchSize.ToString());
-        }
-
-        private static void SaveSetting(string key, string value)
-        {
-            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            if (config.AppSettings.Settings[key] == null)
-            {
-                config.AppSettings.Settings.Add(key, value);
-            }
-            else
-            {
-                config.AppSettings.Settings[key].Value = value;
-            }
-
-            config.Save(ConfigurationSaveMode.Modified);
-            ConfigurationManager.RefreshSection("appSettings");
+            return !bool.TryParse(value, out bool required) || required;
         }
     }
 }

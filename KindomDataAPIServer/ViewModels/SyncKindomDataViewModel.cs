@@ -95,7 +95,7 @@ namespace KindomDataAPIServer.ViewModels
         public SyncKindomDataViewModel(ApiConfig ApiConfig)
         {
             this.ApiConfig = ApiConfig;
-            IsFormationAndLogSelectionRequired = AdvancedSettingsConfig.IsFormationAndLogSelectionRequired();
+            IsFormationAndLogSelectionRequired = SyncSelectionConfig.IsFormationAndLogSelectionRequired();
             IsFormationSelectionVisible = IsFormationAndLogSelectionRequired && IsSyncWellFormation;
             wellDataService = ServiceLocator.GetService<IDataWellService>();
             SyncCommand = new DevExpress.Mvvm.AsyncCommand(SyncCommandAction);
@@ -1316,6 +1316,14 @@ namespace KindomDataAPIServer.ViewModels
             bool taskSucceeded = false;
             string taskError = null;
             SyncTaskReportService.Instance.BeginTask(ProjectPath, LoginName);
+            string adaptiveEnvironmentId = string.Join("|", new[]
+            {
+                ProjectPath ?? string.Empty,
+                ApiConfig?.ip ?? string.Empty,
+                ApiConfig?.port ?? string.Empty,
+                ApiConfig?.tetproj ?? string.Empty
+            });
+            AdaptiveSyncSession adaptiveSession = AdaptiveSyncService.BeginTask(adaptiveEnvironmentId);
             SyncTaskReportService.Instance.Log($"Synchronization options. Selected wells:{selectedWellCount}, well formation:{IsSyncWellFormation}, well trajectory:{IsSyncTrajectory}, well production:{IsSyncProduction}, well logs:{IsSyncWellLog}, formation/log selection required:{IsFormationAndLogSelectionRequired}.");
             IsEnable = false;
             try
@@ -1397,7 +1405,7 @@ namespace KindomDataAPIServer.ViewModels
                     StartSyncProgressStep("WellHeader");
                     try
                     {
-                        int wellHeaderBatchSize = AdvancedSettingsConfig.GetWellHeaderBatchSize();
+                        int wellHeaderBatchSize = adaptiveSession.Settings.Fixed.WellHeaderUploadBatchSize;
                         int wellHeaderCount = wellDataRequest.Items.Count;
                         Func<WellDataRequest, int, int, Task> synchronizeWellHeaderBatch = async (batchRequest, currentBatchIndex, totalBatchCount) =>
                         {
@@ -1836,6 +1844,14 @@ namespace KindomDataAPIServer.ViewModels
                 if (stopwatch.IsRunning)
                 {
                     stopwatch.Stop();
+                }
+                try
+                {
+                    adaptiveSession.Save();
+                }
+                catch (Exception ex)
+                {
+                    SyncTaskReportService.Instance.LogSummary("Adaptive sync state save failed without interrupting synchronization. " + ExceptionLogHelper.Format(ex));
                 }
                 SyncTaskReportService.Instance.Complete(taskSucceeded, stopwatch.Elapsed, taskError);
                 IsEnable = true;

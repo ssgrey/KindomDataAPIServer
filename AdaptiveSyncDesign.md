@@ -136,8 +136,6 @@ AdaptiveSyncState.json
   "version": 1,
   "enabled": true,
   "common": {
-    "fastEvaluationRequests": 2,
-    "stableEvaluationRequests": 3,
     "fastPayloadGrowthPercent": 75,
     "stablePayloadGrowthPercent": 25,
     "throughputImprovementPercent": 10,
@@ -146,21 +144,22 @@ AdaptiveSyncState.json
     "allowConcurrencyIncrease": false
   },
   "fixed": {
-    "wellHeaderUploadBatchSize": 5000
+    "wellHeaderUploadBatchSize": 5000,
+    "useFileImport": true
   },
   "dataTypes": {
     "formation": {
-      "useFileImport": false,
       "readBatch": {
         "initial": 20,
         "max": 100,
         "targetSeconds": 3
       },
       "upload": {
-        "initialPayloadMiB": 0.25,
-        "maxPayloadMiB": 2,
+        "initialPayloadMiB": 1,
+        "maxPayloadMiB": 64,
         "concurrency": 2,
-        "maxFormationCount": 1000
+        "stableEvaluationRequests": 4,
+        "maxFormationCount": 100000
       }
     },
     "trajectory": {
@@ -170,10 +169,11 @@ AdaptiveSyncState.json
         "targetSeconds": 2
       },
       "upload": {
-        "initialPayloadMiB": 0.5,
-        "maxPayloadMiB": 4,
+        "initialPayloadMiB": 8,
+        "maxPayloadMiB": 64,
         "concurrency": 3,
-        "maxPointCount": 20000
+        "stableEvaluationRequests": 6,
+        "maxPointCount": 2000000
       }
     },
     "production": {
@@ -183,10 +183,11 @@ AdaptiveSyncState.json
         "targetSeconds": 3
       },
       "upload": {
-        "initialPayloadMiB": 0.5,
-        "maxPayloadMiB": 4,
+        "initialPayloadMiB": 4,
+        "maxPayloadMiB": 64,
         "concurrency": 3,
-        "maxDailyDataCount": 2000
+        "stableEvaluationRequests": 6,
+        "maxDailyDataCount": 1000000
       }
     },
     "wellLog": {
@@ -196,17 +197,18 @@ AdaptiveSyncState.json
         "targetSeconds": 3
       },
       "upload": {
-        "initialPayloadMiB": 0.5,
-        "maxPayloadMiB": 8,
+        "initialPayloadMiB": 4,
+        "maxPayloadMiB": 64,
         "concurrency": 5,
-        "maxSampleCount": 1000000
+        "stableEvaluationRequests": 10,
+        "maxSampleCount": 5000000
       }
     }
   }
 }
 ```
 
-以上数值为首版建议值，不是后端承载能力承诺。实施时应保留代码级绝对安全上限，防止错误 JSON 产生不可控请求。
+以上数值中的 `initialPayloadMiB` 是冷启动或没有可用学习状态时的起始目标，`maxPayloadMiB` 和各类 `max*Count` 只是自适应增长的人工安全上限，不代表每个请求都会达到该值。当前配置和代码级绝对上限均为 64 MiB；这样既允许甲方高速内网继续向上探索，也避免错误数据、并发队列和失败重传产生不可控的内存及网络开销。`stableEvaluationRequests` 按各类型上传并发的两轮请求数设置，用来降低并发完成顺序对吞吐评估的干扰。
 
 固定在代码中、不增加配置项的规则：
 
@@ -235,14 +237,14 @@ payload 字节数是主要限制，类型特有的数据量是第二重限制：
 
 ### 6.2 快速爬升阶段
 
-- 每完成 2 个成功上传请求评估一次。
+- 每完成一轮当前类型配置的上传并发数后评估一次，即快速窗口请求数直接等于 `upload.concurrency`，不再单独配置。
 - 没有 HTTP 保护信号且吞吐表现稳定时，目标 payload 增加 75%。
 - 目标达到最大值或吞吐量不再改善时进入稳定优化阶段。
 - 快速阶段队列容量等于上传并发数，减少旧的小批次积压，使新目标尽快生效。
 
 ### 6.3 稳定优化阶段
 
-- 每完成 3 个上传请求评估一次。
+- 每种数据类型按自己的 `upload.stableEvaluationRequests` 统计成功请求数并评估一次；默认覆盖两轮配置并发。
 - 窗口吞吐量比基准提升超过 10% 时，目标 payload 增加 25%。
 - 单个窗口没有改善时保持当前值。
 - 连续两个窗口没有改善时回退到上一个最佳稳定值。

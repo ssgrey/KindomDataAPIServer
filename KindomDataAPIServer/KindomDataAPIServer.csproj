@@ -236,6 +236,7 @@
     <Compile Include="Common\JsonHelper.cs" />
     <Compile Include="Common\LogManagerService.cs" />
     <Compile Include="Common\SyncTaskReportService.cs" />
+    <Compile Include="Common\AdaptiveSyncService.cs" />
     <Compile Include="Common\WellFormationFileImportService.cs" />
     <Compile Include="Common\MeasureUnit.cs" />
     <Compile Include="Common\Options.cs" />
@@ -246,6 +247,7 @@
     <Compile Include="Controllers\WellControler.cs" />
     <Compile Include="Converters\Converters.cs" />
     <Compile Include="DataService\APIClient.cs" />
+    <Compile Include="DataService\ApiRequestTelemetry.cs" />
     <Compile Include="DataService\ClientModels.cs" />
     <Compile Include="DataService\IApiClient.cs" />
     <Compile Include="DataService\IDataWellService.cs" />
@@ -271,9 +273,6 @@
     <Compile Include="ViewModels\DownLoadDataViewModel.cs" />
     <Compile Include="ViewModels\ConclusionSettingViewModel.cs" />
     <Compile Include="ViewModels\SyncKindomDataViewModel.cs" />
-    <Compile Include="Views\AdvancedSettingView.xaml.cs">
-      <DependentUpon>AdvancedSettingView.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Views\ConclusionSettingView.xaml.cs">
       <DependentUpon>ConclusionSettingView.xaml</DependentUpon>
     </Compile>
@@ -300,10 +299,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\ConclusionSettingView.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Views\AdvancedSettingView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -355,6 +350,9 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <None Include="Configs\UnitTypes.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="AdaptiveSyncSettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="KindomDataAPIServer.reg">

@@ -39,8 +39,8 @@ namespace KindomDataAPIServer.DataService
         Task<PbViewMetaObjectList> get_all_meta_objects_by_objecttype_in_protobuf(string[] request);
 
 
-        Task<WellOperationResult> batch_create_well_formation(PbWellFormationList pbWellFormationList);
-        Task<int> import_well_formation_file(string filePath, string importOptionsJson, string formationMapJson);
+        Task<WellOperationResult> batch_create_well_formation(PbWellFormationList pbWellFormationList, string traceName = null);
+        Task<int> import_well_formation_file(string filePath, string importOptionsJson, string formationMapJson, string traceName = null);
         Task<WellOperationResult> batch_create_well_log(PbWellLogCreateList pbWellLogCreateList, string traceName = null);
 
         Task<WellOperationResult> batch_create_well_payzone_with_meta_infos(CreatePayzoneRequest wellDataRequest);
