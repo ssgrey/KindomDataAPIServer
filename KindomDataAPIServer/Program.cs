@@ -5,6 +5,7 @@ using KindomDataAPIServer.Models;
 using KindomDataAPIServer.Views;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
@@ -97,8 +98,9 @@ namespace KindomDataAPIServer
                         client.SetBaseUrl($"https://{apiData.ip}/tet/");
                     }
                 }
-#if DEBUG
-                else if (File.Exists("tempArgs.txt"))
+                else if (bool.TryParse(ConfigurationManager.AppSettings["EnableTempArgsFile"], out bool enableTempArgsFile)
+                    && enableTempArgsFile
+                    && File.Exists("tempArgs.txt"))
                 {
                     string decodedArgs = File.ReadAllText("tempArgs.txt");
                     apiData = Utils.ParseUri(decodedArgs);
@@ -113,7 +115,6 @@ namespace KindomDataAPIServer
                         client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
                     }
                 }
-#endif
             }
             catch (Exception ex)
             {
