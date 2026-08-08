@@ -17,8 +17,16 @@
     "rollbackAfterNoImprovementWindows": 2,
     // 回退或触发 HTTP 保护后，暂停增长的评估窗口数量。
     "cooldownWindows": 2,
-    // 是否允许程序自动提高上传并发；关闭时只允许保护性降低并发。
-    "allowConcurrencyIncrease": false
+    // 单次请求耗时超过近期延迟的该倍数时，记为一次延迟恶化候选。
+    "latencyRegressionMultiplier": 2,
+    // 连续达到多少次延迟恶化候选后，才触发 Payload 和并发保护。
+    "latencyRegressionConsecutiveRequests": 3,
+    // 触发保护后连续多少个成功窗口才清除保护连续状态，并尝试恢复一级并发。
+    "stableWindowsToResetProtection": 2,
+    // 保护性降低上传并发时允许达到的最低并发；不会高于各数据类型配置的初始并发。
+    "minimumConcurrency": 2,
+    // 是否允许程序在保护后的稳定窗口中逐级恢复上传并发，最大不超过各数据类型配置值。
+    "allowConcurrencyIncrease": true
   },
 
   // 不参与动态学习、每次任务都直接使用的固定配置。

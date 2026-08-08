@@ -27,7 +27,11 @@ namespace KindomDataAPIServer.Common
         public int ThroughputImprovementPercent { get; set; } = 10;
         public int RollbackAfterNoImprovementWindows { get; set; } = 2;
         public int CooldownWindows { get; set; } = 2;
-        public bool AllowConcurrencyIncrease { get; set; }
+        public double LatencyRegressionMultiplier { get; set; } = 2;
+        public int LatencyRegressionConsecutiveRequests { get; set; } = 3;
+        public int StableWindowsToResetProtection { get; set; } = 2;
+        public int MinimumConcurrency { get; set; } = 2;
+        public bool AllowConcurrencyIncrease { get; set; } = true;
     }
 
     public sealed class AdaptiveFixedSettings
@@ -220,6 +224,7 @@ namespace KindomDataAPIServer.Common
         private readonly int _actualInitialReadBatch;
         private readonly long _actualInitialPayloadBytes;
         private readonly long _maximumPayloadBytes;
+        private readonly int _minimumAllowedConcurrency;
         private readonly AdaptiveDataTypeState _learned;
         private int _currentReadBatch;
         private long _currentPayloadBytes;
@@ -235,6 +240,10 @@ namespace KindomDataAPIServer.Common
         private double _baselineThroughput;
         private double _bestThroughput;
         private double _recentRequestLatencySeconds;
+        private int _consecutiveLatencyRegressions;
+        private int _consecutiveProtectionSignals;
+        private int _stableWindowsAfterProtection;
+        private bool _windowHadLatencyRegressionCandidate;
         private long _bestPayloadBytes;
         private int _bestReadBatch;
         private int _validWindows;
@@ -247,6 +256,7 @@ namespace KindomDataAPIServer.Common
         private int _readRollbackCount;
         private int _httpProtectionCount;
         private int _concurrencyReductionCount;
+        private int _concurrencyRecoveryCount;
         private int _oversizedItemCount;
         private long _preparationTicks;
         private long _serializationTicks;
@@ -282,6 +292,7 @@ namespace KindomDataAPIServer.Common
             _actualInitialReadBatch = _currentReadBatch;
             _actualInitialPayloadBytes = _currentPayloadBytes;
             _effectiveConcurrency = settings.Upload.Concurrency;
+            _minimumAllowedConcurrency = Math.Min(settings.Upload.Concurrency, Math.Max(1, common.MinimumConcurrency));
             _bestPayloadBytes = _currentPayloadBytes;
             _bestReadBatch = _currentReadBatch;
             _bestThroughput = learned?.BestStableThroughputBytesPerSecond ?? 0;
@@ -290,7 +301,7 @@ namespace KindomDataAPIServer.Common
             _minimumConcurrency = _effectiveConcurrency;
 
             SyncTaskReportService.Instance.LogSummary(
-                $"Adaptive sync {_dataType} initialized. Enabled:{_enabled}, configured read initial/max:{_configuredReadInitial}/{settings.ReadBatch.Max}, learned read:{learned?.BestStableReadBatch ?? 0}, actual read initial:{_currentReadBatch}, configured payload initial/max:{_configuredPayloadInitial}/{_maximumPayloadBytes} bytes, learned payload:{learned?.BestStablePayloadBytes ?? 0}, actual payload initial:{_currentPayloadBytes} bytes, concurrency:{settings.Upload.Concurrency}.");
+                $"Adaptive sync {_dataType} initialized. Enabled:{_enabled}, configured read initial/max:{_configuredReadInitial}/{settings.ReadBatch.Max}, learned read:{learned?.BestStableReadBatch ?? 0}, actual read initial:{_currentReadBatch}, configured payload initial/max:{_configuredPayloadInitial}/{_maximumPayloadBytes} bytes, learned payload:{learned?.BestStablePayloadBytes ?? 0}, actual payload initial:{_currentPayloadBytes} bytes, concurrency configured/minimum:{settings.Upload.Concurrency}/{_minimumAllowedConcurrency}, latency regression multiplier/consecutive requests:{common.LatencyRegressionMultiplier:F2}/{common.LatencyRegressionConsecutiveRequests}, stable windows to reset protection:{common.StableWindowsToResetProtection}.");
         }
 
         public int CurrentReadBatch { get { lock (_syncRoot) { return _currentReadBatch; } } }
@@ -423,15 +434,27 @@ namespace KindomDataAPIServer.Common
                     if (telemetry != null && telemetry.TotalElapsed.TotalSeconds > 0)
                     {
                         double currentLatency = telemetry.TotalElapsed.TotalSeconds;
-                        if (_recentRequestLatencySeconds > 0 && currentLatency > _recentRequestLatencySeconds * 2)
+                        double latencyThreshold = _recentRequestLatencySeconds * _common.LatencyRegressionMultiplier;
+                        if (_recentRequestLatencySeconds > 0 && currentLatency > latencyThreshold)
                         {
-                            _recentRequestLatencySeconds = currentLatency;
-                            ApplyProtection("latency-regression");
-                            return;
+                            _consecutiveLatencyRegressions++;
+                            _windowHadLatencyRegressionCandidate = true;
+                            if (_consecutiveLatencyRegressions >= _common.LatencyRegressionConsecutiveRequests)
+                            {
+                                _recentRequestLatencySeconds = currentLatency;
+                                ApplyProtection($"latency-regression ({_consecutiveLatencyRegressions} consecutive requests)");
+                                return;
+                            }
+                            SyncTaskReportService.Instance.Log(
+                                $"Adaptive sync {_dataType} latency regression candidate. Consecutive:{_consecutiveLatencyRegressions}/{_common.LatencyRegressionConsecutiveRequests}, request elapsed:{currentLatency:F3}s, recent latency:{_recentRequestLatencySeconds:F3}s, threshold:{latencyThreshold:F3}s; protection deferred.");
                         }
-                        _recentRequestLatencySeconds = _recentRequestLatencySeconds <= 0
-                            ? currentLatency
-                            : _recentRequestLatencySeconds * 0.75 + currentLatency * 0.25;
+                        else
+                        {
+                            _consecutiveLatencyRegressions = 0;
+                            _recentRequestLatencySeconds = _recentRequestLatencySeconds <= 0
+                                ? currentLatency
+                                : _recentRequestLatencySeconds * 0.75 + currentLatency * 0.25;
+                        }
                     }
 
                     DateTime now = DateTime.UtcNow;
@@ -453,8 +476,10 @@ namespace KindomDataAPIServer.Common
                     double throughput = _windowPayloadBytes / seconds;
                     int requestCount = _windowRequestCount;
                     long windowBytes = _windowPayloadBytes;
+                    bool windowHadLatencyRegressionCandidate = _windowHadLatencyRegressionCandidate;
                     _windowRequestCount = 0;
                     _windowPayloadBytes = 0;
+                    _windowHadLatencyRegressionCandidate = false;
                     _validWindows++;
 
                     if (_baselineThroughput <= 0)
@@ -468,6 +493,8 @@ namespace KindomDataAPIServer.Common
                         _bestPayloadBytes = _currentPayloadBytes;
                         _bestReadBatch = _currentReadBatch;
                     }
+
+                    RecordStableUploadWindow(!windowHadLatencyRegressionCandidate);
 
                     if (_cooldownWindows > 0)
                     {
@@ -561,7 +588,7 @@ namespace KindomDataAPIServer.Common
                     _bestPayloadBytes = Math.Max(MinimumPayloadBytes, _bestPayloadBytes);
                 }
                 SyncTaskReportService.Instance.LogSummary(
-                    $"Adaptive sync {_dataType} completed. Success:{_completedSuccessfully}, read configured/learned/initial/min/max/final/best:{_configuredReadInitial}/{_learned?.BestStableReadBatch ?? 0}/{_actualInitialReadBatch}/{_minimumReadBatch}/{_maximumReadBatch}/{_currentReadBatch}/{_bestReadBatch}, payload configured/learned/initial/min/max/final/best:{_configuredPayloadInitial}/{_learned?.BestStablePayloadBytes ?? 0}/{_actualInitialPayloadBytes}/{_minimumPayloadBytes}/{_maximumObservedPayloadBytes}/{_currentPayloadBytes}/{_bestPayloadBytes}, next read:{Math.Max(1, (int)Math.Round(_bestReadBatch * 0.75))}, next payload:{_bestPayloadBytes}, concurrency configured/minimum:{_settings.Upload.Concurrency}/{_minimumConcurrency}, throughput initial/best:{_baselineThroughput:F1}/{_bestThroughput:F1} bytes/s, valid windows:{_validWindows}, payload growth/rollback:{_payloadGrowthCount}/{_payloadRollbackCount}, read growth/rollback:{_readGrowthCount}/{_readRollbackCount}, HTTP protections:{_httpProtectionCount}, concurrency reductions:{_concurrencyReductionCount}, oversized items:{_oversizedItemCount}, preparation:{TimeSpan.FromTicks(_preparationTicks).TotalSeconds:F3}s, serialization:{TimeSpan.FromTicks(_serializationTicks).TotalSeconds:F3}s, queue wait:{TimeSpan.FromTicks(_queueWaitTicks).TotalSeconds:F3}s.");
+                    $"Adaptive sync {_dataType} completed. Success:{_completedSuccessfully}, read configured/learned/initial/min/max/final/best:{_configuredReadInitial}/{_learned?.BestStableReadBatch ?? 0}/{_actualInitialReadBatch}/{_minimumReadBatch}/{_maximumReadBatch}/{_currentReadBatch}/{_bestReadBatch}, payload configured/learned/initial/min/max/final/best:{_configuredPayloadInitial}/{_learned?.BestStablePayloadBytes ?? 0}/{_actualInitialPayloadBytes}/{_minimumPayloadBytes}/{_maximumObservedPayloadBytes}/{_currentPayloadBytes}/{_bestPayloadBytes}, next read:{Math.Max(1, (int)Math.Round(_bestReadBatch * 0.75))}, next payload:{_bestPayloadBytes}, concurrency configured/current/minimum/floor:{_settings.Upload.Concurrency}/{_effectiveConcurrency}/{_minimumConcurrency}/{_minimumAllowedConcurrency}, throughput initial/best:{_baselineThroughput:F1}/{_bestThroughput:F1} bytes/s, valid windows:{_validWindows}, payload growth/rollback:{_payloadGrowthCount}/{_payloadRollbackCount}, read growth/rollback:{_readGrowthCount}/{_readRollbackCount}, HTTP protections:{_httpProtectionCount}, concurrency reductions/recoveries:{_concurrencyReductionCount}/{_concurrencyRecoveryCount}, oversized items:{_oversizedItemCount}, preparation:{TimeSpan.FromTicks(_preparationTicks).TotalSeconds:F3}s, serialization:{TimeSpan.FromTicks(_serializationTicks).TotalSeconds:F3}s, queue wait:{TimeSpan.FromTicks(_queueWaitTicks).TotalSeconds:F3}s.");
             }
         }
 
@@ -605,20 +632,60 @@ namespace KindomDataAPIServer.Common
             long oldPayload = _currentPayloadBytes;
             _currentPayloadBytes = Math.Max(MinimumPayloadBytes, _currentPayloadBytes / 2);
             _httpProtectionCount++;
+            _consecutiveProtectionSignals++;
+            _consecutiveLatencyRegressions = 0;
+            _stableWindowsAfterProtection = 0;
             _cooldownWindows = _common.CooldownWindows;
             _lastAdjustmentWasProtection = true;
             _windowRequestCount = 0;
             _windowPayloadBytes = 0;
+            _windowHadLatencyRegressionCandidate = false;
             LogAdjustment("protect", "payload bytes", oldPayload, _currentPayloadBytes, "HTTP signal:" + signal);
-            if (_httpProtectionCount > 1 && _effectiveConcurrency > 1)
+            if (_consecutiveProtectionSignals > 1 && _effectiveConcurrency > _minimumAllowedConcurrency)
             {
                 int oldConcurrency = _effectiveConcurrency;
-                _effectiveConcurrency = Math.Max(1, _effectiveConcurrency / 2);
+                _effectiveConcurrency = Math.Max(_minimumAllowedConcurrency, _effectiveConcurrency / 2);
                 _minimumConcurrency = Math.Min(_minimumConcurrency, _effectiveConcurrency);
                 _concurrencyReductionCount++;
                 LogAdjustment("protect", "effective concurrency", oldConcurrency, _effectiveConcurrency, "persistent HTTP protection signal:" + signal);
             }
             _minimumPayloadBytes = Math.Min(_minimumPayloadBytes, _currentPayloadBytes);
+        }
+
+        private void RecordStableUploadWindow(bool isStable)
+        {
+            if (!isStable)
+            {
+                _stableWindowsAfterProtection = 0;
+                return;
+            }
+            if (_consecutiveProtectionSignals == 0 && _effectiveConcurrency >= _settings.Upload.Concurrency)
+            {
+                return;
+            }
+
+            _stableWindowsAfterProtection++;
+            if (_stableWindowsAfterProtection < _common.StableWindowsToResetProtection)
+            {
+                return;
+            }
+
+            int clearedProtectionSignals = _consecutiveProtectionSignals;
+            _consecutiveProtectionSignals = 0;
+            _stableWindowsAfterProtection = 0;
+            if (_common.AllowConcurrencyIncrease && _effectiveConcurrency < _settings.Upload.Concurrency)
+            {
+                int oldConcurrency = _effectiveConcurrency;
+                _effectiveConcurrency++;
+                _concurrencyRecoveryCount++;
+                LogAdjustment("stable", "effective concurrency", oldConcurrency, _effectiveConcurrency,
+                    $"{_common.StableWindowsToResetProtection} stable upload windows after protection; protection streak reset from {clearedProtectionSignals}");
+            }
+            else if (clearedProtectionSignals > 0)
+            {
+                SyncTaskReportService.Instance.LogSummary(
+                    $"Adaptive sync {_dataType} protection streak reset. Previous consecutive signals:{clearedProtectionSignals}, stable upload windows:{_common.StableWindowsToResetProtection}.");
+            }
         }
 
         private void ExitUpload()
@@ -819,6 +886,10 @@ namespace KindomDataAPIServer.Common
             settings.Common.ThroughputImprovementPercent = ClampAndLog("common.throughputImprovementPercent", settings.Common.ThroughputImprovementPercent, 0, 100);
             settings.Common.RollbackAfterNoImprovementWindows = ClampAndLog("common.rollbackAfterNoImprovementWindows", settings.Common.RollbackAfterNoImprovementWindows, 1, 20);
             settings.Common.CooldownWindows = ClampAndLog("common.cooldownWindows", settings.Common.CooldownWindows, 0, 20);
+            settings.Common.LatencyRegressionMultiplier = ClampAndLog("common.latencyRegressionMultiplier", settings.Common.LatencyRegressionMultiplier, 1.1, 10);
+            settings.Common.LatencyRegressionConsecutiveRequests = ClampAndLog("common.latencyRegressionConsecutiveRequests", settings.Common.LatencyRegressionConsecutiveRequests, 2, 20);
+            settings.Common.StableWindowsToResetProtection = ClampAndLog("common.stableWindowsToResetProtection", settings.Common.StableWindowsToResetProtection, 1, 20);
+            settings.Common.MinimumConcurrency = ClampAndLog("common.minimumConcurrency", settings.Common.MinimumConcurrency, 1, 16);
             settings.Fixed.WellHeaderUploadBatchSize = ClampAndLog("fixed.wellHeaderUploadBatchSize", settings.Fixed.WellHeaderUploadBatchSize, 1, 50000);
             NormalizeType("formation", settings.DataTypes.Formation, 1000, 16, 2000000);
             NormalizeType("trajectory", settings.DataTypes.Trajectory, 1000, 16, 5000000);
