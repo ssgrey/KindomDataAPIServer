@@ -106,14 +106,15 @@ namespace KindomDataAPIServer
                     apiData = Utils.ParseUri(decodedArgs);
                     var client = ServiceLocator.GetService<IApiClient>();
                     client.SetHeaders(apiData.token, apiData.tetproj);
-                    if (apiData.port.Contains("30015"))
+                    string apiScheme = (ConfigurationManager.AppSettings["ApiScheme"] ?? string.Empty)
+                        .Trim()
+                        .ToLowerInvariant();
+                    if (apiScheme != Uri.UriSchemeHttp && apiScheme != Uri.UriSchemeHttps)
                     {
-                        client.SetBaseUrl($"http://{apiData.ip}:{apiData.port}/tet/");
+                        throw new ConfigurationErrorsException(
+                            "App setting 'ApiScheme' must be 'http' or 'https'.");
                     }
-                    else
-                    {
-                        client.SetBaseUrl($"https://{apiData.ip}:{apiData.port}/tet/");
-                    }
+                    client.SetBaseUrl($"{apiScheme}://{apiData.ip}:{apiData.port}/tet/");
                 }
             }
             catch (Exception ex)
