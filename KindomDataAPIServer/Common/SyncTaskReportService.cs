@@ -26,6 +26,7 @@ namespace KindomDataAPIServer.Common
         private const string ReportDirectoryName = "TaskReports";
         private const string ReportFilePattern = "sync-task-*.txt";
         private const int MaxRecordedUploadErrorsPerOperation = 10;
+        private const int MaxRecordedDataErrorsPerOperation = 5;
 
         private static readonly Lazy<SyncTaskReportService> _instance =
             new Lazy<SyncTaskReportService>(() => new SyncTaskReportService());
@@ -33,6 +34,8 @@ namespace KindomDataAPIServer.Common
         private readonly object _syncRoot = new object();
         private string _reportDirectory;
         private readonly Dictionary<string, int> _recordedUploadErrorCounts = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> _recordedDataErrorCounts = new Dictionary<string, int>();
+        private readonly HashSet<string> _dataErrorLimitNotifications = new HashSet<string>();
         private readonly List<OperationTimingSummary> _operationTimingSummaries = new List<OperationTimingSummary>();
         private string _currentReportPath;
         private long _apiReadCount;
@@ -86,6 +89,8 @@ namespace KindomDataAPIServer.Common
         {
             lock (_syncRoot)
             {
+                _recordedDataErrorCounts.Clear();
+                _dataErrorLimitNotifications.Clear();
                 if (string.IsNullOrWhiteSpace(_reportDirectory) || !TryEnsureWritableDirectory(_reportDirectory))
                 {
                     _reportDirectory = ResolveReportDirectory();
@@ -293,6 +298,85 @@ namespace KindomDataAPIServer.Common
             RecordError($"{operationName} batch {batchIndex} synchronization failed. Failed:{failedCount}, UWIs:[{failedUwis ?? batchUwis}], first errorCode:{firstFailedItem?.errorCode}, first errorMessage:{firstFailedItem?.Message}, request details:{detailsPath ?? "unavailable"}");
         }
 
+        public void RecordUploadResponseItemErrors(
+            string operationName,
+            string errorDirectoryName,
+            string endpoint,
+            string batchUwis,
+            string failedUwis,
+            int batchIndex,
+            long payloadBytes,
+            object request,
+            WellOperationResult response,
+            string additionalRequestParameters = null)
+        {
+            List<WellOperationDetail> failedItems = response?.Results?
+                .Where(result => result.errorCode != 0)
+                .ToList() ?? new List<WellOperationDetail>();
+            int summaryFailedCount = response?.Summary?.failed ?? 0;
+            int failedCount = Math.Max(summaryFailedCount, failedItems.Count);
+            if (failedCount <= 0)
+            {
+                return;
+            }
+
+            if (failedItems.Count == 0)
+            {
+                if (!TryReserveDataError(operationName, out bool notifyLimit))
+                {
+                    LogDataErrorLimit(operationName, notifyLimit);
+                    return;
+                }
+
+                string batchDetailsPath = WriteUploadErrorDetails(
+                    operationName,
+                    errorDirectoryName,
+                    endpoint,
+                    batchUwis,
+                    batchIndex,
+                    payloadBytes,
+                    request,
+                    response,
+                    additionalRequestParameters);
+                RecordError($"{operationName} upload response reported failed data without item details. Batch:{batchIndex}, failed:{failedCount}, UWIs:[{failedUwis ?? batchUwis}], request details:{batchDetailsPath ?? "unavailable"}");
+                return;
+            }
+
+            string detailsPath = null;
+            foreach (WellOperationDetail failedItem in failedItems)
+            {
+                if (!TryReserveDataError(operationName, out bool notifyLimit))
+                {
+                    LogDataErrorLimit(operationName, notifyLimit);
+                    break;
+                }
+
+                if (detailsPath == null)
+                {
+                    detailsPath = WriteUploadErrorDetails(
+                        operationName,
+                        errorDirectoryName,
+                        endpoint,
+                        batchUwis,
+                        batchIndex,
+                        payloadBytes,
+                        request,
+                        response,
+                        additionalRequestParameters);
+                }
+
+                var identifiers = new List<string>();
+                if (failedItem.wellId != 0) identifiers.Add("wellId:" + failedItem.wellId);
+                if (!string.IsNullOrWhiteSpace(failedItem.wellName)) identifiers.Add("wellName:" + failedItem.wellName);
+                if (!string.IsNullOrWhiteSpace(failedItem.InputWellName)) identifiers.Add("inputWellName:" + failedItem.InputWellName);
+                if (!string.IsNullOrWhiteSpace(failedItem.formationName)) identifiers.Add("formationName:" + failedItem.formationName);
+                if (failedItem.dataSetId != 0) identifiers.Add("dataSetId:" + failedItem.dataSetId);
+                if (!string.IsNullOrWhiteSpace(failedItem.curveName)) identifiers.Add("curveName:" + failedItem.curveName);
+                string itemIdentity = identifiers.Count == 0 ? "unavailable" : string.Join(", ", identifiers);
+                RecordError($"{operationName} data item upload failed. Batch:{batchIndex}, item:[{itemIdentity}], errorCode:{failedItem.errorCode}, errorMessage:{failedItem.Message}, request details:{detailsPath ?? "unavailable"}");
+            }
+        }
+
         public void RecordDataValidationError(
             string operationName,
             string errorDirectoryName,
@@ -301,18 +385,19 @@ namespace KindomDataAPIServer.Common
             string validationMessage,
             object sourceData)
         {
-            string detailsPath = null;
-            if (TryReserveUploadError(operationName + "DataValidation"))
+            if (!TryReserveDataError(operationName, out bool notifyLimit))
             {
-                detailsPath = WriteDataValidationErrorDetails(
-                    operationName,
-                    errorDirectoryName,
-                    uwi,
-                    itemDescription,
-                    validationMessage,
-                    sourceData);
+                LogDataErrorLimit(operationName, notifyLimit);
+                return;
             }
 
+            string detailsPath = WriteDataValidationErrorDetails(
+                operationName,
+                errorDirectoryName,
+                uwi,
+                itemDescription,
+                validationMessage,
+                sourceData);
             RecordError($"{operationName} synchronization skipped for UWI:{uwi}, {itemDescription} due to {validationMessage}. Source data details:{detailsPath ?? "unavailable"}");
         }
 
@@ -444,6 +529,32 @@ namespace KindomDataAPIServer.Common
 
                 _recordedUploadErrorCounts[key] = currentCount + 1;
                 return true;
+            }
+        }
+
+        private bool TryReserveDataError(string operationName, out bool notifyLimit)
+        {
+            lock (_syncRoot)
+            {
+                string key = operationName ?? string.Empty;
+                _recordedDataErrorCounts.TryGetValue(key, out int currentCount);
+                if (currentCount >= MaxRecordedDataErrorsPerOperation)
+                {
+                    notifyLimit = _dataErrorLimitNotifications.Add(key);
+                    return false;
+                }
+
+                _recordedDataErrorCounts[key] = currentCount + 1;
+                notifyLimit = false;
+                return true;
+            }
+        }
+
+        private void LogDataErrorLimit(string operationName, bool notifyLimit)
+        {
+            if (notifyLimit)
+            {
+                LogSummary($"{operationName} data error detail limit reached. Recorded the first {MaxRecordedDataErrorsPerOperation} data errors for this task; subsequent repeated data errors are omitted.");
             }
         }
 

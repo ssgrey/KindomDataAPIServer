@@ -1590,9 +1590,9 @@ namespace KindomDataAPIServer.KindomAPI
 
                                     int currentSyncedCount = Interlocked.Add(ref syncedTrajectoryCount, uploadBatch.ItemCount);
                                     int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
-                                    int failedCount = res.Summary?.failed
-                                        ?? res.Results?.Count(result => result.errorCode != 0)
-                                        ?? 0;
+                                    int failedCount = Math.Max(
+                                        res.Summary?.failed ?? 0,
+                                        res.Results?.Count(result => result.errorCode != 0) ?? 0);
                                     SyncTaskReportService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], trajectories:{uploadBatch.ItemCount}, points:{uploadBatch.DataPointCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced trajectories:{currentSyncedCount}.");
                                     if (failedCount > 0)
                                     {
@@ -1608,7 +1608,7 @@ namespace KindomDataAPIServer.KindomAPI
                                             failedUwis.AddRange(uploadBatch.WellUwisById.Values.Distinct());
                                         }
 
-                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                        SyncTaskReportService.Instance.RecordUploadResponseItemErrors(
                                             "WellTrajs",
                                             "WellTrajectoryUploadErrors",
                                             "dp/api/welldata/batch_create_well_trajectory_with_meta_infos",
@@ -1783,11 +1783,33 @@ namespace KindomDataAPIServer.KindomAPI
                                     .ToList();
 
                                 long wellWebID = Utils.GetWellIDByWellUWI(wellGroup.Key, WellIDandNameList);
+                                if (wellWebID == -1)
+                                {
+                                    SyncTaskReportService.Instance.RecordDataValidationError(
+                                        "WellTrajs",
+                                        "WellTrajectoryValidationErrors",
+                                        wellGroup.Key,
+                                        $"borehole IDs:[{string.Join(",", boreholeIds)}]",
+                                        "Web WellId mapping was not found",
+                                        new { Uwi = wellGroup.Key, BoreholeIds = boreholeIds });
+                                    continue;
+                                }
                                 if (wellWebID != -1)
                                 {
                                     foreach (var formItem in deviationSurveys)
                                     {
                                         cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                                        if (formItem.data == null)
+                                        {
+                                            SyncTaskReportService.Instance.RecordDataValidationError(
+                                                "WellTrajs",
+                                                "WellTrajectoryValidationErrors",
+                                                wellGroup.Key,
+                                                $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}",
+                                                "deviation survey data is null",
+                                                formItem);
+                                            continue;
+                                        }
                                         if (formItem.data != null)
                                         {
                                             var mdValues = formItem.data.MD;
@@ -1847,10 +1869,14 @@ namespace KindomDataAPIServer.KindomAPI
                                             {
                                                 validationError = $"inconsistent data field lengths (MD:{trajectoryPointCount}, TVD:{tvdValues.Count}, DX:{dxValues.Count}, DY:{dyValues.Count}, Azimuth:{azimuthValues.Count}, Inclination:{inclinationValues.Count})";
                                             }
-                                            else if (dxValues.Any(value => double.IsNaN(value) || double.IsInfinity(value)) ||
-                                                dyValues.Any(value => double.IsNaN(value) || double.IsInfinity(value)))
+                                            else if (mdValues.Any(value => IsInvalidNumber(value)) ||
+                                                tvdValues.Any(value => IsInvalidNumber(value)) ||
+                                                dxValues.Any(value => IsInvalidNumber(value)) ||
+                                                dyValues.Any(value => IsInvalidNumber(value)) ||
+                                                azimuthValues.Any(value => IsInvalidNumber(value)) ||
+                                                inclinationValues.Any(value => IsInvalidNumber(value)))
                                             {
-                                                validationError = "invalid coordinates (NaN or Infinity) in DX or DY";
+                                                validationError = "one or more trajectory fields contain NaN or Infinity";
                                             }
                                             validationStopwatch.Stop();
                                             totalTrajectoryValidationElapsedTicks += validationStopwatch.Elapsed.Ticks;
@@ -1875,6 +1901,7 @@ namespace KindomDataAPIServer.KindomAPI
                                                 CoordList = new List<CoordData>(trajectoryPointCount),
                                                 AimuthList = new List<AimuthData>(trajectoryPointCount)
                                             };
+                                            bool conversionFailed = false;
                                             try
                                             {
                                                 for (int pointIndex = 0; pointIndex < trajectoryPointCount; pointIndex++)
@@ -1906,6 +1933,8 @@ namespace KindomDataAPIServer.KindomAPI
                                                             $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}, point index:{pointIndex}",
                                                             $"failed to create AimuthData: {ex.Message}",
                                                             trajectorySourceData);
+                                                        conversionFailed = true;
+                                                        break;
                                                     }
                                                 }
                                             }
@@ -1913,6 +1942,11 @@ namespace KindomDataAPIServer.KindomAPI
                                             {
                                                 conversionStopwatch.Stop();
                                                 totalTrajectoryConversionElapsedTicks += conversionStopwatch.Elapsed.Ticks;
+                                            }
+
+                                            if (conversionFailed)
+                                            {
+                                                continue;
                                             }
 
                                             batchRequest.Items.Add(wellTrajData);
@@ -2115,7 +2149,6 @@ namespace KindomDataAPIServer.KindomAPI
             long maximumUploadBytes = 0;
             long totalReadElapsedTicks = 0;
             long totalUploadElapsedTicks = 0;
-            var missingLogTypeNames = new HashSet<string>();
             var localReadWallTimer = new WallClockActivityTimer();
             var uploadWallTimer = new WallClockActivityTimer();
             var totalStopwatch = Stopwatch.StartNew();
@@ -2186,15 +2219,15 @@ namespace KindomDataAPIServer.KindomAPI
 
                                     int currentSyncedCount = Interlocked.Add(ref syncedLogCount, uploadBatch.ItemCount);
                                     int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
-                                    int failedCount = res4.Summary?.failed
-                                        ?? res4.Results?.Count(result => result.errorCode != 0)
-                                        ?? 0;
+                                    int failedCount = Math.Max(
+                                        res4.Summary?.failed ?? 0,
+                                        res4.Results?.Count(result => result.errorCode != 0) ?? 0);
                                     SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, failed:{failedCount}, protobuf bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced curves:{currentSyncedCount}.");
                                     string failedUwis = string.Join(",", res4.Results?
                                         .Where(result => result.errorCode != 0)
                                         .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
                                         .Distinct() ?? Enumerable.Empty<string>());
-                                    SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                    SyncTaskReportService.Instance.RecordUploadResponseItemErrors(
                                         "WellLogs",
                                         "WellLogUploadErrors",
                                         "dp/api/well_log/batch_create_well_log",
@@ -2324,8 +2357,37 @@ namespace KindomDataAPIServer.KindomAPI
                                     SyncTaskReportService.Instance.Log($"LogData records skipped because LogCurveName is empty. Read batch:{readBatchIndex}, skipped curves:{missingCurveNameCount}.");
                                 }
 
+                                foreach (var invalidLog in formations)
+                                {
+                                    var missingFields = new List<string>();
+                                    if (string.IsNullOrWhiteSpace(invalidLog.wellUWI)) missingFields.Add("UWI");
+                                    if (invalidLog.LogData == null) missingFields.Add("LogData");
+                                    if (invalidLog.LogCurveName == null || string.IsNullOrWhiteSpace(invalidLog.LogCurveName.Name)) missingFields.Add("LogCurveName");
+                                    if (missingFields.Count > 0)
+                                    {
+                                        SyncTaskReportService.Instance.RecordDataValidationError(
+                                            "WellLogs",
+                                            "WellLogValidationErrors",
+                                            invalidLog.wellUWI,
+                                            $"borehole ID:{invalidLog.boreholeId}",
+                                            $"missing required fields: {string.Join(",", missingFields)}",
+                                            new
+                                            {
+                                                invalidLog.boreholeId,
+                                                invalidLog.wellUWI,
+                                                CurveName = invalidLog.LogCurveName?.Name,
+                                                StartDepth = invalidLog.LogData?.StartDepth,
+                                                DepthSampleRate = invalidLog.LogData?.DepthSampleRate,
+                                                Samples = invalidLog.LogData?.LogDataValues?.ToArray()
+                                            });
+                                    }
+                                }
+
                                 var dicts = formations
-                                    .Where(item => !string.IsNullOrWhiteSpace(item.wellUWI))
+                                    .Where(item => !string.IsNullOrWhiteSpace(item.wellUWI)
+                                        && item.LogData != null
+                                        && item.LogCurveName != null
+                                        && !string.IsNullOrWhiteSpace(item.LogCurveName.Name))
                                     .GroupBy(item => item.wellUWI)
                                     .ToDictionary(group => group.Key, group => group.ToList());
                                 foreach (var item in dicts)
@@ -2333,7 +2395,16 @@ namespace KindomDataAPIServer.KindomAPI
                                     cancellationTokenSource.Token.ThrowIfCancellationRequested();
                                     long wellWebID = Utils.GetWellIDByWellUWI(item.Key, WellIDandNameList);
                                     if (wellWebID == -1)
+                                    {
+                                        SyncTaskReportService.Instance.RecordDataValidationError(
+                                            "WellLogs",
+                                            "WellLogValidationErrors",
+                                            item.Key,
+                                            $"borehole IDs:[{string.Join(",", item.Value.Select(value => value.boreholeId).Distinct())}]",
+                                            "Web WellId mapping was not found",
+                                            new { Uwi = item.Key, BoreholeIds = item.Value.Select(value => value.boreholeId).Distinct().ToList() });
                                         continue;
+                                    }
 
                                     foreach (var formItem in item.Value)
                                     {
@@ -2342,11 +2413,50 @@ namespace KindomDataAPIServer.KindomAPI
                                             if (selectionRequired && !checkNames.Contains(formItem.LogCurveName.Name))
                                                 continue;
                                             var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o).ToArray();
+                                            var validationErrors = new List<string>();
+                                            if (!formItem.LogData.StartDepth.HasValue) validationErrors.Add("StartDepth is missing");
+                                            else if (IsInvalidNumber(formItem.LogData.StartDepth.Value)) validationErrors.Add("StartDepth is NaN or Infinity");
+                                            if (!formItem.LogData.DepthSampleRate.HasValue) validationErrors.Add("DepthSampleRate is missing");
+                                            else if (IsInvalidNumber(formItem.LogData.DepthSampleRate.Value) || formItem.LogData.DepthSampleRate.Value <= 0) validationErrors.Add("DepthSampleRate must be a finite positive number");
+                                            if (dataArray.Length == 0) validationErrors.Add("samples are empty");
+                                            else if (dataArray.Any(IsInvalidNumber)) validationErrors.Add("samples contain NaN or Infinity");
+                                            var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
+                                            if (checkNameObj == null) validationErrors.Add("curve mapping was not found");
+                                            else
+                                            {
+                                                if (checkNameObj.LogType == null) validationErrors.Add("LogType is missing");
+                                                else
+                                                {
+                                                    if (string.IsNullOrWhiteSpace(checkNameObj.LogType.FamilyName)) validationErrors.Add("curve family is missing");
+                                                    if (checkNameObj.LogType.MeasureType <= 0) validationErrors.Add("sample measure is missing");
+                                                }
+                                                if (checkNameObj.UnitID <= 0) validationErrors.Add("sample unit is missing");
+                                            }
+                                            if (validationErrors.Count > 0)
+                                            {
+                                                SyncTaskReportService.Instance.RecordDataValidationError(
+                                                    "WellLogs",
+                                                    "WellLogValidationErrors",
+                                                    item.Key,
+                                                    $"borehole ID:{formItem.boreholeId}, curve:{formItem.LogCurveName.Name}",
+                                                    string.Join("; ", validationErrors),
+                                                    new
+                                                    {
+                                                        formItem.boreholeId,
+                                                        Uwi = item.Key,
+                                                        CurveName = formItem.LogCurveName.Name,
+                                                        formItem.LogData.StartDepth,
+                                                        formItem.LogData.DepthSampleRate,
+                                                        Samples = dataArray
+                                                    });
+                                                continue;
+                                            }
+
                                             PbWellLogCreateParams logObj = new PbWellLogCreateParams
                                             {
                                                 WellId = wellWebID,
-                                                SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
-                                                StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
+                                                SampleRate = formItem.LogData.DepthSampleRate.Value,
+                                                StartDepth = formItem.LogData.StartDepth.Value,
                                                 CurveName = formItem.LogCurveName.Name,
                                                 DataSetId = dataSetId,
                                             };
@@ -2356,20 +2466,9 @@ namespace KindomDataAPIServer.KindomAPI
                                                 logObj.StartDepth = logObj.StartDepth.ToMeters();
                                             }
 
-                                            var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
-                                            if (checkNameObj != null)
-                                            {
-                                                logObj.SampleUnitId = checkNameObj.UnitID;
-                                                if (checkNameObj.LogType != null)
-                                                {
-                                                    logObj.CurveType = checkNameObj.LogType.FamilyName;
-                                                    logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
-                                                }
-                                                else if (missingLogTypeNames.Add(formItem.LogCurveName.Name))
-                                                {
-                                                    SyncTaskReportService.Instance.Log($"WellLogs curve metadata is incomplete because LogType is empty. Curve name:{formItem.LogCurveName.Name}.");
-                                                }
-                                            }
+                                            logObj.SampleUnitId = checkNameObj.UnitID;
+                                            logObj.CurveType = checkNameObj.LogType.FamilyName;
+                                            logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
 
                                             logObj.Samples.AddRange(dataArray);
                                             batchLogList.LogList.Add(logObj);
@@ -2716,15 +2815,15 @@ namespace KindomDataAPIServer.KindomAPI
 
                                         int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, uploadBatch.DailyDataCount);
                                         int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
-                                        int failedCount = res4.Summary?.failed
-                                            ?? res4.Results?.Count(result => result.errorCode != 0)
-                                            ?? 0;
+                                        int failedCount = Math.Max(
+                                            res4.Summary?.failed ?? 0,
+                                            res4.Results?.Count(result => result.errorCode != 0) ?? 0);
                                         SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, daily items:{uploadBatch.DailyDataCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced daily items:{currentSyncedCount}.");
                                         string failedUwis = string.Join(",", res4.Results?
                                             .Where(result => result.errorCode != 0)
                                             .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
                                             .Distinct() ?? Enumerable.Empty<string>());
-                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                        SyncTaskReportService.Instance.RecordUploadResponseItemErrors(
                                             "WellProduction",
                                             "WellProductionUploadErrors",
                                             "dp/api/welldata/batch_create_well_production_with_meta_infos",
@@ -2920,13 +3019,61 @@ namespace KindomDataAPIServer.KindomAPI
                                     string WellUWI = wellGroup.Key;
                                     long wellWebID = Utils.GetWellIDByWellUWI(WellUWI, wellIDandNameList);
                                     if (wellWebID == -1)
+                                    {
+                                        SyncTaskReportService.Instance.RecordDataValidationError(
+                                            "WellProduction",
+                                            "WellProductionValidationErrors",
+                                            WellUWI,
+                                            $"borehole IDs:[{string.Join(",", wellGroup.Select(well => well.BoreholeId).Distinct())}]",
+                                            "Web WellId mapping was not found",
+                                            new { Uwi = WellUWI, BoreholeIds = wellGroup.Select(well => well.BoreholeId).Distinct().ToList() });
                                         continue;
+                                    }
 
                                     var dailyDataList = new List<DailyData>();
                                     foreach (var item in kindomDatas)
                                     {
-                                        if (item.data.StartDate == null || item.data.EndDate == null)
+                                        string validationError = null;
+                                        if (item.data == null)
+                                        {
+                                            validationError = "production history data is null";
+                                        }
+                                        else if (!item.data.StartDate.HasValue || !item.data.EndDate.HasValue)
+                                        {
+                                            validationError = "StartDate or EndDate is missing";
+                                        }
+                                        else if (item.data.EndDate.Value < item.data.StartDate.Value)
+                                        {
+                                            validationError = "EndDate is earlier than StartDate";
+                                        }
+                                        else if ((isShowOil && item.data.OilProductionVolume.HasValue && IsInvalidNumber(item.data.OilProductionVolume.Value)) ||
+                                            (isShowGas && item.data.GasProductionVolume.HasValue && IsInvalidNumber(item.data.GasProductionVolume.Value)) ||
+                                            (isShowWater && item.data.WaterProductionVolume.HasValue && IsInvalidNumber(item.data.WaterProductionVolume.Value)))
+                                        {
+                                            validationError = "selected production volume contains NaN or Infinity";
+                                        }
+
+                                        if (validationError != null)
+                                        {
+                                            SyncTaskReportService.Instance.RecordDataValidationError(
+                                                "WellProduction",
+                                                "WellProductionValidationErrors",
+                                                WellUWI,
+                                                $"borehole ID:{item.boreholeId}, history period:{item.data?.StartDate:O}-{item.data?.EndDate:O}",
+                                                validationError,
+                                                new
+                                                {
+                                                    item.boreholeId,
+                                                    Uwi = WellUWI,
+                                                    StartDate = item.data?.StartDate,
+                                                    EndDate = item.data?.EndDate,
+                                                    OilProductionVolume = item.data?.OilProductionVolume,
+                                                    GasProductionVolume = item.data?.GasProductionVolume,
+                                                    WaterProductionVolume = item.data?.WaterProductionVolume
+                                                });
                                             continue;
+                                        }
+
                                         TimeSpan timespan = item.data.EndDate.Value - item.data.StartDate.Value;
                                         int totalDays = timespan.Days + 1;
                                         for (int i = 0; i < totalDays; i++)
@@ -3148,6 +3295,11 @@ namespace KindomDataAPIServer.KindomAPI
             return byteCount;
         }
 
+        private static bool IsInvalidNumber(double value)
+        {
+            return double.IsNaN(value) || double.IsInfinity(value);
+        }
+
         private static int GetProtobufPayloadByteCount(IMessage request, AdaptiveSyncController adaptiveController)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -3262,6 +3414,13 @@ namespace KindomDataAPIServer.KindomAPI
                         processedWellCount++;
                         if (!wellIdByUwi.TryGetValue(wellGroup.Key, out long wellWebId))
                         {
+                            SyncTaskReportService.Instance.RecordDataValidationError(
+                                "WellTest",
+                                "WellTestValidationErrors",
+                                wellGroup.Key,
+                                $"borehole IDs:[{string.Join(",", wellGroup.Select(well => well.BoreholeId).Distinct())}]",
+                                "Web WellId mapping was not found",
+                                new { Uwi = wellGroup.Key, BoreholeIds = wellGroup.Select(well => well.BoreholeId).Distinct().ToList() });
                             continue;
                         }
 
@@ -3288,10 +3447,85 @@ namespace KindomDataAPIServer.KindomAPI
 
                         foreach (var testRecord in wellTestRecords)
                         {
-                            if (testRecord.data == null ||
-                                !testRecord.data.StartDepth.HasValue ||
-                                !testRecord.data.EndDepth.HasValue)
+                            var validationErrors = new List<string>();
+                            int gasOrder = 0;
+                            if (testRecord.data == null)
                             {
+                                validationErrors.Add("test data is null");
+                            }
+                            else
+                            {
+                                if (!testRecord.data.StartDepth.HasValue) validationErrors.Add("StartDepth is missing");
+                                else if (IsInvalidNumber(testRecord.data.StartDepth.Value)) validationErrors.Add("StartDepth is NaN or Infinity");
+                                if (!testRecord.data.EndDepth.HasValue) validationErrors.Add("EndDepth is missing");
+                                else if (IsInvalidNumber(testRecord.data.EndDepth.Value)) validationErrors.Add("EndDepth is NaN or Infinity");
+                                if (testRecord.data.StartDepth.HasValue && testRecord.data.EndDepth.HasValue &&
+                                    testRecord.data.EndDepth.Value < testRecord.data.StartDepth.Value)
+                                {
+                                    validationErrors.Add("EndDepth is less than StartDepth");
+                                }
+
+                                var numericValues = new[]
+                                {
+                                    testRecord.data.GasVolume,
+                                    testRecord.data.OilVolume,
+                                    testRecord.data.WaterVolume,
+                                    testRecord.data.TopChokeSize,
+                                    testRecord.data.FlowingTubingPressure,
+                                    testRecord.data.BottomHoleTemperature
+                                };
+                                if (numericValues.Any(value => value.HasValue && IsInvalidNumber(value.Value)))
+                                {
+                                    validationErrors.Add("test values contain NaN or Infinity");
+                                }
+
+                                string candidateTestNumber = testRecord.header?.TestNumber;
+                                if (testRecord.data.GasVolume.HasValue && !int.TryParse(candidateTestNumber, out gasOrder))
+                                {
+                                    validationErrors.Add("gas test number is missing or is not an integer");
+                                }
+                                if (testRecord.data.GasVolume.HasValue &&
+                                    !TryGetWellTestUnit(mappedUnits, TestGasVolume, testRecord.data.GasRate, out _))
+                                {
+                                    validationErrors.Add($"gas unit mapping was not found for '{testRecord.data.GasRate}'");
+                                }
+                                if (testRecord.data.OilVolume.HasValue &&
+                                    !TryGetWellTestUnit(mappedUnits, TestOilVolume, testRecord.data.OilRate, out _))
+                                {
+                                    validationErrors.Add($"oil unit mapping was not found for '{testRecord.data.OilRate}'");
+                                }
+                                if (testRecord.data.WaterVolume.HasValue &&
+                                    (testRecord.data.GasVolume.HasValue || testRecord.data.OilVolume.HasValue) &&
+                                    !TryGetWellTestUnit(mappedUnits, TestWaterVolume, testRecord.data.WaterRate, out _))
+                                {
+                                    validationErrors.Add($"water unit mapping was not found for '{testRecord.data.WaterRate}'");
+                                }
+                            }
+
+                            if (validationErrors.Count > 0)
+                            {
+                                SyncTaskReportService.Instance.RecordDataValidationError(
+                                    "WellTest",
+                                    "WellTestValidationErrors",
+                                    wellGroup.Key,
+                                    $"borehole ID:{testRecord.boreholeId}, test number:{testRecord.header?.TestNumber}",
+                                    string.Join("; ", validationErrors),
+                                    new
+                                    {
+                                        testRecord.boreholeId,
+                                        TestNumber = testRecord.header?.TestNumber,
+                                        StartDepth = testRecord.data?.StartDepth,
+                                        EndDepth = testRecord.data?.EndDepth,
+                                        GasVolume = testRecord.data?.GasVolume,
+                                        GasRate = testRecord.data?.GasRate,
+                                        OilVolume = testRecord.data?.OilVolume,
+                                        OilRate = testRecord.data?.OilRate,
+                                        WaterVolume = testRecord.data?.WaterVolume,
+                                        WaterRate = testRecord.data?.WaterRate,
+                                        TopChokeSize = testRecord.data?.TopChokeSize,
+                                        FlowingTubingPressure = testRecord.data?.FlowingTubingPressure,
+                                        BottomHoleTemperature = testRecord.data?.BottomHoleTemperature
+                                    });
                                 continue;
                             }
 
@@ -3302,13 +3536,12 @@ namespace KindomDataAPIServer.KindomAPI
 
                             if (testRecord.data.GasVolume.HasValue)
                             {
-                                int.TryParse(testNumber, out int order);
                                 gasData.GasTestList.Add(new GasTestData
                                 {
                                     WellId = wellWebId.ToString(),
                                     WellName = wellName,
                                     Interval = interval,
-                                    Freq = order,
+                                    Freq = gasOrder,
                                     Wpr = testRecord.data.GasVolume.Value,
                                     Wp = testRecord.data.WaterVolume ?? 0
                                 });
@@ -3726,9 +3959,9 @@ namespace KindomDataAPIServer.KindomAPI
                                     {
                                         Interlocked.Add(ref uploadedOilTestCount, uploadBatch.TestRecordCount);
                                     }
-                                    int failedCount = response.Summary?.failed
-                                        ?? response.Results?.Count(result => result.errorCode != 0)
-                                        ?? 0;
+                                    int failedCount = Math.Max(
+                                        response.Summary?.failed ?? 0,
+                                        response.Results?.Count(result => result.errorCode != 0) ?? 0);
                                     SyncTaskReportService.Instance.Log($"Well{testType}Test batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, test records:{uploadBatch.TestRecordCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s.");
                                     if (failedCount > 0)
                                     {
@@ -3739,8 +3972,8 @@ namespace KindomDataAPIServer.KindomAPI
                                         object request = uploadBatch.IsGas
                                             ? (object)uploadBatch.GasRequest
                                             : uploadBatch.OilRequest;
-                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
-                                            $"Well{testType}Test",
+                                        SyncTaskReportService.Instance.RecordUploadResponseItemErrors(
+                                            "WellTest",
                                             $"Well{testType}TestUploadErrors",
                                             endpoint,
                                             batchUwis,
