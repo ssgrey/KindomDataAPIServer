@@ -1829,7 +1829,7 @@ namespace KindomDataAPIServer.KindomAPI
                                             };
 
                                             var validationStopwatch = Stopwatch.StartNew();
-                                            var missingOrEmptyFields = new List<string>(6);
+                                            var missingOrEmptyFields = new List<string>(4);
                                             if (mdValues == null || mdValues.Count == 0)
                                             {
                                                 missingOrEmptyFields.Add("MD");
@@ -1846,15 +1846,6 @@ namespace KindomDataAPIServer.KindomAPI
                                             {
                                                 missingOrEmptyFields.Add("DY");
                                             }
-                                            if (azimuthValues == null || azimuthValues.Count == 0)
-                                            {
-                                                missingOrEmptyFields.Add("Azimuth");
-                                            }
-                                            if (inclinationValues == null || inclinationValues.Count == 0)
-                                            {
-                                                missingOrEmptyFields.Add("Inclination");
-                                            }
-
                                             string validationError = null;
                                             int trajectoryPointCount = mdValues?.Count ?? 0;
                                             if (missingOrEmptyFields.Count > 0)
@@ -1863,20 +1854,16 @@ namespace KindomDataAPIServer.KindomAPI
                                             }
                                             else if (tvdValues.Count != trajectoryPointCount ||
                                                 dxValues.Count != trajectoryPointCount ||
-                                                dyValues.Count != trajectoryPointCount ||
-                                                azimuthValues.Count != trajectoryPointCount ||
-                                                inclinationValues.Count != trajectoryPointCount)
+                                                dyValues.Count != trajectoryPointCount)
                                             {
-                                                validationError = $"inconsistent data field lengths (MD:{trajectoryPointCount}, TVD:{tvdValues.Count}, DX:{dxValues.Count}, DY:{dyValues.Count}, Azimuth:{azimuthValues.Count}, Inclination:{inclinationValues.Count})";
+                                                validationError = $"inconsistent required data field lengths (MD:{trajectoryPointCount}, TVD:{tvdValues.Count}, DX:{dxValues.Count}, DY:{dyValues.Count})";
                                             }
                                             else if (mdValues.Any(value => IsInvalidNumber(value)) ||
                                                 tvdValues.Any(value => IsInvalidNumber(value)) ||
                                                 dxValues.Any(value => IsInvalidNumber(value)) ||
-                                                dyValues.Any(value => IsInvalidNumber(value)) ||
-                                                azimuthValues.Any(value => IsInvalidNumber(value)) ||
-                                                inclinationValues.Any(value => IsInvalidNumber(value)))
+                                                dyValues.Any(value => IsInvalidNumber(value)))
                                             {
-                                                validationError = "one or more trajectory fields contain NaN or Infinity";
+                                                validationError = "one or more required trajectory fields contain NaN or Infinity";
                                             }
                                             validationStopwatch.Stop();
                                             totalTrajectoryValidationElapsedTicks += validationStopwatch.Elapsed.Ticks;
@@ -1901,7 +1888,6 @@ namespace KindomDataAPIServer.KindomAPI
                                                 CoordList = new List<CoordData>(trajectoryPointCount),
                                                 AimuthList = new List<AimuthData>(trajectoryPointCount)
                                             };
-                                            bool conversionFailed = false;
                                             try
                                             {
                                                 for (int pointIndex = 0; pointIndex < trajectoryPointCount; pointIndex++)
@@ -1915,7 +1901,12 @@ namespace KindomDataAPIServer.KindomAPI
                                                         Dy = dyValues[pointIndex] * xyScale
                                                     });
 
-                                                    try
+                                                    if (azimuthValues != null &&
+                                                        inclinationValues != null &&
+                                                        pointIndex < azimuthValues.Count &&
+                                                        pointIndex < inclinationValues.Count &&
+                                                        !IsInvalidNumber(azimuthValues[pointIndex]) &&
+                                                        !IsInvalidNumber(inclinationValues[pointIndex]))
                                                     {
                                                         wellTrajData.AimuthList.Add(new AimuthData
                                                         {
@@ -1924,29 +1915,12 @@ namespace KindomDataAPIServer.KindomAPI
                                                             Devi = inclinationValues[pointIndex]
                                                         });
                                                     }
-                                                    catch (Exception ex)
-                                                    {
-                                                        SyncTaskReportService.Instance.RecordDataValidationError(
-                                                            "WellTrajs",
-                                                            "WellTrajectoryValidationErrors",
-                                                            wellGroup.Key,
-                                                            $"borehole ID:{formItem.boreholeId}, deviation survey ID:{formItem.deviationSurveyId}, point index:{pointIndex}",
-                                                            $"failed to create AimuthData: {ex.Message}",
-                                                            trajectorySourceData);
-                                                        conversionFailed = true;
-                                                        break;
-                                                    }
                                                 }
                                             }
                                             finally
                                             {
                                                 conversionStopwatch.Stop();
                                                 totalTrajectoryConversionElapsedTicks += conversionStopwatch.Elapsed.Ticks;
-                                            }
-
-                                            if (conversionFailed)
-                                            {
-                                                continue;
                                             }
 
                                             batchRequest.Items.Add(wellTrajData);
@@ -2149,6 +2123,7 @@ namespace KindomDataAPIServer.KindomAPI
             long maximumUploadBytes = 0;
             long totalReadElapsedTicks = 0;
             long totalUploadElapsedTicks = 0;
+            var missingLogTypeNames = new HashSet<string>();
             var localReadWallTimer = new WallClockActivityTimer();
             var uploadWallTimer = new WallClockActivityTimer();
             var totalStopwatch = Stopwatch.StartNew();
@@ -2413,50 +2388,11 @@ namespace KindomDataAPIServer.KindomAPI
                                             if (selectionRequired && !checkNames.Contains(formItem.LogCurveName.Name))
                                                 continue;
                                             var dataArray = formItem.LogData.LogDataValues.Select(o => (double)o).ToArray();
-                                            var validationErrors = new List<string>();
-                                            if (!formItem.LogData.StartDepth.HasValue) validationErrors.Add("StartDepth is missing");
-                                            else if (IsInvalidNumber(formItem.LogData.StartDepth.Value)) validationErrors.Add("StartDepth is NaN or Infinity");
-                                            if (!formItem.LogData.DepthSampleRate.HasValue) validationErrors.Add("DepthSampleRate is missing");
-                                            else if (IsInvalidNumber(formItem.LogData.DepthSampleRate.Value) || formItem.LogData.DepthSampleRate.Value <= 0) validationErrors.Add("DepthSampleRate must be a finite positive number");
-                                            if (dataArray.Length == 0) validationErrors.Add("samples are empty");
-                                            else if (dataArray.Any(IsInvalidNumber)) validationErrors.Add("samples contain NaN or Infinity");
-                                            var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
-                                            if (checkNameObj == null) validationErrors.Add("curve mapping was not found");
-                                            else
-                                            {
-                                                if (checkNameObj.LogType == null) validationErrors.Add("LogType is missing");
-                                                else
-                                                {
-                                                    if (string.IsNullOrWhiteSpace(checkNameObj.LogType.FamilyName)) validationErrors.Add("curve family is missing");
-                                                    if (checkNameObj.LogType.MeasureType <= 0) validationErrors.Add("sample measure is missing");
-                                                }
-                                                if (checkNameObj.UnitID <= 0) validationErrors.Add("sample unit is missing");
-                                            }
-                                            if (validationErrors.Count > 0)
-                                            {
-                                                SyncTaskReportService.Instance.RecordDataValidationError(
-                                                    "WellLogs",
-                                                    "WellLogValidationErrors",
-                                                    item.Key,
-                                                    $"borehole ID:{formItem.boreholeId}, curve:{formItem.LogCurveName.Name}",
-                                                    string.Join("; ", validationErrors),
-                                                    new
-                                                    {
-                                                        formItem.boreholeId,
-                                                        Uwi = item.Key,
-                                                        CurveName = formItem.LogCurveName.Name,
-                                                        formItem.LogData.StartDepth,
-                                                        formItem.LogData.DepthSampleRate,
-                                                        Samples = dataArray
-                                                    });
-                                                continue;
-                                            }
-
                                             PbWellLogCreateParams logObj = new PbWellLogCreateParams
                                             {
                                                 WellId = wellWebID,
-                                                SampleRate = formItem.LogData.DepthSampleRate.Value,
-                                                StartDepth = formItem.LogData.StartDepth.Value,
+                                                SampleRate = formItem.LogData.DepthSampleRate.HasValue ? formItem.LogData.DepthSampleRate.Value : 0,
+                                                StartDepth = formItem.LogData.StartDepth.HasValue ? formItem.LogData.StartDepth.Value : 0,
                                                 CurveName = formItem.LogCurveName.Name,
                                                 DataSetId = dataSetId,
                                             };
@@ -2466,9 +2402,20 @@ namespace KindomDataAPIServer.KindomAPI
                                                 logObj.StartDepth = logObj.StartDepth.ToMeters();
                                             }
 
-                                            logObj.SampleUnitId = checkNameObj.UnitID;
-                                            logObj.CurveType = checkNameObj.LogType.FamilyName;
-                                            logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
+                                            var checkNameObj = KingDomData.LogNames.FirstOrDefault(o => o.Name == formItem.LogCurveName.Name);
+                                            if (checkNameObj != null)
+                                            {
+                                                logObj.SampleUnitId = checkNameObj.UnitID;
+                                                if (checkNameObj.LogType != null)
+                                                {
+                                                    logObj.CurveType = checkNameObj.LogType.FamilyName;
+                                                    logObj.SampleMeatureId = checkNameObj.LogType.MeasureType;
+                                                }
+                                                else if (missingLogTypeNames.Add(formItem.LogCurveName.Name))
+                                                {
+                                                    SyncTaskReportService.Instance.Log($"WellLogs curve metadata is incomplete because LogType is empty. Curve name:{formItem.LogCurveName.Name}.");
+                                                }
+                                            }
 
                                             logObj.Samples.AddRange(dataArray);
                                             batchLogList.LogList.Add(logObj);
