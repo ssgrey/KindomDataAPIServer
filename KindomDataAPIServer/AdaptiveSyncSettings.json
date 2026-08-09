@@ -68,6 +68,14 @@
       "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 64, "concurrency": 3, "stableEvaluationRequests": 6, "maxDailyDataCount": 1000000 }
     },
 
+    // 试油试气数据。
+    "wellTest": {
+      // 读取批量单位为井数。
+      "readBatch": { "initial": 50, "max": 500, "targetSeconds": 3 },
+      // maxTestCount 是单次上传允许的试油或试气记录数上限。
+      "upload": { "initialPayloadMiB": 1, "maxPayloadMiB": 16, "concurrency": 3, "stableEvaluationRequests": 6, "maxTestCount": 100000 }
+    },
+
     // 井曲线数据。
     "wellLog": {
       // 读取批量单位为井数；井曲线数据量较大，读取增长应比其他类型更谨慎。

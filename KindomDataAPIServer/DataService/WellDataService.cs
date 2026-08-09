@@ -166,11 +166,11 @@ namespace KindomDataAPIServer.DataService
             }
         }
 
-        public async Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest)
+        public async Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest, string traceName = null)
         {
             try
             {
-                return await _apiClient.PostAsync<WellOilTestDataRequset, WellOperationResult>("dp/api/welldata/batch_create_well_oil_test_with_meta_infos", wellDataRequest);
+                return await _apiClient.PostAsync<WellOilTestDataRequset, WellOperationResult>("dp/api/welldata/batch_create_well_oil_test_with_meta_infos", wellDataRequest, traceName);
             }
             catch (Exception ex)
             {
@@ -180,11 +180,11 @@ namespace KindomDataAPIServer.DataService
         }
 
 
-        public async Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest)
+        public async Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest, string traceName = null)
         {
             try
             {
-                return await _apiClient.PostAsync<WellGasTestRequest, WellOperationResult>("dp/api/welldata/batch_create_well_gas_pressure_test_with_meta_infos", wellDataRequest);
+                return await _apiClient.PostAsync<WellGasTestRequest, WellOperationResult>("dp/api/welldata/batch_create_well_gas_pressure_test_with_meta_infos", wellDataRequest, traceName);
             }
             catch (Exception ex)
             {

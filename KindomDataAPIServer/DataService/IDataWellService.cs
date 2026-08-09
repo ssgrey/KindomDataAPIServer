@@ -30,8 +30,8 @@ namespace KindomDataAPIServer.DataService
 
         Task<WellOperationResult> batch_create_well_production_with_meta_infos(WellProductionDataRequest wellDataRequest, string traceName = null);
 
-        Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest);
-        Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest);
+        Task<WellOperationResult> batch_create_well_oil_test_with_meta_infos(WellOilTestDataRequset wellDataRequest, string traceName = null);
+        Task<WellOperationResult> batch_create_well_gas_pressure_test_with_meta_infos(WellGasTestRequest wellDataRequest, string traceName = null);
 
         Task<List<LogSetInfo>> get_dataset_list(string datasetType = "continuous");
         Task<string> create_well_log_set(string datasetName);

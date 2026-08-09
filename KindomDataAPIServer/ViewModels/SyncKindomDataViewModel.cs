@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web.UI.WebControls;
 using System.Windows;
@@ -76,6 +77,8 @@ namespace KindomDataAPIServer.ViewModels
         public ICommand ConclusionSettingCommand { get; set; }
 
         private DispatcherTimer delayTimer;
+        private readonly SemaphoreSlim conclusionAndUnitLoadLock = new SemaphoreSlim(1, 1);
+        private int conclusionAndUnitLoadVersion;
 
         public bool IsFormationAndLogSelectionRequired { get; private set; }
 
@@ -767,7 +770,7 @@ namespace KindomDataAPIServer.ViewModels
                 SetProperty(ref _SelectedKingdomWellSubset, value, nameof(SelectedKingdomWellSubset));
                 if (!_isLoadingKingdomWellSubsets && KindomData != null)
                 {
-                    Task.Run(() => LoadKingdomData());
+                    _ = Task.Run(() => LoadKingdomData());
                 }
             }
         }
@@ -1052,7 +1055,7 @@ namespace KindomDataAPIServer.ViewModels
         {
             if (!string.IsNullOrEmpty(LoginName))
             {
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
                     IsEnable = false;
                     ProgressValue = 0;
@@ -1067,7 +1070,7 @@ namespace KindomDataAPIServer.ViewModels
                     else
                     {
                         LoadKingdomWellSubsets();
-                        LoadKingdomData();
+                        await LoadKingdomData();
                     }
                     IsEnable = true;
                 });
@@ -1121,7 +1124,7 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        private void LoadKingdomData()
+        private async Task LoadKingdomData()
         {
             try
             {
@@ -1135,7 +1138,7 @@ namespace KindomDataAPIServer.ViewModels
                 }
                 else
                 {
-                    LoadConclusionFileNameObjAndTestUnits();
+                    await LoadConclusionFileNameObjAndTestUnits();
 
                     foreach (var item in KindomData.Wells)
                     {
@@ -1174,10 +1177,10 @@ namespace KindomDataAPIServer.ViewModels
             }
         }
 
-        private void DelayTimer_Tick_RefreashConclusion(object sender, EventArgs e)
+        private async void DelayTimer_Tick_RefreashConclusion(object sender, EventArgs e)
         {
             delayTimer.Stop();
-            LoadConclusionFileNameObjAndTestUnits();
+            await LoadConclusionFileNameObjAndTestUnits();
         }
 
         private void ConclusionSettingCommandAction()
@@ -1189,14 +1192,46 @@ namespace KindomDataAPIServer.ViewModels
         /// <summary>
         /// 加载解释结论
         /// </summary>
-        public void LoadConclusionFileNameObjAndTestUnits()
+        public async Task LoadConclusionFileNameObjAndTestUnits()
         {
-            Application.Current.Dispatcher.Invoke(new Action(() => {
-                ConclusionSettingVM.ColumnNameDict = KingdomAPI.Instance.GetColumnNameDict(KindomData);
-                ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
-                this.UnitMappingItems =  KingdomAPI.Instance.GetWellProductionTestDataUnits(KindomData);
-            }));
+            int loadVersion = Interlocked.Increment(ref conclusionAndUnitLoadVersion);
+            ProjectResponse kingdomData = KindomData;
+            if (kingdomData == null)
+            {
+                return;
+            }
 
+            await conclusionAndUnitLoadLock.WaitAsync();
+            try
+            {
+                if (loadVersion != Volatile.Read(ref conclusionAndUnitLoadVersion))
+                {
+                    return;
+                }
+
+                Task<List<FileNameObj>> columnNamesTask = Task.Run(() => KingdomAPI.Instance.GetColumnNameDict(kingdomData));
+                Task<List<UnitMappingItem>> unitMappingsTask = Task.Run(() => KingdomAPI.Instance.GetWellProductionTestDataUnits(kingdomData));
+                await Task.WhenAll(columnNamesTask, unitMappingsTask);
+                if (loadVersion != Volatile.Read(ref conclusionAndUnitLoadVersion))
+                {
+                    return;
+                }
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    ConclusionSettingVM.ColumnNameDict = columnNamesTask.Result;
+                    ConclusionSettingVM.ConclusionFileNameObjItems.Clear();
+                    UnitMappingItems = unitMappingsTask.Result;
+                });
+            }
+            catch (Exception ex)
+            {
+                LogManagerService.Instance.Log($"Loading conclusion columns and well-test units failed: {ExceptionLogHelper.Format(ex)}");
+            }
+            finally
+            {
+                conclusionAndUnitLoadLock.Release();
+            }
         }
 
         /// <summary>
@@ -1572,155 +1607,11 @@ namespace KindomDataAPIServer.ViewModels
                     StartSyncProgressStep("WellTest");
                     try
                     {
-                        (List<WellGasTestData>, List<WellOilTestData>) AllwellTestDatas = await Task.Run(() =>
-                            KingdomAPI.Instance.GetWellGasTestData(KindomData, WellIDandNameList, UnitMappingItems));
-
-                    if (AllwellTestDatas.Item1.Count > 0)
-                    {
-                        LogManagerService.Instance.Log($"Well Gas Test Data start synchronize！");
-                        int AllCount = AllwellTestDatas.Item1.Count;
-                        List<WellGasTestRequest> tempList = new List<WellGasTestRequest>();
-                        WellGasTestRequest wellTrajRequest = null;
-                        for (int i = 0; i < AllCount; i++)
-                        {
-                            if (i == 0)
-                            {
-                                wellTrajRequest = new WellGasTestRequest();
-                                tempList.Add(wellTrajRequest);
-                                wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
-                            }
-                            else
-                            {
-                                var newItem = AllwellTestDatas.Item1[i];
-                                bool isExist = false;
-                                foreach (var RequestItem in tempList)
-                                {
-                                    var FirstItem = RequestItem.Items.FirstOrDefault();
-                                    if (CompareMataInfo(FirstItem, newItem))//单位相同的一起处理
-                                    {
-                                        RequestItem.Items.Add(newItem);
-                                        isExist = true;
-                                    }
-                                }
-
-                                if(!isExist)
-                                {
-                                    wellTrajRequest = new WellGasTestRequest();
-                                    tempList.Add(wellTrajRequest);
-                                    wellTrajRequest.Items.Add(AllwellTestDatas.Item1[i]);
-                                }
-
-                            }
-                        }
-                        for (int i = 0; i < tempList.Count; i++)
-                        {
-                            try
-                            {
-                                await wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(tempList[i]);
-                            }
-                            catch (Exception ex)
-                            {
-                                SyncTaskReportService.Instance.RecordError($"WellGasTest batch {i + 1}/{tempList.Count} synchronization failed", ex);
-                            }
-                        }
-                        LogManagerService.Instance.Log($"Well Gas Test Data synchronize synchronize over！");
-                    }
-                    else
-                    {
-                        LogManagerService.Instance.Log($"Well Gas Test Data Count is 0");
-                    }
-
-                    ReportCurrentStepProgress(50);
-
-                    if (AllwellTestDatas.Item2.Count > 0)
-                    {
-                        LogManagerService.Instance.Log($"Well Oil Test Data start synchronize！");
-                        int AllCount = AllwellTestDatas.Item2.Count;
-                        List<WellOilTestDataRequset> tempList = new List<WellOilTestDataRequset>();
-                        WellOilTestDataRequset wellTrajRequest = null;
-                        for (int i = 0; i < AllCount; i++)
-                        {
-                            if (i == 0)
-                            {
-                                wellTrajRequest = new WellOilTestDataRequset();
-                                tempList.Add(wellTrajRequest);
-                                wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
-                            }
-                            else
-                            {
-                                var newItem = AllwellTestDatas.Item2[i];
-                                bool isExist = false;
-                                foreach (var RequestItem in tempList)
-                                {
-                                    var FirstItem = RequestItem.Items.FirstOrDefault();
-                                    if (CompareMataInfo(FirstItem, newItem))//单位相同的一起处理
-                                    {
-                                        RequestItem.Items.Add(newItem);
-                                        isExist = true;
-                                    }
-                                }
-                                if (!isExist)
-                                {
-                                    wellTrajRequest = new WellOilTestDataRequset();
-                                    tempList.Add(wellTrajRequest);
-                                    wellTrajRequest.Items.Add(AllwellTestDatas.Item2[i]);
-                                }
-                            }
-
-                        }
-                        for (int i = 0; i < tempList.Count; i++)
-                        {
-                            try
-                            {
-                                WellOilTestDataRequset request = tempList[i];
-                                string batchUwis = string.Join(",", request.Items
-                                    .Select(item => Utils.GetWellNameOrUWIByWellID(item.WellId.ToString(), WellIDandNameList))
-                                    .Where(uwi => !string.IsNullOrWhiteSpace(uwi))
-                                    .Distinct());
-                                int payloadBytes = Encoding.UTF8.GetByteCount(JsonHelper.ToJson(request));
-                                SyncTaskReportService.Instance.RecordUploadAttempt(payloadBytes);
-                                SyncTaskReportService.Instance.Log($"WellOilTest batch {i + 1}/{tempList.Count} upload started. UWIs:[{batchUwis}], wells:{request.Items.Count}, JSON bytes:{payloadBytes} ({payloadBytes / 1024.0 / 1024.0:F3} MiB).");
-                                var uploadStopwatch = Stopwatch.StartNew();
-                                WellOperationResult response = await wellDataService.batch_create_well_oil_test_with_meta_infos(request);
-                                uploadStopwatch.Stop();
-                                SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
-                                if (response == null)
-                                {
-                                    SyncTaskReportService.Instance.RecordError($"WellOilTest batch {i + 1}/{tempList.Count} synchronization returned an empty response. UWIs:[{batchUwis}]");
-                                    continue;
-                                }
-
-                                int failedCount = response.Summary?.failed
-                                    ?? response.Results?.Count(result => result.errorCode != 0)
-                                    ?? 0;
-                                SyncTaskReportService.Instance.Log($"WellOilTest batch {i + 1}/{tempList.Count} upload completed. UWIs:[{batchUwis}], wells:{request.Items.Count}, failed:{failedCount}, JSON bytes:{payloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s.");
-                                string failedUwis = string.Join(",", response.Results?
-                                    .Where(result => result.errorCode != 0)
-                                    .Select(result => Utils.GetWellNameOrUWIByWellID(result.wellId.ToString(), WellIDandNameList))
-                                    .Where(uwi => !string.IsNullOrWhiteSpace(uwi))
-                                    .Distinct() ?? Enumerable.Empty<string>());
-                                SyncTaskReportService.Instance.RecordUploadResponseErrors(
-                                    "WellOilTest",
-                                    "WellOilTestUploadErrors",
-                                    "dp/api/welldata/batch_create_well_oil_test_with_meta_infos",
-                                    batchUwis,
-                                    string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
-                                    i + 1,
-                                    payloadBytes,
-                                    request,
-                                    response);
-                            }
-                            catch (Exception ex)
-                            {
-                                SyncTaskReportService.Instance.RecordError($"WellOilTest batch {i + 1}/{tempList.Count} synchronization failed", ex);
-                            }
-                        }
-                        LogManagerService.Instance.Log($"Well Oil Test Data synchronize synchronize over！");
-                    }
-                    else
-                    {
-                        LogManagerService.Instance.Log($"Well Oil Test Data Count is 0");
-                    }
+                        await Task.Run(() => KingdomAPI.Instance.CreateWellTestDataToWeb(
+                            KindomData,
+                            WellIDandNameList,
+                            UnitMappingItems,
+                            this));
                     }
                     catch (Exception ex)
                     {
@@ -1988,33 +1879,5 @@ namespace KindomDataAPIServer.ViewModels
         }
 
 
-        private bool CompareMataInfo(WellGasTestData data1, WellGasTestData data2)
-        {
-            List<MetaInfo> a = data1.MetaInfoList;
-            List<MetaInfo> b = data2.MetaInfoList;
-            if (a.Count != b.Count)
-                return false;
-            for (int i = 0; i < a.Count; i++)
-            {
-                if (a[i].MeasureId != b[i].MeasureId || a[i].UnitId != b[i].UnitId || a[i].DisplayName != b[i].DisplayName || a[i].PropertyName != b[i].PropertyName)
-                    return false;
-            }
-            return true;
-        }
-        private bool CompareMataInfo(WellOilTestData data1, WellOilTestData data2)
-        {
-            List<MetaInfo> a = data1.MetaInfoList;
-            List<MetaInfo> b = data2.MetaInfoList;
-            if (a.Count != b.Count)
-                return false;
-            for (int i = 0; i < a.Count; i++)
-            {
-                if (a[i].MeasureId != b[i].MeasureId || a[i].UnitId != b[i].UnitId || a[i].DisplayName != b[i].DisplayName || a[i].PropertyName != b[i].PropertyName)
-                    return false;
-            }
-            return true;
-        }
-
-        
     }
 }

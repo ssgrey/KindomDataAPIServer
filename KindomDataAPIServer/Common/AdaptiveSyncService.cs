@@ -45,6 +45,7 @@ namespace KindomDataAPIServer.Common
         public AdaptiveDataTypeSettings Formation { get; set; } = AdaptiveDataTypeSettings.CreateFormation();
         public AdaptiveDataTypeSettings Trajectory { get; set; } = AdaptiveDataTypeSettings.CreateTrajectory();
         public AdaptiveDataTypeSettings Production { get; set; } = AdaptiveDataTypeSettings.CreateProduction();
+        public AdaptiveDataTypeSettings WellTest { get; set; } = AdaptiveDataTypeSettings.CreateWellTest();
         public AdaptiveDataTypeSettings WellLog { get; set; } = AdaptiveDataTypeSettings.CreateWellLog();
     }
 
@@ -88,6 +89,15 @@ namespace KindomDataAPIServer.Common
                 Upload = new AdaptiveUploadSettings { InitialPayloadMiB = 4, MaxPayloadMiB = 64, Concurrency = 5, StableEvaluationRequests = 10, MaxSampleCount = 5000000 }
             };
         }
+
+        public static AdaptiveDataTypeSettings CreateWellTest()
+        {
+            return new AdaptiveDataTypeSettings
+            {
+                ReadBatch = new AdaptiveReadBatchSettings { Initial = 50, Max = 500, TargetSeconds = 3 },
+                Upload = new AdaptiveUploadSettings { InitialPayloadMiB = 1, MaxPayloadMiB = 16, Concurrency = 3, StableEvaluationRequests = 6, MaxTestCount = 100000 }
+            };
+        }
     }
 
     public sealed class AdaptiveReadBatchSettings
@@ -106,6 +116,7 @@ namespace KindomDataAPIServer.Common
         public int MaxFormationCount { get; set; } = 1000;
         public int MaxPointCount { get; set; } = 20000;
         public int MaxDailyDataCount { get; set; } = 2000;
+        public int MaxTestCount { get; set; } = 100000;
         public int MaxSampleCount { get; set; } = 1000000;
     }
 
@@ -152,6 +163,7 @@ namespace KindomDataAPIServer.Common
             AddController("formation", settings.DataTypes.Formation);
             AddController("trajectory", settings.DataTypes.Trajectory);
             AddController("production", settings.DataTypes.Production);
+            AddController("wellTest", settings.DataTypes.WellTest);
             AddController("wellLog", settings.DataTypes.WellLog);
         }
 
@@ -317,6 +329,7 @@ namespace KindomDataAPIServer.Common
                     case "formation": return _settings.Upload.MaxFormationCount;
                     case "trajectory": return _settings.Upload.MaxPointCount;
                     case "production": return _settings.Upload.MaxDailyDataCount;
+                    case "welltest": return _settings.Upload.MaxTestCount;
                     default: return _settings.Upload.MaxSampleCount;
                 }
             }
@@ -879,6 +892,7 @@ namespace KindomDataAPIServer.Common
             settings.DataTypes.Formation = settings.DataTypes.Formation ?? AdaptiveDataTypeSettings.CreateFormation();
             settings.DataTypes.Trajectory = settings.DataTypes.Trajectory ?? AdaptiveDataTypeSettings.CreateTrajectory();
             settings.DataTypes.Production = settings.DataTypes.Production ?? AdaptiveDataTypeSettings.CreateProduction();
+            settings.DataTypes.WellTest = settings.DataTypes.WellTest ?? AdaptiveDataTypeSettings.CreateWellTest();
             settings.DataTypes.WellLog = settings.DataTypes.WellLog ?? AdaptiveDataTypeSettings.CreateWellLog();
             settings.Version = ClampAndLog("version", settings.Version, 1, 1);
             settings.Common.FastPayloadGrowthPercent = ClampAndLog("common.fastPayloadGrowthPercent", settings.Common.FastPayloadGrowthPercent, 1, 100);
@@ -894,6 +908,7 @@ namespace KindomDataAPIServer.Common
             NormalizeType("formation", settings.DataTypes.Formation, 1000, 16, 2000000);
             NormalizeType("trajectory", settings.DataTypes.Trajectory, 1000, 16, 5000000);
             NormalizeType("production", settings.DataTypes.Production, 500, 16, 1000000);
+            NormalizeType("wellTest", settings.DataTypes.WellTest, 2000, 16, 1000000);
             NormalizeType("wellLog", settings.DataTypes.WellLog, 200, 16, 10000000);
         }
 
@@ -911,6 +926,7 @@ namespace KindomDataAPIServer.Common
             settings.Upload.MaxFormationCount = ClampAndLog($"dataTypes.{name}.upload.maxFormationCount", settings.Upload.MaxFormationCount, 1, absoluteBusinessMax);
             settings.Upload.MaxPointCount = ClampAndLog($"dataTypes.{name}.upload.maxPointCount", settings.Upload.MaxPointCount, 1, absoluteBusinessMax);
             settings.Upload.MaxDailyDataCount = ClampAndLog($"dataTypes.{name}.upload.maxDailyDataCount", settings.Upload.MaxDailyDataCount, 1, absoluteBusinessMax);
+            settings.Upload.MaxTestCount = ClampAndLog($"dataTypes.{name}.upload.maxTestCount", settings.Upload.MaxTestCount, 1, absoluteBusinessMax);
             settings.Upload.MaxSampleCount = ClampAndLog($"dataTypes.{name}.upload.maxSampleCount", settings.Upload.MaxSampleCount, 1, absoluteBusinessMax);
         }
 

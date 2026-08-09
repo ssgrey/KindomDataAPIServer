@@ -163,11 +163,55 @@ namespace KindomDataAPIServer.KindomAPI
         private class WellProductionUploadBatch
         {
             public int BatchIndex { get; set; }
-            public int ItemCount { get; set; }
+            public int WellCount { get; set; }
+            public int DailyDataCount { get; set; }
             public int PayloadBytes { get; set; }
             public int CompletedWellCount { get; set; }
             public WellProductionDataRequest Request { get; set; }
             public Dictionary<long, string> WellUwisById { get; set; }
+        }
+
+        private class WellProductionDataSegment
+        {
+            public WellDailyProductionData Data { get; set; }
+            public int PayloadBytes { get; set; }
+        }
+
+        private class WellTestUploadBatch
+        {
+            public int BatchIndex { get; set; }
+            public bool IsGas { get; set; }
+            public int WellCount { get; set; }
+            public int TestRecordCount { get; set; }
+            public int PayloadBytes { get; set; }
+            public WellGasTestRequest GasRequest { get; set; }
+            public WellOilTestDataRequset OilRequest { get; set; }
+            public Dictionary<long, string> WellUwisById { get; set; }
+        }
+
+        private class WellGasTestSegment
+        {
+            public WellGasTestData Data { get; set; }
+            public int PayloadBytes { get; set; }
+            public string MetaInfoSignature { get; set; }
+        }
+
+        private class WellOilTestSegment
+        {
+            public WellOilTestData Data { get; set; }
+            public int PayloadBytes { get; set; }
+            public string MetaInfoSignature { get; set; }
+        }
+
+        private class WellTestUploadSummary
+        {
+            public int UploadedBatchCount { get; set; }
+            public int UploadedGasTestCount { get; set; }
+            public int UploadedOilTestCount { get; set; }
+            public int CompletedRequestCount { get; set; }
+            public long TotalPayloadBytes { get; set; }
+            public long MaximumPayloadBytes { get; set; }
+            public long CumulativeUploadElapsedTicks { get; set; }
         }
 
         private static string BuildActualTimeSummary(TimeSpan localReadElapsed, TimeSpan uploadWallElapsed)
@@ -1663,13 +1707,66 @@ namespace KindomDataAPIServer.KindomAPI
                             int readPointCount = readBatchDeviationSurveys
                                 .Where(item => item.data != null)
                                 .Sum(item => item.data.MD?.Count ?? 0);
-                            totalReadSurveyCount += readSurveyCount;
-                            totalTrajectoryPointCount += readPointCount;
+                            TimeSpan adaptiveReadElapsed = readStopwatch.Elapsed;
                             totalReadElapsedTicks += readStopwatch.Elapsed.Ticks;
                             localReadCount++;
                             SyncTaskReportService.Instance.RecordApiRead(readStopwatch.Elapsed);
                             SyncTaskReportService.Instance.Log($"ActiveDeviation read batch {readBatchIndex} completed. UWIs:[{readBatchUwis}], UWI count:{readBatchWellGroups.Count}, borehole IDs:[{string.Join(",", readBatchBoreholeIds)}], borehole count:{readBatchBoreholeIds.Count}, active links:{readBatchDeviationSurveys.Count}, surveys:{readSurveyCount}, points:{readPointCount}, elapsed:{readStopwatch.Elapsed.TotalSeconds:F3}s.");
-                            adaptiveController.RecordRead(readStopwatch.Elapsed, readPointCount, uploadQueue.Count >= adaptiveController.CurrentQueueCapacity);
+
+                            var boreholeIdsWithActiveSurvey = new HashSet<int>(readBatchDeviationSurveys
+                                .Where(item => item.data != null)
+                                .Select(item => item.boreholeId));
+                            List<int> fallbackBoreholeIds = readBatchBoreholeIds
+                                .Where(boreholeId => !boreholeIdsWithActiveSurvey.Contains(boreholeId))
+                                .ToList();
+                            if (fallbackBoreholeIds.Count > 0)
+                            {
+                                var fallbackReadStopwatch = Stopwatch.StartNew();
+                                try
+                                {
+                                    var fallbackDeviationSurveys = localReadWallTimer.Measure(() =>
+                                        context.Get(new Smt.Entities.DeviationSurvey(),
+                                            x => new
+                                            {
+                                                boreholeId = x.BoreholeId,
+                                                deviationSurveyId = x.Id,
+                                                data = x,
+                                            },
+                                            x => fallbackBoreholeIds.Contains(x.BoreholeId),
+                                            false).ToList());
+
+                                    var firstFallbackSurveyByBorehole = fallbackDeviationSurveys
+                                        .Where(item => item.data != null)
+                                        .GroupBy(item => item.boreholeId)
+                                        .Select(group => group.OrderBy(item => item.deviationSurveyId).First())
+                                        .ToList();
+                                    int fallbackPointCount = firstFallbackSurveyByBorehole
+                                        .Sum(item => item.data.MD?.Count ?? 0);
+
+                                    readBatchDeviationSurveys.AddRange(firstFallbackSurveyByBorehole);
+                                    readSurveyCount += firstFallbackSurveyByBorehole.Count;
+                                    readPointCount += fallbackPointCount;
+                                    fallbackReadStopwatch.Stop();
+                                    SyncTaskReportService.Instance.Log($"DeviationSurvey fallback read batch {readBatchIndex} completed. UWIs:[{readBatchUwis}], missing active borehole IDs:[{string.Join(",", fallbackBoreholeIds)}], borehole count:{fallbackBoreholeIds.Count}, returned surveys:{fallbackDeviationSurveys.Count}, selected first surveys:{firstFallbackSurveyByBorehole.Count}, selected points:{fallbackPointCount}, elapsed:{fallbackReadStopwatch.Elapsed.TotalSeconds:F3}s.");
+                                }
+                                catch (Exception ex)
+                                {
+                                    fallbackReadStopwatch.Stop();
+                                    SyncTaskReportService.Instance.RecordError($"DeviationSurvey fallback read batch {readBatchIndex} failed. UWIs:[{readBatchUwis}], missing active borehole IDs:[{string.Join(",", fallbackBoreholeIds)}], borehole count:{fallbackBoreholeIds.Count}, elapsed:{fallbackReadStopwatch.Elapsed.TotalSeconds:F3}s", ex);
+                                }
+                                finally
+                                {
+                                    fallbackReadStopwatch.Stop();
+                                    adaptiveReadElapsed += fallbackReadStopwatch.Elapsed;
+                                    totalReadElapsedTicks += fallbackReadStopwatch.Elapsed.Ticks;
+                                    localReadCount++;
+                                    SyncTaskReportService.Instance.RecordApiRead(fallbackReadStopwatch.Elapsed);
+                                }
+                            }
+
+                            totalReadSurveyCount += readSurveyCount;
+                            totalTrajectoryPointCount += readPointCount;
+                            adaptiveController.RecordRead(adaptiveReadElapsed, readPointCount, uploadQueue.Count >= adaptiveController.CurrentQueueCapacity);
                             var preparationStopwatch = Stopwatch.StartNew();
 
                             var deviationSurveysByBoreholeId = readBatchDeviationSurveys.ToLookup(item => item.boreholeId);
@@ -2597,7 +2694,7 @@ namespace KindomDataAPIServer.KindomAPI
                                         Interlocked.Increment(ref uploadAttemptCount);
                                         UpdateMaximum(ref maximumUploadBytes, uploadBatch.PayloadBytes);
                                         SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
-                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], daily items:{uploadBatch.ItemCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, daily items:{uploadBatch.DailyDataCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
                                         var uploadStopwatch = Stopwatch.StartNew();
                                         WellOperationResult res4;
                                         using (await adaptiveController.EnterUploadAsync(cancellationTokenSource.Token))
@@ -2617,12 +2714,12 @@ namespace KindomDataAPIServer.KindomAPI
                                             continue;
                                         }
 
-                                        int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, uploadBatch.ItemCount);
+                                        int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, uploadBatch.DailyDataCount);
                                         int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
                                         int failedCount = res4.Summary?.failed
                                             ?? res4.Results?.Count(result => result.errorCode != 0)
                                             ?? 0;
-                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], daily items:{uploadBatch.ItemCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced daily items:{currentSyncedCount}.");
+                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, daily items:{uploadBatch.DailyDataCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced daily items:{currentSyncedCount}.");
                                         string failedUwis = string.Join(",", res4.Results?
                                             .Where(result => result.errorCode != 0)
                                             .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
@@ -2658,6 +2755,107 @@ namespace KindomDataAPIServer.KindomAPI
                             }
                         }))
                         .ToArray();
+
+                    WellProductionDataRequest batchRequest = new WellProductionDataRequest();
+                    var batchWellUwisById = new Dictionary<long, string>();
+                    int batchDailyDataCount = 0;
+                    int batchCompletedWellCount = 0;
+                    long batchEstimatedPayloadBytes = 0;
+                    bool batchPayloadBytesAreExact = false;
+
+                    Action enqueueCurrentBatch = () =>
+                    {
+                        if (batchRequest.Items.Count == 0)
+                        {
+                            return;
+                        }
+
+                        batchIndex++;
+                        var uploadBatch = new WellProductionUploadBatch
+                        {
+                            BatchIndex = batchIndex,
+                            WellCount = batchRequest.Items.Count,
+                            DailyDataCount = batchDailyDataCount,
+                            PayloadBytes = batchPayloadBytesAreExact
+                                ? (int)batchEstimatedPayloadBytes
+                                : GetJsonPayloadByteCount(batchRequest, adaptiveController),
+                            CompletedWellCount = batchCompletedWellCount,
+                            Request = batchRequest,
+                            WellUwisById = new Dictionary<long, string>(batchWellUwisById)
+                        };
+                        EnqueueAdaptive(uploadQueue, uploadBatch, adaptiveController, cancellationTokenSource.Token);
+                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} queued. UWIs:[{string.Join(",", uploadBatch.WellUwisById.Values.Distinct())}], wells:{uploadBatch.WellCount}, daily items:{uploadBatch.DailyDataCount}, JSON bytes:{uploadBatch.PayloadBytes}, read wells:{uploadBatch.CompletedWellCount}/{wellGroups.Count}.");
+
+                        batchRequest = new WellProductionDataRequest();
+                        batchWellUwisById = new Dictionary<long, string>();
+                        batchDailyDataCount = 0;
+                        batchCompletedWellCount = 0;
+                        batchEstimatedPayloadBytes = 0;
+                        batchPayloadBytesAreExact = false;
+                    };
+
+                    Action<WellProductionDataSegment, long, string, int> addSegmentToBatch =
+                        (segment, wellWebId, wellUwi, completedWellCount) =>
+                        {
+                            int segmentDailyDataCount = segment.Data.DailyList.Count;
+                            bool mustStartNewBatch = batchRequest.Items.Count > 0 &&
+                                (batchWellUwisById.ContainsKey(wellWebId) ||
+                                 batchDailyDataCount + segmentDailyDataCount > adaptiveController.BusinessLimit);
+                            bool segmentAdded = false;
+
+                            if (!mustStartNewBatch && batchRequest.Items.Count > 0 &&
+                                batchEstimatedPayloadBytes + segment.PayloadBytes > adaptiveController.CurrentPayloadBytes)
+                            {
+                                batchRequest.Items.Add(segment.Data);
+                                int candidatePayloadBytes = GetJsonPayloadByteCount(batchRequest, adaptiveController);
+                                if (candidatePayloadBytes <= adaptiveController.CurrentPayloadBytes)
+                                {
+                                    batchEstimatedPayloadBytes = candidatePayloadBytes;
+                                    batchPayloadBytesAreExact = true;
+                                    segmentAdded = true;
+                                }
+                                else
+                                {
+                                    batchRequest.Items.RemoveAt(batchRequest.Items.Count - 1);
+                                    mustStartNewBatch = true;
+                                }
+                            }
+
+                            if (mustStartNewBatch)
+                            {
+                                enqueueCurrentBatch();
+                            }
+
+                            if (!segmentAdded)
+                            {
+                                batchRequest.Items.Add(segment.Data);
+                                if (batchRequest.Items.Count == 1)
+                                {
+                                    batchEstimatedPayloadBytes = segment.PayloadBytes;
+                                    batchPayloadBytesAreExact = true;
+                                }
+                                else
+                                {
+                                    // Summed standalone request sizes include extra wrapper bytes, so the estimate is conservative.
+                                    batchEstimatedPayloadBytes += segment.PayloadBytes;
+                                    batchPayloadBytesAreExact = false;
+                                }
+                            }
+
+                            batchWellUwisById[wellWebId] = wellUwi;
+                            batchDailyDataCount += segmentDailyDataCount;
+                            batchCompletedWellCount = completedWellCount;
+
+                            if (segment.PayloadBytes > adaptiveController.CurrentPayloadBytes && segmentDailyDataCount == 1)
+                            {
+                                adaptiveController.RecordOversizedItem(segment.PayloadBytes, segmentDailyDataCount);
+                                enqueueCurrentBatch();
+                            }
+                            else if (batchDailyDataCount >= adaptiveController.BusinessLimit)
+                            {
+                                enqueueCurrentBatch();
+                            }
+                        };
 
                     Exception producerException = null;
 
@@ -2724,10 +2922,7 @@ namespace KindomDataAPIServer.KindomAPI
                                     if (wellWebID == -1)
                                         continue;
 
-                                    List<WellDailyProductionData> productionDataBatches = new List<WellDailyProductionData>();
-                                    WellDailyProductionData productionData = new WellDailyProductionData();
-                                    productionData.WellId = wellWebID;
-                                    productionData.MetaInfoList = MetaInfoList;
+                                    var dailyDataList = new List<DailyData>();
                                     foreach (var item in kindomDatas)
                                     {
                                         if (item.data.StartDate == null || item.data.EndDate == null)
@@ -2754,61 +2949,34 @@ namespace KindomDataAPIServer.KindomAPI
                                             {
                                                 dailyData.WaterVol = item.data.WaterProductionVolume == null ? 0 : item.data.WaterProductionVolume.Value / totalDays;
                                             }
-                                            productionData.DailyList.Add(dailyData);
-                                            var candidateRequest = new WellProductionDataRequest();
-                                            candidateRequest.Items.Add(productionData);
-                                            int candidatePayloadBytes = GetJsonPayloadByteCount(candidateRequest, adaptiveController);
-                                            if (productionData.DailyList.Count > 1 && candidatePayloadBytes > adaptiveController.CurrentPayloadBytes)
-                                            {
-                                                productionData.DailyList.RemoveAt(productionData.DailyList.Count - 1);
-                                                productionDataBatches.Add(productionData);
-                                                productionData = new WellDailyProductionData();
-                                                productionData.WellId = wellWebID;
-                                                productionData.MetaInfoList = MetaInfoList;
-                                                productionData.DailyList.Add(dailyData);
-                                            }
-                                            else if (productionData.DailyList.Count >= adaptiveController.BusinessLimit)
-                                            {
-                                                productionDataBatches.Add(productionData);
-                                                productionData = new WellDailyProductionData();
-                                                productionData.WellId = wellWebID;
-                                                productionData.MetaInfoList = MetaInfoList;
-                                            }
+                                            dailyDataList.Add(dailyData);
                                         }
                                     }
 
-                                    if (productionData.DailyList.Count > 0)
+                                    if (dailyDataList.Count == 0)
                                     {
-                                        productionDataBatches.Add(productionData);
+                                        continue;
                                     }
-                                    int generatedDailyCount = productionDataBatches.Sum(data => data.DailyList.Count);
+
+                                    List<WellProductionDataSegment> productionDataSegments = SplitWellProductionData(
+                                        wellWebID,
+                                        dailyDataList,
+                                        MetaInfoList,
+                                        adaptiveController);
+                                    int generatedDailyCount = dailyDataList.Count;
                                     totalGeneratedDailyCount += generatedDailyCount;
                                     readBatchGeneratedDailyCount += generatedDailyCount;
 
-                                    for (int i = 0; i < productionDataBatches.Count; i++)
+                                    for (int i = 0; i < productionDataSegments.Count; i++)
                                     {
-                                        var productionDataBatch = productionDataBatches[i];
-                                        batchIndex++;
-                                        WellProductionDataRequest request = new WellProductionDataRequest();
-                                        request.Items.Add(productionDataBatch);
-                                        var uploadBatch = new WellProductionUploadBatch
-                                        {
-                                            BatchIndex = batchIndex,
-                                            ItemCount = productionDataBatch.DailyList.Count,
-                                            PayloadBytes = GetJsonPayloadByteCount(request, adaptiveController),
-                                            CompletedWellCount = i == productionDataBatches.Count - 1 ? processedWellCount : processedWellCount - 1,
-                                            Request = request,
-                                            WellUwisById = new Dictionary<long, string>
-                                            {
-                                                [wellWebID] = WellUWI
-                                            }
-                                        };
-                                        if (uploadBatch.PayloadBytes > adaptiveController.CurrentPayloadBytes && uploadBatch.ItemCount == 1)
-                                        {
-                                            adaptiveController.RecordOversizedItem(uploadBatch.PayloadBytes, uploadBatch.ItemCount);
-                                        }
-                                        EnqueueAdaptive(uploadQueue, uploadBatch, adaptiveController, cancellationTokenSource.Token);
-                                        SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} queued. Daily items:{uploadBatch.ItemCount}, JSON bytes:{uploadBatch.PayloadBytes}, read wells:{processedWellCount}/{wellGroups.Count}.");
+                                        int completedWellCount = i == productionDataSegments.Count - 1
+                                            ? processedWellCount
+                                            : processedWellCount - 1;
+                                        addSegmentToBatch(
+                                            productionDataSegments[i],
+                                            wellWebID,
+                                            WellUWI,
+                                            completedWellCount);
                                     }
                                 }
                                 preparationStopwatch.Stop();
@@ -2819,6 +2987,8 @@ namespace KindomDataAPIServer.KindomAPI
                                     uploadQueue.Count >= adaptiveController.CurrentQueueCapacity);
                             }
                         }
+
+                        enqueueCurrentBatch();
                     }
                     catch (OperationCanceledException) when (uploadExceptions.TryPeek(out _))
                     {
@@ -2874,6 +3044,101 @@ namespace KindomDataAPIServer.KindomAPI
             }
         }
 
+        private static List<WellProductionDataSegment> SplitWellProductionData(
+            long wellId,
+            List<DailyData> dailyData,
+            List<MetaInfo> metaInfoList,
+            AdaptiveSyncController adaptiveController)
+        {
+            var segments = new List<WellProductionDataSegment>();
+            int offset = 0;
+            int preferredSegmentDailyDataCount = 0;
+            while (offset < dailyData.Count)
+            {
+                int maximumCount = Math.Min(adaptiveController.BusinessLimit, dailyData.Count - offset);
+                if (preferredSegmentDailyDataCount > 0)
+                {
+                    maximumCount = Math.Min(maximumCount, preferredSegmentDailyDataCount);
+                }
+                long payloadLimit = adaptiveController.CurrentPayloadBytes;
+                WellProductionDataRequest selectedRequest = CreateWellProductionSegmentRequest(
+                    wellId,
+                    dailyData,
+                    offset,
+                    maximumCount,
+                    metaInfoList);
+                int selectedPayloadBytes = GetJsonPayloadByteCount(selectedRequest, adaptiveController);
+
+                if (selectedPayloadBytes > payloadLimit && maximumCount > 1)
+                {
+                    int low = 1;
+                    int high = maximumCount - 1;
+                    selectedRequest = null;
+                    selectedPayloadBytes = 0;
+                    while (low <= high)
+                    {
+                        int candidateCount = low + (high - low) / 2;
+                        WellProductionDataRequest candidateRequest = CreateWellProductionSegmentRequest(
+                            wellId,
+                            dailyData,
+                            offset,
+                            candidateCount,
+                            metaInfoList);
+                        int candidatePayloadBytes = GetJsonPayloadByteCount(candidateRequest, adaptiveController);
+                        if (candidatePayloadBytes <= payloadLimit)
+                        {
+                            selectedRequest = candidateRequest;
+                            selectedPayloadBytes = candidatePayloadBytes;
+                            low = candidateCount + 1;
+                        }
+                        else
+                        {
+                            high = candidateCount - 1;
+                        }
+                    }
+
+                    if (selectedRequest == null)
+                    {
+                        selectedRequest = CreateWellProductionSegmentRequest(
+                            wellId,
+                            dailyData,
+                            offset,
+                            1,
+                            metaInfoList);
+                        selectedPayloadBytes = GetJsonPayloadByteCount(selectedRequest, adaptiveController);
+                    }
+                }
+
+                WellDailyProductionData selectedData = selectedRequest.Items[0];
+                segments.Add(new WellProductionDataSegment
+                {
+                    Data = selectedData,
+                    PayloadBytes = selectedPayloadBytes
+                });
+                preferredSegmentDailyDataCount = selectedData.DailyList.Count;
+                offset += selectedData.DailyList.Count;
+            }
+
+            return segments;
+        }
+
+        private static WellProductionDataRequest CreateWellProductionSegmentRequest(
+            long wellId,
+            List<DailyData> dailyData,
+            int offset,
+            int count,
+            List<MetaInfo> metaInfoList)
+        {
+            var request = new WellProductionDataRequest();
+            request.Items.Add(new WellDailyProductionData
+            {
+                WellId = wellId,
+                MetaInfoList = metaInfoList,
+                DailyList = dailyData.GetRange(offset, count)
+            });
+            return request;
+        }
+
         private static int GetJsonPayloadByteCount(object request, AdaptiveSyncController adaptiveController = null)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -2921,6 +3186,825 @@ namespace KindomDataAPIServer.KindomAPI
                 return mappingItem.NewUnit;
             }
             return null;
+        }
+
+        public async Task CreateWellTestDataToWeb(
+            ProjectResponse kingDomData,
+            PbViewMetaObjectList wellIdAndNameList,
+            List<UnitMappingItem> unitMappingItems,
+            SyncKindomDataViewModel syncKindomDataViewModel)
+        {
+            var wellGroups = kingDomData.Wells
+                .Where(well => well.IsChecked && !string.IsNullOrWhiteSpace(well.Uwi))
+                .GroupBy(well => well.Uwi, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Dictionary<string, long> wellIdByUwi = BuildWellIdByUwi(wellIdAndNameList);
+            Dictionary<long, string> uwiByWellId = wellIdByUwi
+                .GroupBy(item => item.Value)
+                .ToDictionary(group => group.Key, group => group.First().Key);
+            Dictionary<string, UnitInfo> mappedUnits = BuildWellTestUnitMap(unitMappingItems);
+            var gasSegmentsBySignature = new Dictionary<string, List<WellGasTestSegment>>(StringComparer.Ordinal);
+            var oilSegmentsBySignature = new Dictionary<string, List<WellOilTestSegment>>(StringComparer.Ordinal);
+            AdaptiveSyncController adaptiveController = AdaptiveSyncService.GetOrCreateCurrent().GetController("wellTest");
+            int configuredReadBatch = adaptiveController.CurrentReadBatch;
+            int processedWellCount = 0;
+            int totalRawTestCount = 0;
+            int totalGasTestCount = 0;
+            int totalOilTestCount = 0;
+            int localReadCount = 0;
+            long totalReadElapsedTicks = 0;
+            long totalPreparationElapsedTicks = 0;
+            var localReadWallTimer = new WallClockActivityTimer();
+            var uploadWallTimer = new WallClockActivityTimer();
+            var totalStopwatch = Stopwatch.StartNew();
+
+            SyncTaskReportService.Instance.Log($"WellTest synchronization started. Selected wells:{wellGroups.Count}, initial read UWI batch size:{configuredReadBatch}, initial payload bytes:{adaptiveController.CurrentPayloadBytes}, maximum test record count:{adaptiveController.BusinessLimit}, upload concurrency:{adaptiveController.ConfiguredConcurrency}.");
+            using (var context = project.GetKingdom())
+            {
+                int readBatchIndex = 0;
+                for (int batchStart = 0; batchStart < wellGroups.Count;)
+                {
+                    readBatchIndex++;
+                    int currentReadBatchSize = adaptiveController.CurrentReadBatch;
+                    var readBatchWellGroups = wellGroups
+                        .Skip(batchStart)
+                        .Take(currentReadBatchSize)
+                        .ToList();
+                    batchStart += readBatchWellGroups.Count;
+                    List<int> readBatchBoreholeIds = readBatchWellGroups
+                        .SelectMany(group => group.Select(well => well.BoreholeId))
+                        .Distinct()
+                        .ToList();
+                    string readBatchUwis = string.Join(",", readBatchWellGroups.Select(group => group.Key));
+
+                    var readStopwatch = Stopwatch.StartNew();
+                    var readBatchTestData = localReadWallTimer.Measure(() =>
+                        context.Get(new Smt.Entities.TestInitialPotential(),
+                            x => new
+                            {
+                                boreholeId = x.BoreholeId,
+                                data = x,
+                                header = x.ProductionTestHeader
+                            },
+                            x => readBatchBoreholeIds.Contains(x.BoreholeId),
+                            false).ToList());
+                    readStopwatch.Stop();
+                    totalRawTestCount += readBatchTestData.Count;
+                    totalReadElapsedTicks += readStopwatch.Elapsed.Ticks;
+                    localReadCount++;
+                    SyncTaskReportService.Instance.RecordApiRead(readStopwatch.Elapsed);
+                    SyncTaskReportService.Instance.Log($"TestInitialPotential read batch {readBatchIndex} completed. UWIs:[{readBatchUwis}], UWI count:{readBatchWellGroups.Count}, borehole IDs:[{string.Join(",", readBatchBoreholeIds)}], borehole count:{readBatchBoreholeIds.Count}, test records:{readBatchTestData.Count}, elapsed:{readStopwatch.Elapsed.TotalSeconds:F3}s.");
+
+                    var preparationStopwatch = Stopwatch.StartNew();
+                    var testDataByBoreholeId = readBatchTestData.ToLookup(item => item.boreholeId);
+                    foreach (var wellGroup in readBatchWellGroups)
+                    {
+                        processedWellCount++;
+                        if (!wellIdByUwi.TryGetValue(wellGroup.Key, out long wellWebId))
+                        {
+                            continue;
+                        }
+
+                        var wellTestRecords = wellGroup
+                            .Select(well => well.BoreholeId)
+                            .Distinct()
+                            .SelectMany(boreholeId => testDataByBoreholeId[boreholeId])
+                            .ToList();
+                        if (wellTestRecords.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        string wellName = wellGroup
+                            .Select(well => well.WellName)
+                            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+                        var gasData = new WellGasTestData { WellId = wellWebId };
+                        var oilData = new WellOilTestData { WellId = wellWebId };
+                        var gasMetaInfoKeys = new HashSet<string>(StringComparer.Ordinal);
+                        var oilMetaInfoKeys = new HashSet<string>(StringComparer.Ordinal);
+                        AddMetaInfoIfMissing(oilData.MetaInfoList, oilMetaInfoKeys, "chokeSize", "oilTestList.chokeSize", ChokeSizeUnit);
+                        AddMetaInfoIfMissing(oilData.MetaInfoList, oilMetaInfoKeys, "FlowingTubingPressure", "oilTestList.flowPressure", FlowingTubingPressureUnit);
+                        AddMetaInfoIfMissing(oilData.MetaInfoList, oilMetaInfoKeys, "staticTemp", "oilTestList.staticTemp", BottomHoleTemperatureUnit);
+
+                        foreach (var testRecord in wellTestRecords)
+                        {
+                            if (testRecord.data == null ||
+                                !testRecord.data.StartDepth.HasValue ||
+                                !testRecord.data.EndDepth.HasValue)
+                            {
+                                continue;
+                            }
+
+                            string interval = testRecord.data.StartDepth.Value.ToString("G") + "-" +
+                                testRecord.data.EndDepth.Value.ToString("G");
+                            double thickness = testRecord.data.EndDepth.Value - testRecord.data.StartDepth.Value;
+                            string testNumber = testRecord.header?.TestNumber;
+
+                            if (testRecord.data.GasVolume.HasValue)
+                            {
+                                int.TryParse(testNumber, out int order);
+                                gasData.GasTestList.Add(new GasTestData
+                                {
+                                    WellId = wellWebId.ToString(),
+                                    WellName = wellName,
+                                    Interval = interval,
+                                    Freq = order,
+                                    Wpr = testRecord.data.GasVolume.Value,
+                                    Wp = testRecord.data.WaterVolume ?? 0
+                                });
+                                if (TryGetWellTestUnit(mappedUnits, TestGasVolume, testRecord.data.GasRate, out UnitInfo gasUnit))
+                                {
+                                    AddMetaInfoIfMissing(gasData.MetaInfoList, gasMetaInfoKeys, "wpr", "gasTestList.wpr", gasUnit);
+                                }
+                                if (testRecord.data.WaterVolume.HasValue &&
+                                    TryGetWellTestUnit(mappedUnits, TestWaterVolume, testRecord.data.WaterRate, out UnitInfo gasWaterUnit))
+                                {
+                                    AddMetaInfoIfMissing(gasData.MetaInfoList, gasMetaInfoKeys, "wp", "gasTestList.wp", gasWaterUnit);
+                                }
+                            }
+
+                            if (testRecord.data.OilVolume.HasValue)
+                            {
+                                oilData.OilTestList.Add(new OilTestData
+                                {
+                                    WellId = wellWebId.ToString(),
+                                    WellName = wellName,
+                                    TestWellSection = interval,
+                                    Sequence = testNumber,
+                                    OilAmountPerDay = testRecord.data.OilVolume.Value,
+                                    WaterAmountPerDay = testRecord.data.WaterVolume ?? 0,
+                                    ChokeSize = testRecord.data.TopChokeSize ?? 0,
+                                    FlowPressure = testRecord.data.FlowingTubingPressure ?? 0,
+                                    StaticTemp = testRecord.data.BottomHoleTemperature ?? 0,
+                                    Thickness = thickness
+                                });
+                                if (TryGetWellTestUnit(mappedUnits, TestOilVolume, testRecord.data.OilRate, out UnitInfo oilUnit))
+                                {
+                                    AddMetaInfoIfMissing(oilData.MetaInfoList, oilMetaInfoKeys, "oilAmountPerDay", "oilTestList.oilAmountPerDay", oilUnit);
+                                }
+                                if (testRecord.data.WaterVolume.HasValue &&
+                                    TryGetWellTestUnit(mappedUnits, TestWaterVolume, testRecord.data.WaterRate, out UnitInfo oilWaterUnit))
+                                {
+                                    AddMetaInfoIfMissing(oilData.MetaInfoList, oilMetaInfoKeys, "waterAmountPerDay", "oilTestList.waterAmountPerDay", oilWaterUnit);
+                                }
+                            }
+                        }
+
+                        if (gasData.GasTestList.Count > 0)
+                        {
+                            gasData.MetaInfoList = NormalizeMetaInfoList(gasData.MetaInfoList);
+                            foreach (WellGasTestSegment segment in SplitWellGasTestData(gasData, adaptiveController))
+                            {
+                                if (!gasSegmentsBySignature.TryGetValue(segment.MetaInfoSignature, out List<WellGasTestSegment> segments))
+                                {
+                                    segments = new List<WellGasTestSegment>();
+                                    gasSegmentsBySignature[segment.MetaInfoSignature] = segments;
+                                }
+                                segments.Add(segment);
+                            }
+                            totalGasTestCount += gasData.GasTestList.Count;
+                        }
+
+                        if (oilData.OilTestList.Count > 0)
+                        {
+                            oilData.MetaInfoList = NormalizeMetaInfoList(oilData.MetaInfoList);
+                            foreach (WellOilTestSegment segment in SplitWellOilTestData(oilData, adaptiveController))
+                            {
+                                if (!oilSegmentsBySignature.TryGetValue(segment.MetaInfoSignature, out List<WellOilTestSegment> segments))
+                                {
+                                    segments = new List<WellOilTestSegment>();
+                                    oilSegmentsBySignature[segment.MetaInfoSignature] = segments;
+                                }
+                                segments.Add(segment);
+                            }
+                            totalOilTestCount += oilData.OilTestList.Count;
+                        }
+                    }
+                    preparationStopwatch.Stop();
+                    totalPreparationElapsedTicks += preparationStopwatch.Elapsed.Ticks;
+                    adaptiveController.RecordPreparation(preparationStopwatch.Elapsed);
+                    adaptiveController.RecordRead(readStopwatch.Elapsed, readBatchTestData.Count, false);
+                    if (syncKindomDataViewModel != null && wellGroups.Count > 0)
+                    {
+                        syncKindomDataViewModel.ReportCurrentStepProgress(processedWellCount * 50.0 / wellGroups.Count);
+                    }
+                }
+            }
+
+            WellTestUploadSummary uploadSummary = await UploadWellTestSegments(
+                gasSegmentsBySignature,
+                oilSegmentsBySignature,
+                uwiByWellId,
+                adaptiveController,
+                uploadWallTimer,
+                totalGasTestCount + totalOilTestCount,
+                syncKindomDataViewModel);
+
+            totalStopwatch.Stop();
+            TimeSpan actualLocalReadElapsed = localReadWallTimer.Elapsed;
+            TimeSpan actualUploadWallElapsed = uploadWallTimer.Elapsed;
+            SyncTaskReportService.Instance.RecordOperationTiming(
+                "WellTest",
+                actualLocalReadElapsed,
+                actualUploadWallElapsed,
+                TimeSpan.FromTicks(totalReadElapsedTicks),
+                localReadCount,
+                TimeSpan.FromTicks(uploadSummary.CumulativeUploadElapsedTicks),
+                uploadSummary.CompletedRequestCount);
+            SyncTaskReportService.Instance.LogSummary($"WellTest synchronization completed. Selected wells:{wellGroups.Count}, processed wells:{processedWellCount}, read UWI batch size:{configuredReadBatch}, raw test records:{totalRawTestCount}, gas test records:{totalGasTestCount}, oil test records:{totalOilTestCount}, uploaded gas test records:{uploadSummary.UploadedGasTestCount}, uploaded oil test records:{uploadSummary.UploadedOilTestCount}, upload batches:{uploadSummary.UploadedBatchCount}, total JSON bytes:{uploadSummary.TotalPayloadBytes} ({uploadSummary.TotalPayloadBytes / 1024.0 / 1024.0:F3} MiB), maximum JSON bytes:{uploadSummary.MaximumPayloadBytes} ({uploadSummary.MaximumPayloadBytes / 1024.0 / 1024.0:F3} MiB), preparation elapsed:{TimeSpan.FromTicks(totalPreparationElapsedTicks).TotalSeconds:F3}s, {BuildActualTimeSummary(actualLocalReadElapsed, actualUploadWallElapsed)}, total elapsed:{totalStopwatch.Elapsed.TotalSeconds:F3}s.");
+            adaptiveController.Complete(true);
+            syncKindomDataViewModel?.ReportCurrentStepProgress(100);
+        }
+
+        private static Dictionary<string, long> BuildWellIdByUwi(PbViewMetaObjectList wellIdAndNameList)
+        {
+            var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+            if (wellIdAndNameList == null)
+            {
+                return result;
+            }
+
+            foreach (var metaObject in wellIdAndNameList.MetaObjects)
+            {
+                if (!string.IsNullOrWhiteSpace(metaObject.Name) &&
+                    long.TryParse(metaObject.Id, out long wellId) &&
+                    !result.ContainsKey(metaObject.Name))
+                {
+                    result[metaObject.Name] = wellId;
+                }
+            }
+            return result;
+        }
+
+        private static Dictionary<string, UnitInfo> BuildWellTestUnitMap(List<UnitMappingItem> unitMappingItems)
+        {
+            var result = new Dictionary<string, UnitInfo>(StringComparer.OrdinalIgnoreCase);
+            foreach (UnitMappingItem item in unitMappingItems ?? new List<UnitMappingItem>())
+            {
+                if (item.NewUnit == null || string.IsNullOrWhiteSpace(item.KindomUnitName))
+                {
+                    continue;
+                }
+                string key = BuildWellTestUnitKey(item.PropName, item.KindomUnitName);
+                if (!result.ContainsKey(key))
+                {
+                    result[key] = item.NewUnit;
+                }
+            }
+            return result;
+        }
+
+        private static bool TryGetWellTestUnit(
+            Dictionary<string, UnitInfo> mappedUnits,
+            string propertyName,
+            string kingdomUnitName,
+            out UnitInfo unit)
+        {
+            unit = null;
+            return !string.IsNullOrWhiteSpace(kingdomUnitName) &&
+                mappedUnits.TryGetValue(BuildWellTestUnitKey(propertyName, kingdomUnitName), out unit);
+        }
+
+        private static string BuildWellTestUnitKey(string propertyName, string kingdomUnitName)
+        {
+            return (propertyName ?? string.Empty) + "\u001f" + (kingdomUnitName ?? string.Empty);
+        }
+
+        private static void AddMetaInfoIfMissing(
+            List<MetaInfo> metaInfoList,
+            HashSet<string> keys,
+            string displayName,
+            string propertyName,
+            UnitInfo unit)
+        {
+            if (unit == null)
+            {
+                return;
+            }
+            string key = propertyName + "\u001f" + unit.MeasureID + "\u001f" + unit.Id;
+            if (!keys.Add(key))
+            {
+                return;
+            }
+            metaInfoList.Add(new MetaInfo
+            {
+                DisplayName = displayName,
+                PropertyName = propertyName,
+                UnitId = unit.Id,
+                MeasureId = unit.MeasureID
+            });
+        }
+
+        private static List<MetaInfo> NormalizeMetaInfoList(List<MetaInfo> metaInfoList)
+        {
+            return metaInfoList
+                .GroupBy(item => item.PropertyName + "\u001f" + item.MeasureId + "\u001f" + item.UnitId)
+                .Select(group => group.First())
+                .OrderBy(item => item.PropertyName, StringComparer.Ordinal)
+                .ThenBy(item => item.MeasureId)
+                .ThenBy(item => item.UnitId)
+                .ToList();
+        }
+
+        private static string BuildMetaInfoSignature(List<MetaInfo> metaInfoList)
+        {
+            return string.Join("|", metaInfoList.Select(item =>
+                item.PropertyName + ":" + item.MeasureId + ":" + item.UnitId + ":" + item.DisplayName));
+        }
+
+        private static List<WellGasTestSegment> SplitWellGasTestData(
+            WellGasTestData source,
+            AdaptiveSyncController adaptiveController)
+        {
+            var segments = new List<WellGasTestSegment>();
+            int offset = 0;
+            int preferredCount = 0;
+            string signature = BuildMetaInfoSignature(source.MetaInfoList);
+            while (offset < source.GasTestList.Count)
+            {
+                int maximumCount = Math.Min(adaptiveController.BusinessLimit, source.GasTestList.Count - offset);
+                if (preferredCount > 0)
+                {
+                    maximumCount = Math.Min(maximumCount, preferredCount);
+                }
+                long payloadLimit = adaptiveController.CurrentPayloadBytes;
+                WellGasTestRequest selectedRequest = CreateWellGasTestSegmentRequest(source, offset, maximumCount);
+                int selectedPayloadBytes = GetJsonPayloadByteCount(selectedRequest, adaptiveController);
+                if (selectedPayloadBytes > payloadLimit && maximumCount > 1)
+                {
+                    int low = 1;
+                    int high = maximumCount - 1;
+                    selectedRequest = null;
+                    while (low <= high)
+                    {
+                        int candidateCount = low + (high - low) / 2;
+                        WellGasTestRequest candidateRequest = CreateWellGasTestSegmentRequest(source, offset, candidateCount);
+                        int candidatePayloadBytes = GetJsonPayloadByteCount(candidateRequest, adaptiveController);
+                        if (candidatePayloadBytes <= payloadLimit)
+                        {
+                            selectedRequest = candidateRequest;
+                            selectedPayloadBytes = candidatePayloadBytes;
+                            low = candidateCount + 1;
+                        }
+                        else
+                        {
+                            high = candidateCount - 1;
+                        }
+                    }
+                    if (selectedRequest == null)
+                    {
+                        selectedRequest = CreateWellGasTestSegmentRequest(source, offset, 1);
+                        selectedPayloadBytes = GetJsonPayloadByteCount(selectedRequest, adaptiveController);
+                    }
+                }
+
+                WellGasTestData selectedData = selectedRequest.Items[0];
+                segments.Add(new WellGasTestSegment
+                {
+                    Data = selectedData,
+                    PayloadBytes = selectedPayloadBytes,
+                    MetaInfoSignature = signature
+                });
+                preferredCount = selectedData.GasTestList.Count;
+                offset += selectedData.GasTestList.Count;
+            }
+            return segments;
+        }
+
+        private static WellGasTestRequest CreateWellGasTestSegmentRequest(WellGasTestData source, int offset, int count)
+        {
+            var request = new WellGasTestRequest();
+            request.Items.Add(new WellGasTestData
+            {
+                WellId = source.WellId,
+                MetaInfoList = source.MetaInfoList,
+                GasTestList = source.GasTestList.GetRange(offset, count)
+            });
+            return request;
+        }
+
+        private static List<WellOilTestSegment> SplitWellOilTestData(
+            WellOilTestData source,
+            AdaptiveSyncController adaptiveController)
+        {
+            var segments = new List<WellOilTestSegment>();
+            int offset = 0;
+            int preferredCount = 0;
+            string signature = BuildMetaInfoSignature(source.MetaInfoList);
+            while (offset < source.OilTestList.Count)
+            {
+                int maximumCount = Math.Min(adaptiveController.BusinessLimit, source.OilTestList.Count - offset);
+                if (preferredCount > 0)
+                {
+                    maximumCount = Math.Min(maximumCount, preferredCount);
+                }
+                long payloadLimit = adaptiveController.CurrentPayloadBytes;
+                WellOilTestDataRequset selectedRequest = CreateWellOilTestSegmentRequest(source, offset, maximumCount);
+                int selectedPayloadBytes = GetJsonPayloadByteCount(selectedRequest, adaptiveController);
+                if (selectedPayloadBytes > payloadLimit && maximumCount > 1)
+                {
+                    int low = 1;
+                    int high = maximumCount - 1;
+                    selectedRequest = null;
+                    while (low <= high)
+                    {
+                        int candidateCount = low + (high - low) / 2;
+                        WellOilTestDataRequset candidateRequest = CreateWellOilTestSegmentRequest(source, offset, candidateCount);
+                        int candidatePayloadBytes = GetJsonPayloadByteCount(candidateRequest, adaptiveController);
+                        if (candidatePayloadBytes <= payloadLimit)
+                        {
+                            selectedRequest = candidateRequest;
+                            selectedPayloadBytes = candidatePayloadBytes;
+                            low = candidateCount + 1;
+                        }
+                        else
+                        {
+                            high = candidateCount - 1;
+                        }
+                    }
+                    if (selectedRequest == null)
+                    {
+                        selectedRequest = CreateWellOilTestSegmentRequest(source, offset, 1);
+                        selectedPayloadBytes = GetJsonPayloadByteCount(selectedRequest, adaptiveController);
+                    }
+                }
+
+                WellOilTestData selectedData = selectedRequest.Items[0];
+                segments.Add(new WellOilTestSegment
+                {
+                    Data = selectedData,
+                    PayloadBytes = selectedPayloadBytes,
+                    MetaInfoSignature = signature
+                });
+                preferredCount = selectedData.OilTestList.Count;
+                offset += selectedData.OilTestList.Count;
+            }
+            return segments;
+        }
+
+        private static WellOilTestDataRequset CreateWellOilTestSegmentRequest(WellOilTestData source, int offset, int count)
+        {
+            var request = new WellOilTestDataRequset();
+            request.Items.Add(new WellOilTestData
+            {
+                WellId = source.WellId,
+                MetaInfoList = source.MetaInfoList,
+                OilTestList = source.OilTestList.GetRange(offset, count)
+            });
+            return request;
+        }
+
+        private async Task<WellTestUploadSummary> UploadWellTestSegments(
+            Dictionary<string, List<WellGasTestSegment>> gasSegmentsBySignature,
+            Dictionary<string, List<WellOilTestSegment>> oilSegmentsBySignature,
+            Dictionary<long, string> uwiByWellId,
+            AdaptiveSyncController adaptiveController,
+            WallClockActivityTimer uploadWallTimer,
+            int totalTestRecordCount,
+            SyncKindomDataViewModel syncKindomDataViewModel)
+        {
+            var wellDataService = ServiceLocator.GetService<IDataWellService>();
+            int uploadConcurrency = adaptiveController.ConfiguredConcurrency;
+            int uploadQueueCapacity = uploadConcurrency * 2;
+            int uploadedBatchCount = 0;
+            int uploadedGasTestCount = 0;
+            int uploadedOilTestCount = 0;
+            int completedRequestCount = 0;
+            int completedUploadRecordCount = 0;
+            long totalPayloadBytes = 0;
+            long maximumPayloadBytes = 0;
+            long cumulativeUploadElapsedTicks = 0;
+
+            using (var uploadQueue = new BlockingCollection<WellTestUploadBatch>(uploadQueueCapacity))
+            using (var cancellationTokenSource = new CancellationTokenSource())
+            {
+                var uploadTasks = Enumerable.Range(0, uploadConcurrency)
+                    .Select(workerIndex => Task.Run(async () =>
+                    {
+                        try
+                        {
+                            foreach (WellTestUploadBatch uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                            {
+                                string testType = uploadBatch.IsGas ? "Gas" : "Oil";
+                                string endpoint = uploadBatch.IsGas
+                                    ? "dp/api/welldata/batch_create_well_gas_pressure_test_with_meta_infos"
+                                    : "dp/api/welldata/batch_create_well_oil_test_with_meta_infos";
+                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
+                                string traceName = $"Well{testType}Test batch {uploadBatch.BatchIndex}";
+                                Interlocked.Add(ref totalPayloadBytes, uploadBatch.PayloadBytes);
+                                UpdateMaximum(ref maximumPayloadBytes, uploadBatch.PayloadBytes);
+                                SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
+                                SyncTaskReportService.Instance.Log($"Well{testType}Test batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, test records:{uploadBatch.TestRecordCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                var uploadStopwatch = Stopwatch.StartNew();
+                                try
+                                {
+                                    WellOperationResult response;
+                                    using (await adaptiveController.EnterUploadAsync(cancellationTokenSource.Token))
+                                    {
+                                        response = uploadBatch.IsGas
+                                            ? await uploadWallTimer.MeasureAsync(() => wellDataService.batch_create_well_gas_pressure_test_with_meta_infos(uploadBatch.GasRequest, traceName))
+                                            : await uploadWallTimer.MeasureAsync(() => wellDataService.batch_create_well_oil_test_with_meta_infos(uploadBatch.OilRequest, traceName));
+                                    }
+                                    uploadStopwatch.Stop();
+                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), true);
+                                    Interlocked.Add(ref cumulativeUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
+                                    Interlocked.Increment(ref completedRequestCount);
+                                    SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
+                                    if (response == null)
+                                    {
+                                        adaptiveController.RecordInternalFailure($"{testType.ToLowerInvariant()} test upload returned an empty response");
+                                        SyncTaskReportService.Instance.RecordError($"Well{testType}Test batch {uploadBatch.BatchIndex} synchronization returned an empty response. UWIs:[{batchUwis}]");
+                                        continue;
+                                    }
+
+                                    Interlocked.Increment(ref uploadedBatchCount);
+                                    if (uploadBatch.IsGas)
+                                    {
+                                        Interlocked.Add(ref uploadedGasTestCount, uploadBatch.TestRecordCount);
+                                    }
+                                    else
+                                    {
+                                        Interlocked.Add(ref uploadedOilTestCount, uploadBatch.TestRecordCount);
+                                    }
+                                    int failedCount = response.Summary?.failed
+                                        ?? response.Results?.Count(result => result.errorCode != 0)
+                                        ?? 0;
+                                    SyncTaskReportService.Instance.Log($"Well{testType}Test batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, test records:{uploadBatch.TestRecordCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s.");
+                                    if (failedCount > 0)
+                                    {
+                                        string failedUwis = string.Join(",", response.Results?
+                                            .Where(result => result.errorCode != 0)
+                                            .Select(result => uploadBatch.WellUwisById.TryGetValue(result.wellId, out string uwi) ? uwi : "Unknown")
+                                            .Distinct() ?? Enumerable.Empty<string>());
+                                        object request = uploadBatch.IsGas
+                                            ? (object)uploadBatch.GasRequest
+                                            : uploadBatch.OilRequest;
+                                        SyncTaskReportService.Instance.RecordUploadResponseErrors(
+                                            $"Well{testType}Test",
+                                            $"Well{testType}TestUploadErrors",
+                                            endpoint,
+                                            batchUwis,
+                                            string.IsNullOrWhiteSpace(failedUwis) ? batchUwis : failedUwis,
+                                            uploadBatch.BatchIndex,
+                                            uploadBatch.PayloadBytes,
+                                            request,
+                                            response);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    uploadStopwatch.Stop();
+                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), false);
+                                    SyncTaskReportService.Instance.RecordError($"Well{testType}Test batch {uploadBatch.BatchIndex} synchronization failed. UWIs:[{batchUwis}]", ex);
+                                }
+                                finally
+                                {
+                                    int completedRecords = Interlocked.Add(ref completedUploadRecordCount, uploadBatch.TestRecordCount);
+                                    if (syncKindomDataViewModel != null && totalTestRecordCount > 0)
+                                    {
+                                        syncKindomDataViewModel.ReportCurrentStepProgress(50 + completedRecords * 50.0 / totalTestRecordCount);
+                                    }
+                                }
+                            }
+                        }
+                        catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+                        {
+                        }
+                        catch (Exception ex)
+                        {
+                            cancellationTokenSource.Cancel();
+                            adaptiveController.RecordInternalFailure("well test upload worker failed");
+                            SyncTaskReportService.Instance.RecordError("WellTest upload worker failed", ex);
+                        }
+                    }))
+                    .ToArray();
+
+                int batchIndex = 0;
+                try
+                {
+                    foreach (List<WellGasTestSegment> gasSegments in gasSegmentsBySignature.Values)
+                    {
+                        WellGasTestRequest request = new WellGasTestRequest();
+                        var batchUwis = new Dictionary<long, string>();
+                        int batchRecordCount = 0;
+                        long estimatedPayloadBytes = 0;
+                        bool payloadBytesAreExact = false;
+
+                        Action enqueueGasBatch = () =>
+                        {
+                            if (request.Items.Count == 0)
+                            {
+                                return;
+                            }
+                            batchIndex++;
+                            int payloadBytes = payloadBytesAreExact
+                                ? (int)estimatedPayloadBytes
+                                : GetJsonPayloadByteCount(request, adaptiveController);
+                            var uploadBatch = new WellTestUploadBatch
+                            {
+                                BatchIndex = batchIndex,
+                                IsGas = true,
+                                WellCount = request.Items.Count,
+                                TestRecordCount = batchRecordCount,
+                                PayloadBytes = payloadBytes,
+                                GasRequest = request,
+                                WellUwisById = new Dictionary<long, string>(batchUwis)
+                            };
+                            EnqueueAdaptive(uploadQueue, uploadBatch, adaptiveController, cancellationTokenSource.Token);
+                            SyncTaskReportService.Instance.Log($"WellGasTest batch {batchIndex} queued. UWIs:[{string.Join(",", batchUwis.Values.Distinct())}], wells:{uploadBatch.WellCount}, test records:{batchRecordCount}, JSON bytes:{payloadBytes}.");
+                            request = new WellGasTestRequest();
+                            batchUwis = new Dictionary<long, string>();
+                            batchRecordCount = 0;
+                            estimatedPayloadBytes = 0;
+                            payloadBytesAreExact = false;
+                        };
+
+                        foreach (WellGasTestSegment segment in gasSegments)
+                        {
+                            int segmentRecordCount = segment.Data.GasTestList.Count;
+                            bool startNewBatch = request.Items.Count > 0 &&
+                                (batchUwis.ContainsKey(segment.Data.WellId) ||
+                                 batchRecordCount + segmentRecordCount > adaptiveController.BusinessLimit);
+                            bool segmentAdded = false;
+                            if (!startNewBatch && request.Items.Count > 0 &&
+                                estimatedPayloadBytes + segment.PayloadBytes > adaptiveController.CurrentPayloadBytes)
+                            {
+                                request.Items.Add(segment.Data);
+                                int candidatePayloadBytes = GetJsonPayloadByteCount(request, adaptiveController);
+                                if (candidatePayloadBytes <= adaptiveController.CurrentPayloadBytes)
+                                {
+                                    estimatedPayloadBytes = candidatePayloadBytes;
+                                    payloadBytesAreExact = true;
+                                    segmentAdded = true;
+                                }
+                                else
+                                {
+                                    request.Items.RemoveAt(request.Items.Count - 1);
+                                    startNewBatch = true;
+                                }
+                            }
+                            if (startNewBatch)
+                            {
+                                enqueueGasBatch();
+                            }
+                            if (!segmentAdded)
+                            {
+                                request.Items.Add(segment.Data);
+                                if (request.Items.Count == 1)
+                                {
+                                    estimatedPayloadBytes = segment.PayloadBytes;
+                                    payloadBytesAreExact = true;
+                                }
+                                else
+                                {
+                                    estimatedPayloadBytes += segment.PayloadBytes;
+                                    payloadBytesAreExact = false;
+                                }
+                            }
+                            batchUwis[segment.Data.WellId] = uwiByWellId.TryGetValue(segment.Data.WellId, out string uwi)
+                                ? uwi
+                                : segment.Data.WellId.ToString();
+                            batchRecordCount += segmentRecordCount;
+                            if (segment.PayloadBytes > adaptiveController.CurrentPayloadBytes && segmentRecordCount == 1)
+                            {
+                                adaptiveController.RecordOversizedItem(segment.PayloadBytes, segmentRecordCount);
+                                enqueueGasBatch();
+                            }
+                            else if (batchRecordCount >= adaptiveController.BusinessLimit)
+                            {
+                                enqueueGasBatch();
+                            }
+                        }
+                        enqueueGasBatch();
+                    }
+
+                    foreach (List<WellOilTestSegment> oilSegments in oilSegmentsBySignature.Values)
+                    {
+                        WellOilTestDataRequset request = new WellOilTestDataRequset();
+                        var batchUwis = new Dictionary<long, string>();
+                        int batchRecordCount = 0;
+                        long estimatedPayloadBytes = 0;
+                        bool payloadBytesAreExact = false;
+
+                        Action enqueueOilBatch = () =>
+                        {
+                            if (request.Items.Count == 0)
+                            {
+                                return;
+                            }
+                            batchIndex++;
+                            int payloadBytes = payloadBytesAreExact
+                                ? (int)estimatedPayloadBytes
+                                : GetJsonPayloadByteCount(request, adaptiveController);
+                            var uploadBatch = new WellTestUploadBatch
+                            {
+                                BatchIndex = batchIndex,
+                                IsGas = false,
+                                WellCount = request.Items.Count,
+                                TestRecordCount = batchRecordCount,
+                                PayloadBytes = payloadBytes,
+                                OilRequest = request,
+                                WellUwisById = new Dictionary<long, string>(batchUwis)
+                            };
+                            EnqueueAdaptive(uploadQueue, uploadBatch, adaptiveController, cancellationTokenSource.Token);
+                            SyncTaskReportService.Instance.Log($"WellOilTest batch {batchIndex} queued. UWIs:[{string.Join(",", batchUwis.Values.Distinct())}], wells:{uploadBatch.WellCount}, test records:{batchRecordCount}, JSON bytes:{payloadBytes}.");
+                            request = new WellOilTestDataRequset();
+                            batchUwis = new Dictionary<long, string>();
+                            batchRecordCount = 0;
+                            estimatedPayloadBytes = 0;
+                            payloadBytesAreExact = false;
+                        };
+
+                        foreach (WellOilTestSegment segment in oilSegments)
+                        {
+                            int segmentRecordCount = segment.Data.OilTestList.Count;
+                            bool startNewBatch = request.Items.Count > 0 &&
+                                (batchUwis.ContainsKey(segment.Data.WellId) ||
+                                 batchRecordCount + segmentRecordCount > adaptiveController.BusinessLimit);
+                            bool segmentAdded = false;
+                            if (!startNewBatch && request.Items.Count > 0 &&
+                                estimatedPayloadBytes + segment.PayloadBytes > adaptiveController.CurrentPayloadBytes)
+                            {
+                                request.Items.Add(segment.Data);
+                                int candidatePayloadBytes = GetJsonPayloadByteCount(request, adaptiveController);
+                                if (candidatePayloadBytes <= adaptiveController.CurrentPayloadBytes)
+                                {
+                                    estimatedPayloadBytes = candidatePayloadBytes;
+                                    payloadBytesAreExact = true;
+                                    segmentAdded = true;
+                                }
+                                else
+                                {
+                                    request.Items.RemoveAt(request.Items.Count - 1);
+                                    startNewBatch = true;
+                                }
+                            }
+                            if (startNewBatch)
+                            {
+                                enqueueOilBatch();
+                            }
+                            if (!segmentAdded)
+                            {
+                                request.Items.Add(segment.Data);
+                                if (request.Items.Count == 1)
+                                {
+                                    estimatedPayloadBytes = segment.PayloadBytes;
+                                    payloadBytesAreExact = true;
+                                }
+                                else
+                                {
+                                    estimatedPayloadBytes += segment.PayloadBytes;
+                                    payloadBytesAreExact = false;
+                                }
+                            }
+                            batchUwis[segment.Data.WellId] = uwiByWellId.TryGetValue(segment.Data.WellId, out string uwi)
+                                ? uwi
+                                : segment.Data.WellId.ToString();
+                            batchRecordCount += segmentRecordCount;
+                            if (segment.PayloadBytes > adaptiveController.CurrentPayloadBytes && segmentRecordCount == 1)
+                            {
+                                adaptiveController.RecordOversizedItem(segment.PayloadBytes, segmentRecordCount);
+                                enqueueOilBatch();
+                            }
+                            else if (batchRecordCount >= adaptiveController.BusinessLimit)
+                            {
+                                enqueueOilBatch();
+                            }
+                        }
+                        enqueueOilBatch();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    cancellationTokenSource.Cancel();
+                    adaptiveController.RecordInternalFailure("well test upload producer failed");
+                    SyncTaskReportService.Instance.RecordError("Preparing or queueing WellTest uploads failed", ex);
+                }
+                finally
+                {
+                    uploadQueue.CompleteAdding();
+                }
+
+                try
+                {
+                    await Task.WhenAll(uploadTasks);
+                }
+                catch (Exception ex)
+                {
+                    SyncTaskReportService.Instance.RecordError("Waiting for WellTest upload workers failed", ex);
+                }
+            }
+
+            return new WellTestUploadSummary
+            {
+                UploadedBatchCount = uploadedBatchCount,
+                UploadedGasTestCount = uploadedGasTestCount,
+                UploadedOilTestCount = uploadedOilTestCount,
+                CompletedRequestCount = completedRequestCount,
+                TotalPayloadBytes = totalPayloadBytes,
+                MaximumPayloadBytes = maximumPayloadBytes,
+                CumulativeUploadElapsedTicks = cumulativeUploadElapsedTicks
+            };
         }
 
         public (List<WellGasTestData>,List<WellOilTestData>) GetWellGasTestData(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<UnitMappingItem> UnitMappingItems)
@@ -3103,70 +4187,77 @@ namespace KindomDataAPIServer.KindomAPI
         public const string TestWaterVolume = "Water Volume";
         public List<UnitMappingItem> GetWellProductionTestDataUnits(ProjectResponse KingDomData)
         {
-            List<UnitMappingItem> UnitMappingItems = new List<UnitMappingItem>();
+            var unitMappingItems = new List<UnitMappingItem>();
             try
             {
-                List<WellExport> Wells = KingDomData.Wells;
-                List<int> BoreholeIds = Wells.Where(o => o.IsChecked).Select(o => o.BoreholeId).ToList();
+                List<int> boreholeIds = KingDomData.Wells
+                    .Where(well => well.IsChecked)
+                    .Select(well => well.BoreholeId)
+                    .Distinct()
+                    .ToList();
+                var discoveredUnits = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                int readBatchSize = AdaptiveSyncService.GetOrCreateCurrent()
+                    .GetController("wellTest")
+                    .CurrentReadBatch;
+                int readBatchIndex = 0;
 
                 using (var context = project.GetKingdom())
                 {
-                    var TestInitialPotentials = context.Get(new Smt.Entities.TestInitialPotential(),
-                     x => new
-                     {
-                         boreholeId = x.BoreholeId,
-                         data = x,
-                     },
-                       x => BoreholeIds.Contains(x.BoreholeId),
-                     false).ToList();
-
-
-                    foreach (var item in TestInitialPotentials)
+                    for (int batchStart = 0; batchStart < boreholeIds.Count; batchStart += readBatchSize)
                     {
-                        if (!string.IsNullOrEmpty(item.data.OilRate))
-                        {
-                            var res = UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == item.data.OilRate && o.PropName == TestOilVolume);
-                            if (res == null)
+                        readBatchIndex++;
+                        List<int> readBatchBoreholeIds = boreholeIds
+                            .Skip(batchStart)
+                            .Take(readBatchSize)
+                            .ToList();
+                        var readStopwatch = Stopwatch.StartNew();
+                        var testUnits = context.Get(new Smt.Entities.TestInitialPotential(),
+                            x => new
                             {
-                                UnitMappingItem unitMappingItem = new UnitMappingItem
-                                {
-                                    KindomUnitName = item.data.OilRate,
-                                    PropName = TestOilVolume
-                                };
+                                oilRate = x.OilRate,
+                                gasRate = x.GasRate,
+                                waterRate = x.WaterRate
+                            },
+                            x => readBatchBoreholeIds.Contains(x.BoreholeId),
+                            false).ToList();
+                        readStopwatch.Stop();
+                        SyncTaskReportService.Instance.RecordApiRead(readStopwatch.Elapsed);
+                        SyncTaskReportService.Instance.Log($"WellTest unit read batch {readBatchIndex} completed. Borehole IDs:[{string.Join(",", readBatchBoreholeIds)}], borehole count:{readBatchBoreholeIds.Count}, returned records:{testUnits.Count}, elapsed:{readStopwatch.Elapsed.TotalSeconds:F3}s.");
 
-                                unitMappingItem.UnitInfos = Utils.OilOrWaterInfos;
-                                unitMappingItem.NewUnit = OilOrWaterUnit;
-                                UnitMappingItems.Add(unitMappingItem);
-                            }
-                        }
-                        if (!string.IsNullOrEmpty(item.data.GasRate))
+                        foreach (var item in testUnits)
                         {
-                            var res = UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == item.data.GasRate && o.PropName == TestGasVolume);
-                            if (res == null)
+                            if (!string.IsNullOrWhiteSpace(item.oilRate) &&
+                                discoveredUnits.Add(BuildWellTestUnitKey(TestOilVolume, item.oilRate)))
                             {
-                                UnitMappingItem unitMappingItem = new UnitMappingItem
+                                unitMappingItems.Add(new UnitMappingItem
                                 {
-                                    KindomUnitName = item.data.GasRate,
-                                    PropName = TestGasVolume
-                                };
-                                unitMappingItem.UnitInfos = Utils.GasUnitInfos;
-                                unitMappingItem.NewUnit = GasUnit;
-                                UnitMappingItems.Add(unitMappingItem);
+                                    KindomUnitName = item.oilRate,
+                                    PropName = TestOilVolume,
+                                    UnitInfos = Utils.OilOrWaterInfos,
+                                    NewUnit = OilOrWaterUnit
+                                });
                             }
-                        }
-                        if (!string.IsNullOrEmpty(item.data.WaterRate))
-                        {
-                            var res = UnitMappingItems.FirstOrDefault(o => o.KindomUnitName == item.data.WaterRate && o.PropName == TestWaterVolume);
-                            if (res == null)
+                            if (!string.IsNullOrWhiteSpace(item.gasRate) &&
+                                discoveredUnits.Add(BuildWellTestUnitKey(TestGasVolume, item.gasRate)))
                             {
-                                UnitMappingItem unitMappingItem = new UnitMappingItem
+                                unitMappingItems.Add(new UnitMappingItem
                                 {
-                                    KindomUnitName = item.data.WaterRate,
-                                    PropName = TestWaterVolume
-                                };
-                                unitMappingItem.UnitInfos = Utils.OilOrWaterInfos;
-                                unitMappingItem.NewUnit = OilOrWaterUnit;
-                                UnitMappingItems.Add(unitMappingItem);
+                                    KindomUnitName = item.gasRate,
+                                    PropName = TestGasVolume,
+                                    UnitInfos = Utils.GasUnitInfos,
+                                    NewUnit = GasUnit
+                                });
+                            }
+                            if (!string.IsNullOrWhiteSpace(item.waterRate) &&
+                                discoveredUnits.Add(BuildWellTestUnitKey(TestWaterVolume, item.waterRate)))
+                            {
+                                unitMappingItems.Add(new UnitMappingItem
+                                {
+                                    KindomUnitName = item.waterRate,
+                                    PropName = TestWaterVolume,
+                                    UnitInfos = Utils.OilOrWaterInfos,
+                                    NewUnit = OilOrWaterUnit
+                                });
                             }
                         }
                     }
@@ -3176,7 +4267,7 @@ namespace KindomDataAPIServer.KindomAPI
             {
                 LogManagerService.Instance.Log("GetWellProductionTestDataUnits error:" + ExceptionLogHelper.Format(ex));
             }
-            return UnitMappingItems;
+            return unitMappingItems;
         }
 
         public Dictionary<string, CreatePayzoneRequest> CreateWellConclusionsToWeb(ProjectResponse KingDomData, PbViewMetaObjectList WellIDandNameList, List<ConclusionFileNameObj> ConclusionFileNameObjItems)
