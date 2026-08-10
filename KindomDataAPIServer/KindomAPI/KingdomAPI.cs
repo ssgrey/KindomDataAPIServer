@@ -3395,16 +3395,26 @@ namespace KindomDataAPIServer.KindomAPI
                         foreach (var testRecord in wellTestRecords)
                         {
                             var validationErrors = new List<string>();
+                            bool skipRecord = false;
                             int gasOrder = 0;
                             if (testRecord.data == null)
                             {
                                 validationErrors.Add("test data is null");
+                                skipRecord = true;
                             }
                             else
                             {
-                                if (!testRecord.data.StartDepth.HasValue) validationErrors.Add("StartDepth is missing");
+                                if (!testRecord.data.StartDepth.HasValue)
+                                {
+                                    validationErrors.Add("StartDepth is missing");
+                                    skipRecord = true;
+                                }
                                 else if (IsInvalidNumber(testRecord.data.StartDepth.Value)) validationErrors.Add("StartDepth is NaN or Infinity");
-                                if (!testRecord.data.EndDepth.HasValue) validationErrors.Add("EndDepth is missing");
+                                if (!testRecord.data.EndDepth.HasValue)
+                                {
+                                    validationErrors.Add("EndDepth is missing");
+                                    skipRecord = true;
+                                }
                                 else if (IsInvalidNumber(testRecord.data.EndDepth.Value)) validationErrors.Add("EndDepth is NaN or Infinity");
                                 if (testRecord.data.StartDepth.HasValue && testRecord.data.EndDepth.HasValue &&
                                     testRecord.data.EndDepth.Value < testRecord.data.StartDepth.Value)
@@ -3451,29 +3461,43 @@ namespace KindomDataAPIServer.KindomAPI
 
                             if (validationErrors.Count > 0)
                             {
-                                SyncTaskReportService.Instance.RecordDataValidationError(
+                                var sourceData = new
+                                {
+                                    testRecord.boreholeId,
+                                    TestNumber = testRecord.header?.TestNumber,
+                                    StartDepth = testRecord.data?.StartDepth,
+                                    EndDepth = testRecord.data?.EndDepth,
+                                    GasVolume = testRecord.data?.GasVolume,
+                                    GasRate = testRecord.data?.GasRate,
+                                    OilVolume = testRecord.data?.OilVolume,
+                                    OilRate = testRecord.data?.OilRate,
+                                    WaterVolume = testRecord.data?.WaterVolume,
+                                    WaterRate = testRecord.data?.WaterRate,
+                                    TopChokeSize = testRecord.data?.TopChokeSize,
+                                    FlowingTubingPressure = testRecord.data?.FlowingTubingPressure,
+                                    BottomHoleTemperature = testRecord.data?.BottomHoleTemperature
+                                };
+                                string itemDescription = $"borehole ID:{testRecord.boreholeId}, test number:{testRecord.header?.TestNumber}";
+                                string validationMessage = string.Join("; ", validationErrors);
+                                if (skipRecord)
+                                {
+                                    SyncTaskReportService.Instance.RecordDataValidationError(
+                                        "WellTest",
+                                        "WellTestValidationErrors",
+                                        wellGroup.Key,
+                                        itemDescription,
+                                        validationMessage,
+                                        sourceData);
+                                    continue;
+                                }
+
+                                SyncTaskReportService.Instance.RecordDataValidationWarning(
                                     "WellTest",
-                                    "WellTestValidationErrors",
+                                    "WellTestValidationWarnings",
                                     wellGroup.Key,
-                                    $"borehole ID:{testRecord.boreholeId}, test number:{testRecord.header?.TestNumber}",
-                                    string.Join("; ", validationErrors),
-                                    new
-                                    {
-                                        testRecord.boreholeId,
-                                        TestNumber = testRecord.header?.TestNumber,
-                                        StartDepth = testRecord.data?.StartDepth,
-                                        EndDepth = testRecord.data?.EndDepth,
-                                        GasVolume = testRecord.data?.GasVolume,
-                                        GasRate = testRecord.data?.GasRate,
-                                        OilVolume = testRecord.data?.OilVolume,
-                                        OilRate = testRecord.data?.OilRate,
-                                        WaterVolume = testRecord.data?.WaterVolume,
-                                        WaterRate = testRecord.data?.WaterRate,
-                                        TopChokeSize = testRecord.data?.TopChokeSize,
-                                        FlowingTubingPressure = testRecord.data?.FlowingTubingPressure,
-                                        BottomHoleTemperature = testRecord.data?.BottomHoleTemperature
-                                    });
-                                continue;
+                                    itemDescription,
+                                    validationMessage,
+                                    sourceData);
                             }
 
                             string interval = testRecord.data.StartDepth.Value.ToString("G") + "-" +

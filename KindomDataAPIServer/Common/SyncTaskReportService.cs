@@ -27,6 +27,7 @@ namespace KindomDataAPIServer.Common
         private const string ReportFilePattern = "sync-task-*.txt";
         private const int MaxRecordedUploadErrorsPerOperation = 10;
         private const int MaxRecordedDataErrorsPerOperation = 5;
+        private const int MaxRecordedDataWarningsPerOperation = 5;
 
         private static readonly Lazy<SyncTaskReportService> _instance =
             new Lazy<SyncTaskReportService>(() => new SyncTaskReportService());
@@ -35,7 +36,9 @@ namespace KindomDataAPIServer.Common
         private string _reportDirectory;
         private readonly Dictionary<string, int> _recordedUploadErrorCounts = new Dictionary<string, int>();
         private readonly Dictionary<string, int> _recordedDataErrorCounts = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> _recordedDataWarningCounts = new Dictionary<string, int>();
         private readonly HashSet<string> _dataErrorLimitNotifications = new HashSet<string>();
+        private readonly HashSet<string> _dataWarningLimitNotifications = new HashSet<string>();
         private readonly List<OperationTimingSummary> _operationTimingSummaries = new List<OperationTimingSummary>();
         private string _currentReportPath;
         private long _apiReadCount;
@@ -90,7 +93,9 @@ namespace KindomDataAPIServer.Common
             lock (_syncRoot)
             {
                 _recordedDataErrorCounts.Clear();
+                _recordedDataWarningCounts.Clear();
                 _dataErrorLimitNotifications.Clear();
+                _dataWarningLimitNotifications.Clear();
                 if (string.IsNullOrWhiteSpace(_reportDirectory) || !TryEnsureWritableDirectory(_reportDirectory))
                 {
                     _reportDirectory = ResolveReportDirectory();
@@ -401,13 +406,39 @@ namespace KindomDataAPIServer.Common
             RecordError($"{operationName} synchronization skipped for UWI:{uwi}, {itemDescription} due to {validationMessage}. Source data details:{detailsPath ?? "unavailable"}");
         }
 
+        public void RecordDataValidationWarning(
+            string operationName,
+            string warningDirectoryName,
+            string uwi,
+            string itemDescription,
+            string validationMessage,
+            object sourceData)
+        {
+            if (!TryReserveDataWarning(operationName, out bool notifyLimit))
+            {
+                LogDataWarningLimit(operationName, notifyLimit);
+                return;
+            }
+
+            string detailsPath = WriteDataValidationErrorDetails(
+                operationName,
+                warningDirectoryName,
+                uwi,
+                itemDescription,
+                validationMessage,
+                sourceData,
+                "Warning");
+            LogSummary($"{operationName} validation warning for UWI:{uwi}, {itemDescription}: {validationMessage}. Synchronization continues using the legacy handling. Source data details:{detailsPath ?? "unavailable"}");
+        }
+
         private string WriteDataValidationErrorDetails(
             string operationName,
             string errorDirectoryName,
             string uwi,
             string itemDescription,
             string validationMessage,
-            object sourceData)
+            object sourceData,
+            string validationKind = "Error")
         {
             try
             {
@@ -430,12 +461,12 @@ namespace KindomDataAPIServer.Common
                 string filePath = Path.Combine(errorDirectory, $"{fileNamePrefix}-{Guid.NewGuid():N}.txt");
 
                 var details = new StringBuilder();
-                details.AppendLine(operationName + " Data Validation Error Details");
+                details.AppendLine($"{operationName} Data Validation {validationKind} Details");
                 details.AppendLine(new string('=', 48));
                 details.AppendLine($"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
                 details.AppendLine($"UWI: {uwi ?? string.Empty}");
                 details.AppendLine($"Item: {itemDescription ?? string.Empty}");
-                details.AppendLine($"Validation error: {validationMessage ?? string.Empty}");
+                details.AppendLine($"Validation {validationKind.ToLowerInvariant()}: {validationMessage ?? string.Empty}");
                 details.AppendLine(new string('-', 48));
                 details.AppendLine("Source data JSON:");
                 details.AppendLine(JsonHelper.ToJson(sourceData));
@@ -555,6 +586,32 @@ namespace KindomDataAPIServer.Common
             if (notifyLimit)
             {
                 LogSummary($"{operationName} data error detail limit reached. Recorded the first {MaxRecordedDataErrorsPerOperation} data errors for this task; subsequent repeated data errors are omitted.");
+            }
+        }
+
+        private bool TryReserveDataWarning(string operationName, out bool notifyLimit)
+        {
+            lock (_syncRoot)
+            {
+                string key = operationName ?? string.Empty;
+                _recordedDataWarningCounts.TryGetValue(key, out int currentCount);
+                if (currentCount >= MaxRecordedDataWarningsPerOperation)
+                {
+                    notifyLimit = _dataWarningLimitNotifications.Add(key);
+                    return false;
+                }
+
+                _recordedDataWarningCounts[key] = currentCount + 1;
+                notifyLimit = false;
+                return true;
+            }
+        }
+
+        private void LogDataWarningLimit(string operationName, bool notifyLimit)
+        {
+            if (notifyLimit)
+            {
+                LogSummary($"{operationName} data warning detail limit reached. Recorded the first {MaxRecordedDataWarningsPerOperation} data warnings for this task; subsequent repeated data warnings are omitted.");
             }
         }
 
