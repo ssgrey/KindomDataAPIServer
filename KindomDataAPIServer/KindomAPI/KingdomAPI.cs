@@ -2295,7 +2295,7 @@ namespace KindomDataAPIServer.KindomAPI
                                     ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
                                     int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
                                     Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, uploadBatch.PayloadTargetBytes, uploadBatch.IsOversizedSingleItem, telemetry, true);
+                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, uploadBatch.PayloadTargetBytes, uploadBatch.IsOversizedSingleItem, telemetry, true, uploadBatch.ItemCount);
                                     Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
                                     Interlocked.Increment(ref completedUploadRequestCount);
                                     SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
@@ -2340,7 +2340,7 @@ namespace KindomDataAPIServer.KindomAPI
                                         ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
                                         int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
                                         Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
-                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, uploadBatch.PayloadTargetBytes, uploadBatch.IsOversizedSingleItem, telemetry, false);
+                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, uploadBatch.PayloadTargetBytes, uploadBatch.IsOversizedSingleItem, telemetry, false, uploadBatch.ItemCount);
                                         if (telemetry != null)
                                         {
                                             Interlocked.Add(ref totalUploadElapsedTicks, telemetry.TotalElapsed.Ticks);
@@ -2399,7 +2399,7 @@ namespace KindomDataAPIServer.KindomAPI
                         ItemCount = batchLogList.LogList.Count,
                         SampleCount = batchLogList.LogList.Sum(item => item.Samples.Count),
                         PayloadBytes = GetProtobufPayloadByteCount(batchLogList, adaptiveController),
-                        PayloadTargetBytes = adaptiveController.CurrentPayloadBytes,
+                        PayloadTargetBytes = adaptiveController.MaximumPayloadBytes,
                         CompletedWellCount = processedWellCount,
                         Request = batchLogList,
                         WellUwisById = new Dictionary<long, string>(batchLogWellUwisById)
@@ -2411,7 +2411,7 @@ namespace KindomDataAPIServer.KindomAPI
                 };
 
                 string logSelection = selectionRequired ? checkNames.Count.ToString() : "all";
-                SyncTaskReportService.Instance.Log($"WellLogs synchronization started. Selected wells:{wellGroups.Count}, selected curve names:{logSelection}, data set ID:{dataSetId}, initial read UWI batch size:{wellLogReadUwiBatchSize}, initial payload bytes:{adaptiveController.CurrentPayloadBytes}, maximum sample count:{adaptiveController.BusinessLimit}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}.");
+                SyncTaskReportService.Instance.Log($"WellLogs synchronization started. Selected wells:{wellGroups.Count}, selected curve names:{logSelection}, data set ID:{dataSetId}, initial read UWI batch size:{wellLogReadUwiBatchSize}, initial curve count:{adaptiveController.CurrentCurveCount}, maximum payload bytes:{adaptiveController.MaximumPayloadBytes}, maximum sample count:{adaptiveController.BusinessLimit}, upload concurrency:{uploadConcurrency}, queue capacity:{uploadQueueCapacity}.");
                 try
                 {
                     int readBatchIndex = 0;
@@ -2569,7 +2569,9 @@ namespace KindomDataAPIServer.KindomAPI
                                             int candidateSampleCount = batchLogList.LogList.Sum(log => log.Samples.Count);
                                             int candidatePayloadBytes = GetProtobufPayloadByteCount(batchLogList, adaptiveController);
                                             if (batchLogList.LogList.Count > 1 &&
-                                                (candidateSampleCount > adaptiveController.BusinessLimit || candidatePayloadBytes > adaptiveController.CurrentPayloadBytes))
+                                                (batchLogList.LogList.Count > adaptiveController.CurrentCurveCount ||
+                                                 candidateSampleCount > adaptiveController.BusinessLimit ||
+                                                 candidatePayloadBytes > adaptiveController.MaximumPayloadBytes))
                                             {
                                                 batchLogList.LogList.RemoveAt(batchLogList.LogList.Count - 1);
                                                 enqueueCurrentBatch();
@@ -2579,7 +2581,7 @@ namespace KindomDataAPIServer.KindomAPI
                                             }
                                             batchLogWellUwisById[wellWebID] = item.Key;
                                             if (batchLogList.LogList.Count == 1 &&
-                                                (candidatePayloadBytes > adaptiveController.CurrentPayloadBytes || candidateSampleCount > adaptiveController.BusinessLimit))
+                                                (candidatePayloadBytes > adaptiveController.MaximumPayloadBytes || candidateSampleCount > adaptiveController.BusinessLimit))
                                             {
                                                 adaptiveController.RecordOversizedItem(candidatePayloadBytes, candidateSampleCount);
                                             }
@@ -3535,7 +3537,7 @@ namespace KindomDataAPIServer.KindomAPI
                 ItemCount = request.LogList.Count,
                 SampleCount = request.LogList.Sum(item => item.Samples.Count),
                 PayloadBytes = GetProtobufPayloadByteCount(request, adaptiveController),
-                PayloadTargetBytes = adaptiveController.CurrentPayloadBytes,
+                PayloadTargetBytes = adaptiveController.MaximumPayloadBytes,
                 CompletedWellCount = parentBatch.CompletedWellCount,
                 Request = request,
                 WellUwisById = parentBatch.WellUwisById
