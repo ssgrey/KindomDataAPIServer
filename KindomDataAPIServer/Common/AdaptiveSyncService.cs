@@ -132,6 +132,7 @@ namespace KindomDataAPIServer.Common
 
     public sealed class AdaptiveDataTypeState
     {
+        public int PayloadLearningVersion { get; set; }
         public long BestStablePayloadBytes { get; set; }
         public int BestStableReadBatch { get; set; }
         public double BestStableThroughputBytesPerSecond { get; set; }
@@ -232,6 +233,7 @@ namespace KindomDataAPIServer.Common
 
     public sealed class AdaptiveSyncController
     {
+        private const int CurrentPayloadLearningVersion = 2;
         private const long OneMiB = 1024L * 1024L;
         private const long MinimumPayloadBytes = 64L * 1024L;
         private readonly object _syncRoot = new object();
@@ -256,10 +258,12 @@ namespace KindomDataAPIServer.Common
         private int _noImprovementWindows;
         private int _windowRequestCount;
         private long _windowPayloadBytes;
+        private long _previousWindowAveragePayloadBytes;
         private DateTime _windowStartedUtc;
         private double _baselineThroughput;
         private double _bestThroughput;
         private double _recentRequestLatencySeconds;
+        private long _recentRequestPayloadBytes;
         private int _consecutiveLatencyRegressions;
         private int _consecutiveProtectionSignals;
         private int _stableWindowsAfterProtection;
@@ -284,6 +288,9 @@ namespace KindomDataAPIServer.Common
         private int _concurrencyReductionCount;
         private int _concurrencyRecoveryCount;
         private int _oversizedItemCount;
+        private int _payloadLearningExcludedRequestCount;
+        private long _largestOversizedItemBytes;
+        private long _effectivePayloadFloorBytes = MinimumPayloadBytes;
         private long _preparationTicks;
         private long _serializationTicks;
         private long _queueWaitTicks;
@@ -314,10 +321,14 @@ namespace KindomDataAPIServer.Common
             _configuredReadInitial = settings.ReadBatch.Initial;
             _configuredPayloadInitial = ToBytes(settings.Upload.InitialPayloadMiB);
             _maximumPayloadBytes = ToBytes(settings.Upload.MaxPayloadMiB);
+            bool learnedPayloadAccepted = enabled &&
+                learned != null &&
+                learned.PayloadLearningVersion >= CurrentPayloadLearningVersion &&
+                learned.BestStablePayloadBytes > 0;
             _currentReadBatch = enabled && learned != null && learned.BestStableReadBatch > 0
                 ? Clamp((int)Math.Round(learned.BestStableReadBatch * 0.75), 1, settings.ReadBatch.Max)
                 : settings.ReadBatch.Initial;
-            _currentPayloadBytes = enabled && learned != null && learned.BestStablePayloadBytes > 0
+            _currentPayloadBytes = learnedPayloadAccepted
                 ? Clamp(learned.BestStablePayloadBytes, MinimumPayloadBytes, _maximumPayloadBytes)
                 : _configuredPayloadInitial;
             _actualInitialReadBatch = _currentReadBatch;
@@ -327,7 +338,7 @@ namespace KindomDataAPIServer.Common
             _bestPayloadBytes = _currentPayloadBytes;
             _bestReadBatch = _currentReadBatch;
             _learningReadBatch = _currentReadBatch;
-            _bestThroughput = learned?.BestStableThroughputBytesPerSecond ?? 0;
+            _bestThroughput = learnedPayloadAccepted ? learned.BestStableThroughputBytesPerSecond : 0;
             _minimumReadBatch = _maximumReadBatch = _currentReadBatch;
             _minimumPayloadBytes = _maximumObservedPayloadBytes = _currentPayloadBytes;
             _minimumConcurrency = _effectiveConcurrency;
@@ -335,7 +346,7 @@ namespace KindomDataAPIServer.Common
             _memoryLowWatermarkBytes = common.MemoryLowWatermarkMiB * OneMiB;
 
             SyncTaskReportService.Instance.LogSummary(
-                $"Adaptive sync {_dataType} initialized. Enabled:{_enabled}, configured read initial/max:{_configuredReadInitial}/{settings.ReadBatch.Max}, learned read:{learned?.BestStableReadBatch ?? 0}, actual read initial:{_currentReadBatch}, configured payload initial/max:{_configuredPayloadInitial}/{_maximumPayloadBytes} bytes, learned payload:{learned?.BestStablePayloadBytes ?? 0}, actual payload initial:{_currentPayloadBytes} bytes, concurrency configured/minimum:{settings.Upload.Concurrency}/{_minimumAllowedConcurrency}, memory high/low:{_memoryHighWatermarkBytes}/{_memoryLowWatermarkBytes} bytes, latency regression multiplier/consecutive requests:{common.LatencyRegressionMultiplier:F2}/{common.LatencyRegressionConsecutiveRequests}, stable windows to reset protection:{common.StableWindowsToResetProtection}.");
+                $"Adaptive sync {_dataType} initialized. Enabled:{_enabled}, configured read initial/max:{_configuredReadInitial}/{settings.ReadBatch.Max}, learned read:{learned?.BestStableReadBatch ?? 0}, actual read initial:{_currentReadBatch}, configured payload initial/max:{_configuredPayloadInitial}/{_maximumPayloadBytes} bytes, learned payload/version/accepted:{learned?.BestStablePayloadBytes ?? 0}/{learned?.PayloadLearningVersion ?? 0}/{learnedPayloadAccepted}, actual payload initial:{_currentPayloadBytes} bytes, concurrency configured/minimum:{settings.Upload.Concurrency}/{_minimumAllowedConcurrency}, memory high/low:{_memoryHighWatermarkBytes}/{_memoryLowWatermarkBytes} bytes, latency regression multiplier/consecutive requests:{common.LatencyRegressionMultiplier:F2}/{common.LatencyRegressionConsecutiveRequests}, stable windows to reset protection:{common.StableWindowsToResetProtection}.");
         }
 
         public int CurrentReadBatch { get { lock (_syncRoot) { return _currentReadBatch; } } }
@@ -442,7 +453,12 @@ namespace KindomDataAPIServer.Common
             }
         }
 
-        public void RecordUpload(long payloadBytes, ApiRequestTelemetry telemetry, bool transportSucceeded)
+        public void RecordUpload(
+            long payloadBytes,
+            long payloadTargetBytes,
+            bool isOversizedSingleItem,
+            ApiRequestTelemetry telemetry,
+            bool transportSucceeded)
         {
             try
             {
@@ -485,11 +501,49 @@ namespace KindomDataAPIServer.Common
                         return;
                     }
 
+                    long requestPayloadTargetBytes = payloadTargetBytes > 0
+                        ? Math.Min(payloadTargetBytes, _maximumPayloadBytes)
+                        : _currentPayloadBytes;
+                    if (isOversizedSingleItem && payloadBytes > requestPayloadTargetBytes)
+                    {
+                        _payloadLearningExcludedRequestCount++;
+                        long oldFloor = _effectivePayloadFloorBytes;
+                        _effectivePayloadFloorBytes = Math.Max(
+                            _effectivePayloadFloorBytes,
+                            Math.Min(payloadBytes, _maximumPayloadBytes));
+                        _currentPayloadBytes = Math.Max(_currentPayloadBytes, _effectivePayloadFloorBytes);
+                        _bestPayloadBytes = Math.Max(_bestPayloadBytes, _effectivePayloadFloorBytes);
+                        _maximumObservedPayloadBytes = Math.Max(_maximumObservedPayloadBytes, _currentPayloadBytes);
+                        if (_effectivePayloadFloorBytes > oldFloor)
+                        {
+                            ResetPayloadLearningSamples();
+                            SyncTaskReportService.Instance.LogSummary(
+                                $"Adaptive sync {_dataType} payload floor corrected after a successful oversized item. Request bytes:{payloadBytes}, batch target bytes:{requestPayloadTargetBytes}, floor old/new:{oldFloor}/{_effectivePayloadFloorBytes}, current target:{_currentPayloadBytes}; request excluded from latency and throughput learning.");
+                        }
+                        return;
+                    }
+                    if (payloadBytes > requestPayloadTargetBytes || payloadBytes < requestPayloadTargetBytes / 2)
+                    {
+                        _payloadLearningExcludedRequestCount++;
+                        SyncTaskReportService.Instance.Log(
+                            $"Adaptive sync {_dataType} upload request excluded from payload learning because target utilization was outside 50-100%. Request bytes:{payloadBytes}, batch target bytes:{requestPayloadTargetBytes}, oversized single item:{isOversizedSingleItem}.");
+                        return;
+                    }
+
                     if (telemetry != null && telemetry.TotalElapsed.TotalSeconds > 0)
                     {
                         double currentLatency = telemetry.TotalElapsed.TotalSeconds;
+                        bool comparablePayload = _recentRequestPayloadBytes > 0 &&
+                            payloadBytes >= _recentRequestPayloadBytes * 0.8 &&
+                            payloadBytes <= _recentRequestPayloadBytes * 1.25;
+                        if (!comparablePayload)
+                        {
+                            _recentRequestLatencySeconds = currentLatency;
+                            _recentRequestPayloadBytes = payloadBytes;
+                            _consecutiveLatencyRegressions = 0;
+                        }
                         double latencyThreshold = _recentRequestLatencySeconds * _common.LatencyRegressionMultiplier;
-                        if (_recentRequestLatencySeconds > 0 && currentLatency > latencyThreshold)
+                        if (comparablePayload && _recentRequestLatencySeconds > 0 && currentLatency > latencyThreshold)
                         {
                             _consecutiveLatencyRegressions++;
                             _windowHadLatencyRegressionCandidate = true;
@@ -509,6 +563,7 @@ namespace KindomDataAPIServer.Common
                                 ? currentLatency
                                 : _recentRequestLatencySeconds * 0.75 + currentLatency * 0.25;
                         }
+                        _recentRequestPayloadBytes = payloadBytes;
                     }
 
                     DateTime now = DateTime.UtcNow;
@@ -530,6 +585,11 @@ namespace KindomDataAPIServer.Common
                     double throughput = _windowPayloadBytes / seconds;
                     int requestCount = _windowRequestCount;
                     long windowBytes = _windowPayloadBytes;
+                    long averagePayloadBytes = windowBytes / Math.Max(1, requestCount);
+                    bool payloadSizeChangedMaterially = _previousWindowAveragePayloadBytes <= 0 ||
+                        averagePayloadBytes >= _previousWindowAveragePayloadBytes * 1.25 ||
+                        averagePayloadBytes <= _previousWindowAveragePayloadBytes * 0.8;
+                    _previousWindowAveragePayloadBytes = averagePayloadBytes;
                     bool windowHadLatencyRegressionCandidate = _windowHadLatencyRegressionCandidate;
                     _windowRequestCount = 0;
                     _windowPayloadBytes = 0;
@@ -578,7 +638,16 @@ namespace KindomDataAPIServer.Common
 
                     if (_fastPhase)
                     {
-                        if (_currentPayloadBytes >= _maximumPayloadBytes || (_evaluationWindows > 1 && improvement < _common.ThroughputImprovementPercent))
+                        bool targetStillNearObservedBatchSize = averagePayloadBytes >= _currentPayloadBytes / 2;
+                        bool continueDiscreteBatchExploration = _evaluationWindows > 1 &&
+                            !payloadSizeChangedMaterially &&
+                            targetStillNearObservedBatchSize &&
+                            _currentPayloadBytes < _maximumPayloadBytes;
+                        if (continueDiscreteBatchExploration)
+                        {
+                            GrowPayload(_common.FastPayloadGrowthPercent, "fast", requestCount, windowBytes, seconds, throughput, improvement);
+                        }
+                        else if (_currentPayloadBytes >= _maximumPayloadBytes || (_evaluationWindows > 1 && improvement < _common.ThroughputImprovementPercent))
                         {
                             _fastPhase = false;
                             _baselineThroughput = Math.Max(_baselineThroughput, throughput);
@@ -603,7 +672,7 @@ namespace KindomDataAPIServer.Common
                         if (_noImprovementWindows >= _common.RollbackAfterNoImprovementWindows && _bestPayloadBytes < _currentPayloadBytes)
                         {
                             long oldValue = _currentPayloadBytes;
-                            _currentPayloadBytes = Math.Max(MinimumPayloadBytes, _bestPayloadBytes);
+                            _currentPayloadBytes = Math.Max(_effectivePayloadFloorBytes, _bestPayloadBytes);
                             _payloadRollbackCount++;
                             _cooldownWindows = _common.CooldownWindows;
                             _noImprovementWindows = 0;
@@ -625,11 +694,17 @@ namespace KindomDataAPIServer.Common
 
         public void RecordOversizedItem(long bytes, long itemCount)
         {
+            bool logDetails;
             lock (_syncRoot)
             {
                 _oversizedItemCount++;
+                logDetails = bytes > _largestOversizedItemBytes;
+                _largestOversizedItemBytes = Math.Max(_largestOversizedItemBytes, bytes);
             }
-            SyncTaskReportService.Instance.LogSummary($"Adaptive sync {_dataType} oversized single item. Payload bytes:{bytes}, item count:{itemCount}, target bytes:{CurrentPayloadBytes}.");
+            if (logDetails)
+            {
+                SyncTaskReportService.Instance.LogSummary($"Adaptive sync {_dataType} oversized single item observed. Payload bytes:{bytes}, item count:{itemCount}, target bytes:{CurrentPayloadBytes}. The target floor will only be corrected after a successful upload.");
+            }
         }
 
         public void RecordPreparation(TimeSpan elapsed) { Interlocked.Add(ref _preparationTicks, elapsed.Ticks); }
@@ -682,10 +757,10 @@ namespace KindomDataAPIServer.Common
                 if (_completedSuccessfully && !_lastAdjustmentWasProtection)
                 {
                     _bestReadBatch = Math.Max(1, _bestReadBatch);
-                    _bestPayloadBytes = Math.Max(MinimumPayloadBytes, _bestPayloadBytes);
+                    _bestPayloadBytes = Math.Max(_effectivePayloadFloorBytes, _bestPayloadBytes);
                 }
                 SyncTaskReportService.Instance.LogSummary(
-                    $"Adaptive sync {_dataType} completed. Success:{_completedSuccessfully}, read configured/learned/initial/min/max/final/best:{_configuredReadInitial}/{_learned?.BestStableReadBatch ?? 0}/{_actualInitialReadBatch}/{_minimumReadBatch}/{_maximumReadBatch}/{_currentReadBatch}/{_bestReadBatch}, payload configured/learned/initial/min/max/final/best:{_configuredPayloadInitial}/{_learned?.BestStablePayloadBytes ?? 0}/{_actualInitialPayloadBytes}/{_minimumPayloadBytes}/{_maximumObservedPayloadBytes}/{_currentPayloadBytes}/{_bestPayloadBytes}, next read:{Math.Max(1, (int)Math.Round(_bestReadBatch * 0.75))}, next payload:{_bestPayloadBytes}, concurrency configured/current/minimum/floor:{_settings.Upload.Concurrency}/{_effectiveConcurrency}/{_minimumConcurrency}/{_minimumAllowedConcurrency}, throughput initial/best:{_baselineThroughput:F1}/{_bestThroughput:F1} bytes/s, evaluation/valid windows:{_evaluationWindows}/{_validWindows}, payload growth/rollback:{_payloadGrowthCount}/{_payloadRollbackCount}, read growth/rollback:{_readGrowthCount}/{_readRollbackCount}, HTTP protections:{_httpProtectionCount}, concurrency reductions/recoveries:{_concurrencyReductionCount}/{_concurrencyRecoveryCount}, oversized items:{_oversizedItemCount}, preparation:{TimeSpan.FromTicks(_preparationTicks).TotalSeconds:F3}s, serialization:{TimeSpan.FromTicks(_serializationTicks).TotalSeconds:F3}s, queue wait:{TimeSpan.FromTicks(_queueWaitTicks).TotalSeconds:F3}s.");
+                    $"Adaptive sync {_dataType} completed. Success:{_completedSuccessfully}, read configured/learned/initial/min/max/final/best:{_configuredReadInitial}/{_learned?.BestStableReadBatch ?? 0}/{_actualInitialReadBatch}/{_minimumReadBatch}/{_maximumReadBatch}/{_currentReadBatch}/{_bestReadBatch}, payload configured/learned/initial/min/max/final/best/effective floor:{_configuredPayloadInitial}/{_learned?.BestStablePayloadBytes ?? 0}/{_actualInitialPayloadBytes}/{_minimumPayloadBytes}/{_maximumObservedPayloadBytes}/{_currentPayloadBytes}/{_bestPayloadBytes}/{_effectivePayloadFloorBytes}, next read:{Math.Max(1, (int)Math.Round(_bestReadBatch * 0.75))}, next payload:{_bestPayloadBytes}, concurrency configured/current/minimum/floor:{_settings.Upload.Concurrency}/{_effectiveConcurrency}/{_minimumConcurrency}/{_minimumAllowedConcurrency}, throughput initial/best:{_baselineThroughput:F1}/{_bestThroughput:F1} bytes/s, evaluation/valid windows:{_evaluationWindows}/{_validWindows}, payload growth/rollback:{_payloadGrowthCount}/{_payloadRollbackCount}, read growth/rollback:{_readGrowthCount}/{_readRollbackCount}, HTTP protections:{_httpProtectionCount}, concurrency reductions/recoveries:{_concurrencyReductionCount}/{_concurrencyRecoveryCount}, oversized items:{_oversizedItemCount}, payload learning excluded requests:{_payloadLearningExcludedRequestCount}, preparation:{TimeSpan.FromTicks(_preparationTicks).TotalSeconds:F3}s, serialization:{TimeSpan.FromTicks(_serializationTicks).TotalSeconds:F3}s, queue wait:{TimeSpan.FromTicks(_queueWaitTicks).TotalSeconds:F3}s.");
             }
         }
 
@@ -705,6 +780,7 @@ namespace KindomDataAPIServer.Common
                 }
                 return new AdaptiveDataTypeState
                 {
+                    PayloadLearningVersion = CurrentPayloadLearningVersion,
                     BestStablePayloadBytes = _bestStableSamplePayloadBytes,
                     BestStableReadBatch = _bestStableSampleReadBatch,
                     BestStableThroughputBytesPerSecond = _bestStableSampleThroughput,
@@ -730,10 +806,29 @@ namespace KindomDataAPIServer.Common
             }
         }
 
+        private void ResetPayloadLearningSamples()
+        {
+            _baselineThroughput = 0;
+            _bestThroughput = 0;
+            _bestStableSampleThroughput = 0;
+            _bestStableSamplePayloadBytes = 0;
+            _bestStableSampleReadBatch = 0;
+            _validWindows = 0;
+            _evaluationWindows = 0;
+            _windowRequestCount = 0;
+            _windowPayloadBytes = 0;
+            _windowHadLatencyRegressionCandidate = false;
+            _previousWindowAveragePayloadBytes = 0;
+            _recentRequestLatencySeconds = 0;
+            _recentRequestPayloadBytes = 0;
+            _consecutiveLatencyRegressions = 0;
+            _bestPayloadBytes = _effectivePayloadFloorBytes;
+        }
+
         private void ApplyProtection(string signal)
         {
             long oldPayload = _currentPayloadBytes;
-            _currentPayloadBytes = Math.Max(MinimumPayloadBytes, _currentPayloadBytes / 2);
+            _currentPayloadBytes = Math.Max(_effectivePayloadFloorBytes, _currentPayloadBytes / 2);
             _httpProtectionCount++;
             _consecutiveProtectionSignals++;
             _consecutiveLatencyRegressions = 0;
