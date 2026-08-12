@@ -12,12 +12,16 @@ namespace KindomDataAPIServer.DataService
         public TimeSpan TotalElapsed { get; set; }
         public string Signal { get; set; }
 
-        public bool HasProtectionSignal =>
-            Retried ||
-            string.Equals(Signal, "timeout", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(Signal, "network-retry", StringComparison.OrdinalIgnoreCase) ||
-            FinalStatusCode == 408 ||
-            FinalStatusCode == 429 ||
-            FinalStatusCode >= 500;
+        public bool IsRequestTooLarge =>
+            FinalStatusCode == 413 ||
+            string.Equals(Signal, "request-too-large", StringComparison.OrdinalIgnoreCase);
+
+        public bool HasProtectionSignal => !IsRequestTooLarge &&
+            (Retried ||
+             string.Equals(Signal, "timeout", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(Signal, "network-retry", StringComparison.OrdinalIgnoreCase) ||
+             FinalStatusCode == 408 ||
+             FinalStatusCode == 429 ||
+             FinalStatusCode >= 500);
     }
 }

@@ -1738,7 +1738,7 @@ namespace KindomDataAPIServer.ViewModels
                 }
                 try
                 {
-                    adaptiveSession.Save();
+                    adaptiveSession.Save(taskSucceeded);
                 }
                 catch (Exception ex)
                 {

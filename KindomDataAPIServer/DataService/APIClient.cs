@@ -114,7 +114,7 @@ namespace KindomDataAPIServer.DataService
                                     continue;
                                 }
 
-                                throw new NonRetryableHttpRequestException($"HTTP请求失败: {response.StatusCode}");
+                                throw new NonRetryableHttpRequestException(response.StatusCode, $"HTTP请求失败: {response.StatusCode}");
                             }
                         }
                     }
@@ -192,7 +192,7 @@ namespace KindomDataAPIServer.DataService
                                     continue;
                                 }
 
-                                throw new NonRetryableHttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent} + Request json+ {json}");
+                                throw new NonRetryableHttpRequestException(response.StatusCode, $"HTTP请求失败: {response.StatusCode} + {responseContent} + Request json+ {json}");
                             }
                         }
                     }
@@ -264,7 +264,7 @@ namespace KindomDataAPIServer.DataService
                                     continue;
                                 }
 
-                                throw new NonRetryableHttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent}");
+                                throw new NonRetryableHttpRequestException(response.StatusCode, $"HTTP请求失败: {response.StatusCode} + {responseContent}");
                             }
                         }
                     }
@@ -336,7 +336,7 @@ namespace KindomDataAPIServer.DataService
                                 continue;
                             }
 
-                            throw new NonRetryableHttpRequestException($"HTTP请求失败: {response.StatusCode} + {responseContent}");
+                            throw new NonRetryableHttpRequestException(response.StatusCode, $"HTTP请求失败: {response.StatusCode} + {responseContent}");
                         }
                     }
                     catch (Exception ex)
@@ -521,6 +521,11 @@ namespace KindomDataAPIServer.DataService
         private static string GetExceptionSignal(Exception ex)
         {
             if (ex is TaskCanceledException || ex is TimeoutException) return "timeout";
+            if (ex is NonRetryableHttpRequestException httpException &&
+                httpException.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+            {
+                return "request-too-large";
+            }
             if (ex is HttpRequestException) return "network-retry";
             return "request-failure";
         }
@@ -659,5 +664,12 @@ namespace KindomDataAPIServer.DataService
         public NonRetryableHttpRequestException(string message) : base(message)
         {
         }
+
+        public NonRetryableHttpRequestException(HttpStatusCode statusCode, string message) : base(message)
+        {
+            StatusCode = statusCode;
+        }
+
+        public HttpStatusCode? StatusCode { get; }
     }
 }

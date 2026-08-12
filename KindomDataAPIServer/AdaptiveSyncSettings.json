@@ -26,7 +26,9 @@
     // 保护性降低上传并发时允许达到的最低并发；不会高于各数据类型配置的初始并发。
     "minimumConcurrency": 2,
     // 是否允许程序在保护后的稳定窗口中逐级恢复上传并发，最大不超过各数据类型配置值。
-    "allowConcurrencyIncrease": true
+    "allowConcurrencyIncrease": true,
+    "memoryHighWatermarkMiB": 10240,
+    "memoryLowWatermarkMiB": 8192
   },
 
   // 不参与动态学习、每次任务都直接使用的固定配置。
@@ -47,7 +49,7 @@
       // initialPayloadMiB 是冷启动上传目标，maxPayloadMiB 是自适应增长上限；
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 4 个成功请求评估一次；
       // maxFormationCount 是单次上传的地层条数安全上限，也用于防止一次 SDK 读取返回异常多的数据。
-      "upload": { "initialPayloadMiB": 0.5, "maxPayloadMiB": 64, "concurrency": 2, "stableEvaluationRequests": 4, "maxFormationCount": 100000 }
+      "upload": { "initialPayloadMiB": 0.5, "maxPayloadMiB": 28, "concurrency": 2, "stableEvaluationRequests": 4, "maxFormationCount": 100000 }
     },
 
     // 井轨迹数据。
@@ -56,7 +58,7 @@
       "readBatch": { "initial": 5, "max": 100, "targetSeconds": 2 },
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 6 个成功请求评估一次；
       // maxPointCount 是单次上传的轨迹点数安全上限。实际分批同时受 Payload 和点数限制，先达到者生效。
-      "upload": { "initialPayloadMiB": 8, "maxPayloadMiB": 64, "concurrency": 3, "stableEvaluationRequests": 6, "maxPointCount": 2000000 }
+      "upload": { "initialPayloadMiB": 8, "maxPayloadMiB": 28, "concurrency": 3, "stableEvaluationRequests": 6, "maxPointCount": 2000000 }
     },
 
     // 生产历史数据。
@@ -65,7 +67,7 @@
       "readBatch": { "initial": 2, "max": 50, "targetSeconds": 3 },
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 6 个成功请求评估一次；
       // maxDailyDataCount 是生产历史展开为日数据后，单次上传允许的最大记录数。
-      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 64, "concurrency": 3, "stableEvaluationRequests": 6, "maxDailyDataCount": 1000000 }
+      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 3, "stableEvaluationRequests": 6, "maxDailyDataCount": 1000000 }
     },
 
     // 试油试气数据。
@@ -73,7 +75,7 @@
       // 读取批量单位为井数。
       "readBatch": { "initial": 50, "max": 500, "targetSeconds": 3 },
       // maxTestCount 是单次上传允许的试油或试气记录数上限。
-      "upload": { "initialPayloadMiB": 1, "maxPayloadMiB": 16, "concurrency": 3, "stableEvaluationRequests": 6, "maxTestCount": 100000 }
+      "upload": { "initialPayloadMiB": 1, "maxPayloadMiB": 28, "concurrency": 3, "stableEvaluationRequests": 6, "maxTestCount": 100000 }
     },
 
     // 井曲线数据。
@@ -82,7 +84,7 @@
       "readBatch": { "initial": 3, "max": 20, "targetSeconds": 3 },
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 10 个成功请求评估一次；
       // maxSampleCount 是单次上传的曲线样点数安全上限。实际分批同时受 Payload 和样点数限制。
-      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 64, "concurrency": 5, "stableEvaluationRequests": 10, "maxSampleCount": 5000000 }
+      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 5, "stableEvaluationRequests": 10, "maxSampleCount": 5000000 }
     }
   }
 }

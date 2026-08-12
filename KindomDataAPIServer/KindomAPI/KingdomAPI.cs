@@ -129,6 +129,8 @@ namespace KindomDataAPIServer.KindomAPI
         private class WellFormationUploadBatch
         {
             public int BatchIndex { get; set; }
+            public int SplitDepth { get; set; }
+            public string SplitPart { get; set; }
             public int WellCount { get; set; }
             public int FormationCount { get; set; }
             public long PayloadBytes { get; set; }
@@ -141,6 +143,8 @@ namespace KindomDataAPIServer.KindomAPI
         private class WellTrajectoryUploadBatch
         {
             public int BatchIndex { get; set; }
+            public int SplitDepth { get; set; }
+            public string SplitPart { get; set; }
             public int ItemCount { get; set; }
             public int DataPointCount { get; set; }
             public int PayloadBytes { get; set; }
@@ -152,6 +156,8 @@ namespace KindomDataAPIServer.KindomAPI
         private class WellLogUploadBatch
         {
             public int BatchIndex { get; set; }
+            public int SplitDepth { get; set; }
+            public string SplitPart { get; set; }
             public int ItemCount { get; set; }
             public int SampleCount { get; set; }
             public int PayloadBytes { get; set; }
@@ -163,6 +169,8 @@ namespace KindomDataAPIServer.KindomAPI
         private class WellProductionUploadBatch
         {
             public int BatchIndex { get; set; }
+            public int SplitDepth { get; set; }
+            public string SplitPart { get; set; }
             public int WellCount { get; set; }
             public int DailyDataCount { get; set; }
             public int PayloadBytes { get; set; }
@@ -180,6 +188,8 @@ namespace KindomDataAPIServer.KindomAPI
         private class WellTestUploadBatch
         {
             public int BatchIndex { get; set; }
+            public int SplitDepth { get; set; }
+            public string SplitPart { get; set; }
             public bool IsGas { get; set; }
             public int WellCount { get; set; }
             public int TestRecordCount { get; set; }
@@ -1079,13 +1089,19 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         try
                         {
-                            foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                            foreach (var originalBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                string temporaryFilePath = null;
-                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
-                                string traceName = $"WellFormation batch {uploadBatch.BatchIndex}";
-                                try
+                                var pendingBatches = new Stack<WellFormationUploadBatch>();
+                                pendingBatches.Push(originalBatch);
+                                while (pendingBatches.Count > 0)
                                 {
+                                    WellFormationUploadBatch uploadBatch = pendingBatches.Pop();
+                                    string temporaryFilePath = null;
+                                    string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
+                                    string traceName = $"WellFormation batch {uploadBatch.BatchIndex}, depth {uploadBatch.SplitDepth}, part {uploadBatch.SplitPart}";
+                                    long attemptedPayloadBytes = uploadBatch.PayloadBytes;
+                                    try
+                                    {
                                     // 文件导入模式在真正上传前才生成临时文本文件，确保排队中的批次
                                     // 只持有结构化数据；finally 会清理文件，即使请求失败也不会残留。
                                     long payloadBytes = uploadBatch.PayloadBytes;
@@ -1095,6 +1111,7 @@ namespace KindomDataAPIServer.KindomAPI
                                         WellFormationTemporaryFile temporaryFile = WellFormationFileImportService.CreateTemporaryFile(uploadBatch.FileRows);
                                         temporaryFilePath = temporaryFile.FilePath;
                                         payloadBytes = temporaryFile.PayloadBytes;
+                                        attemptedPayloadBytes = payloadBytes;
                                         payloadType = "text file";
                                     }
 
@@ -1139,7 +1156,10 @@ namespace KindomDataAPIServer.KindomAPI
 
                                     // APIClient 按 traceName 保存结构化遥测。控制器只根据传输层信号和吞吐
                                     // 调整参数；响应中的业务 failed 仍写报告，但不会触发 payload 回退。
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), true);
+                                    ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                    int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, attemptedPayloadBytes, ref totalUploadBytes);
+                                    Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                    adaptiveController.RecordUpload(attemptedPayloadBytes, telemetry, true);
                                     Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
                                     Interlocked.Increment(ref completedUploadRequestCount);
                                     SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
@@ -1186,17 +1206,41 @@ namespace KindomDataAPIServer.KindomAPI
                                             "File: data.pbf (protobuf request shown below)" + Environment.NewLine +
                                             "overwrite_flag: OverWrite");
                                     }
-                                    reportUploadedBatchProgress(uploadBatch);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                        int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, attemptedPayloadBytes, ref totalUploadBytes);
+                                        Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                        adaptiveController.RecordUpload(attemptedPayloadBytes, telemetry, false);
+                                        if (telemetry != null)
+                                        {
+                                            Interlocked.Add(ref totalUploadElapsedTicks, telemetry.TotalElapsed.Ticks);
+                                            Interlocked.Increment(ref completedUploadRequestCount);
+                                            SyncTaskReportService.Instance.RecordUploadElapsed(telemetry.TotalElapsed);
+                                        }
+                                        if (telemetry != null && telemetry.IsRequestTooLarge && uploadBatch.WellCount > 1)
+                                        {
+                                            int leftCount = uploadBatch.WellCount / 2;
+                                            var leftBatch = CreateFormationSplitBatch(uploadBatch, uploadBatch.Request.Datas.Take(leftCount), uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".1", adaptiveController);
+                                            var rightBatch = CreateFormationSplitBatch(uploadBatch, uploadBatch.Request.Datas.Skip(leftCount), uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".2", adaptiveController);
+                                            pendingBatches.Push(rightBatch);
+                                            pendingBatches.Push(leftBatch);
+                                            SyncTaskReportService.Instance.LogSummary($"WellFormation batch {uploadBatch.BatchIndex} request-too-large split. Parent depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, wells:{uploadBatch.WellCount}, payload bytes:{uploadBatch.PayloadBytes}; child parts:{leftBatch.SplitPart}/{rightBatch.SplitPart}, child wells:{leftBatch.WellCount}/{rightBatch.WellCount}, child payload bytes:{leftBatch.PayloadBytes}/{rightBatch.PayloadBytes}.");
+                                            continue;
+                                        }
+                                        if (telemetry != null && telemetry.IsRequestTooLarge)
+                                        {
+                                            adaptiveController.RecordInternalFailure("single formation well still returned request-too-large");
+                                        }
+                                        SyncTaskReportService.Instance.RecordError($"WellFormation batch {uploadBatch.BatchIndex} synchronization failed. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}", ex);
+                                    }
+                                    finally
+                                    {
+                                        WellFormationFileImportService.DeleteTemporaryFile(temporaryFilePath);
+                                    }
                                 }
-                                catch (Exception ex)
-                                {
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), false);
-                                    SyncTaskReportService.Instance.RecordError($"WellFormation batch {uploadBatch.BatchIndex} synchronization failed", ex);
-                                }
-                                finally
-                                {
-                                    WellFormationFileImportService.DeleteTemporaryFile(temporaryFilePath);
-                                }
+                                reportUploadedBatchProgress(originalBatch);
                             }
                         }
                         catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
@@ -1225,6 +1269,8 @@ namespace KindomDataAPIServer.KindomAPI
                     var uploadBatch = new WellFormationUploadBatch
                     {
                         BatchIndex = batchIndex,
+                        SplitDepth = 0,
+                        SplitPart = "root",
                         WellCount = batchRequest.Datas.Count,
                         FormationCount = batchRequest.Datas.Sum(data => data.Items.Count),
                         PayloadBytes = GetProtobufPayloadByteCount(batchRequest, adaptiveController),
@@ -1558,75 +1604,121 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         try
                         {
-                            foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                            foreach (var originalBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
-                                string traceName = $"WellTrajs batch {uploadBatch.BatchIndex}, UWIs:[{batchUwis}]";
-                                try
+                                var pendingBatches = new Stack<WellTrajectoryUploadBatch>();
+                                pendingBatches.Push(originalBatch);
+                                while (pendingBatches.Count > 0)
                                 {
+                                    WellTrajectoryUploadBatch uploadBatch = pendingBatches.Pop();
+                                    string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
+                                    string splitLabel = $"depth {uploadBatch.SplitDepth}, part {uploadBatch.SplitPart}";
+                                    string traceName = $"WellTrajs batch {uploadBatch.BatchIndex}, {splitLabel}, UWIs:[{batchUwis}]";
                                     Interlocked.Add(ref totalUploadBytes, uploadBatch.PayloadBytes);
                                     Interlocked.Increment(ref uploadAttemptCount);
                                     UpdateMaximum(ref maximumUploadBytes, uploadBatch.PayloadBytes);
                                     SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
-                                    SyncTaskReportService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], trajectories:{uploadBatch.ItemCount}, points:{uploadBatch.DataPointCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                    SyncTaskReportService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex} upload started. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}], trajectories:{uploadBatch.ItemCount}, points:{uploadBatch.DataPointCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
                                     var uploadStopwatch = Stopwatch.StartNew();
-                                    WellOperationResult res;
-                                    using (await adaptiveController.EnterUploadAsync(cancellationTokenSource.Token))
+                                    try
                                     {
-                                        res = await uploadWallTimer.MeasureAsync(() =>
-                                            wellDataService.batch_create_well_trajectory_with_meta_infos(uploadBatch.Request, traceName));
-                                    }
-                                    uploadStopwatch.Stop();
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), true);
-                                    Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
-                                    Interlocked.Increment(ref completedUploadRequestCount);
-                                    SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
-                                    if (res == null)
-                                    {
-                                        adaptiveController.RecordInternalFailure("trajectory upload returned an empty response");
-                                        SyncTaskReportService.Instance.RecordError($"WellTrajs batch {uploadBatch.BatchIndex} synchronization returned an empty response. UWIs:[{batchUwis}]");
-                                        continue;
-                                    }
-
-                                    int currentSyncedCount = Interlocked.Add(ref syncedTrajectoryCount, uploadBatch.ItemCount);
-                                    int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
-                                    int failedCount = Math.Max(
-                                        res.Summary?.failed ?? 0,
-                                        res.Results?.Count(result => result.errorCode != 0) ?? 0);
-                                    SyncTaskReportService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], trajectories:{uploadBatch.ItemCount}, points:{uploadBatch.DataPointCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced trajectories:{currentSyncedCount}.");
-                                    if (failedCount > 0)
-                                    {
-                                        var failedItems = res.Results?.Where(result => result.errorCode != 0).ToList();
-                                        var failedUwis = failedItems == null
-                                            ? new List<string>()
-                                            : failedItems
-                                                .Select(item => uploadBatch.WellUwisById.TryGetValue(item.wellId, out string uwi) ? uwi : "Unknown")
-                                                .Distinct()
-                                                .ToList();
-                                        if (failedUwis.Count == 0)
+                                        WellOperationResult res;
+                                        using (await adaptiveController.EnterUploadAsync(cancellationTokenSource.Token))
                                         {
-                                            failedUwis.AddRange(uploadBatch.WellUwisById.Values.Distinct());
+                                            res = await uploadWallTimer.MeasureAsync(() =>
+                                                wellDataService.batch_create_well_trajectory_with_meta_infos(uploadBatch.Request, traceName));
+                                        }
+                                        ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                        int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
+                                        Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, true);
+                                        if (res == null)
+                                        {
+                                            adaptiveController.RecordInternalFailure("trajectory upload returned an empty response");
+                                            SyncTaskReportService.Instance.RecordError($"WellTrajs batch {uploadBatch.BatchIndex} synchronization returned an empty response. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}]");
+                                            continue;
                                         }
 
-                                        SyncTaskReportService.Instance.RecordUploadResponseItemErrors(
-                                            "WellTrajs",
-                                            "WellTrajectoryUploadErrors",
-                                            "dp/api/welldata/batch_create_well_trajectory_with_meta_infos",
-                                            batchUwis,
-                                            string.Join(",", failedUwis),
-                                            uploadBatch.BatchIndex,
-                                            uploadBatch.PayloadBytes,
-                                            uploadBatch.Request,
-                                            res);
-                                    }
+                                        int failedCount = Math.Min(uploadBatch.ItemCount, Math.Max(
+                                            res.Summary?.failed ?? 0,
+                                            res.Results?.Count(result => result.errorCode != 0) ?? 0));
+                                        int successfulCount = uploadBatch.ItemCount - failedCount;
+                                        int currentSyncedCount = Interlocked.Add(ref syncedTrajectoryCount, successfulCount);
+                                        int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
+                                        SyncTaskReportService.Instance.Log($"WellTrajs batch {uploadBatch.BatchIndex} upload completed. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}], trajectories:{uploadBatch.ItemCount}, points:{uploadBatch.DataPointCount}, succeeded:{successfulCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced trajectories:{currentSyncedCount}.");
+                                        if (failedCount > 0)
+                                        {
+                                            var failedItems = res.Results?.Where(result => result.errorCode != 0).ToList();
+                                            var failedUwis = failedItems == null
+                                                ? new List<string>()
+                                                : failedItems
+                                                    .Select(item => uploadBatch.WellUwisById.TryGetValue(item.wellId, out string uwi) ? uwi : "Unknown")
+                                                    .Distinct()
+                                                    .ToList();
+                                            if (failedUwis.Count == 0)
+                                            {
+                                                failedUwis.AddRange(uploadBatch.WellUwisById.Values.Distinct());
+                                            }
 
-                                    reportUploadedBatchProgress(uploadBatch);
+                                            SyncTaskReportService.Instance.RecordUploadResponseItemErrors(
+                                                "WellTrajs",
+                                                "WellTrajectoryUploadErrors",
+                                                "dp/api/welldata/batch_create_well_trajectory_with_meta_infos",
+                                                batchUwis,
+                                                string.Join(",", failedUwis),
+                                                uploadBatch.BatchIndex,
+                                                uploadBatch.PayloadBytes,
+                                                uploadBatch.Request,
+                                                res);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                        int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
+                                        Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, false);
+                                        if (telemetry != null && telemetry.IsRequestTooLarge && uploadBatch.ItemCount > 1)
+                                        {
+                                            int leftCount = uploadBatch.ItemCount / 2;
+                                            var leftBatch = CreateTrajectorySplitBatch(
+                                                uploadBatch,
+                                                uploadBatch.Request.Items.Take(leftCount).ToList(),
+                                                uploadBatch.SplitDepth + 1,
+                                                uploadBatch.SplitPart + ".1",
+                                                adaptiveController);
+                                            var rightBatch = CreateTrajectorySplitBatch(
+                                                uploadBatch,
+                                                uploadBatch.Request.Items.Skip(leftCount).ToList(),
+                                                uploadBatch.SplitDepth + 1,
+                                                uploadBatch.SplitPart + ".2",
+                                                adaptiveController);
+                                            pendingBatches.Push(rightBatch);
+                                            pendingBatches.Push(leftBatch);
+                                            SyncTaskReportService.Instance.LogSummary(
+                                                $"WellTrajs batch {uploadBatch.BatchIndex} request-too-large split. Parent depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, trajectories:{uploadBatch.ItemCount}, JSON bytes:{uploadBatch.PayloadBytes}; child parts:{leftBatch.SplitPart}/{rightBatch.SplitPart}, child trajectories:{leftBatch.ItemCount}/{rightBatch.ItemCount}, child JSON bytes:{leftBatch.PayloadBytes}/{rightBatch.PayloadBytes}.");
+                                            continue;
+                                        }
+
+                                        if (telemetry != null && telemetry.IsRequestTooLarge)
+                                        {
+                                            adaptiveController.RecordInternalFailure("single trajectory item still returned request-too-large");
+                                            SyncTaskReportService.Instance.RecordError($"WellTrajs batch {uploadBatch.BatchIndex} single trajectory item still returned request-too-large. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}], JSON bytes:{uploadBatch.PayloadBytes}", ex);
+                                        }
+                                        else
+                                        {
+                                            SyncTaskReportService.Instance.RecordError($"WellTrajs batch {uploadBatch.BatchIndex} synchronization failed. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}]", ex);
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        uploadStopwatch.Stop();
+                                        Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
+                                        Interlocked.Increment(ref completedUploadRequestCount);
+                                        SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
+                                    }
                                 }
-                                catch (Exception ex)
-                                {
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), false);
-                                    SyncTaskReportService.Instance.RecordError($"WellTrajs batch {uploadBatch.BatchIndex} synchronization failed. UWIs:[{batchUwis}]", ex);
-                                }
+                                reportUploadedBatchProgress(originalBatch);
                             }
                         }
                         catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
@@ -1654,6 +1746,8 @@ namespace KindomDataAPIServer.KindomAPI
                     var uploadBatch = new WellTrajectoryUploadBatch
                     {
                         BatchIndex = batchIndex,
+                        SplitDepth = 0,
+                        SplitPart = "root",
                         ItemCount = batchItemCount,
                         DataPointCount = batchDataPointCount,
                         PayloadBytes = GetJsonPayloadByteCount(batchRequest, adaptiveController),
@@ -2162,12 +2256,17 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         try
                         {
-                            foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                            foreach (var originalBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
-                                string traceName = $"WellLogs batch {uploadBatch.BatchIndex}";
-                                try
+                                var pendingBatches = new Stack<WellLogUploadBatch>();
+                                pendingBatches.Push(originalBatch);
+                                while (pendingBatches.Count > 0)
                                 {
+                                    WellLogUploadBatch uploadBatch = pendingBatches.Pop();
+                                    string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
+                                    string traceName = $"WellLogs batch {uploadBatch.BatchIndex}, depth {uploadBatch.SplitDepth}, part {uploadBatch.SplitPart}";
+                                    try
+                                    {
                                     Interlocked.Add(ref totalUploadBytes, uploadBatch.PayloadBytes);
                                     Interlocked.Increment(ref uploadAttemptCount);
                                     UpdateMaximum(ref maximumUploadBytes, uploadBatch.PayloadBytes);
@@ -2181,7 +2280,10 @@ namespace KindomDataAPIServer.KindomAPI
                                             wellDataService.batch_create_well_log(uploadBatch.Request, traceName));
                                     }
                                     uploadStopwatch.Stop();
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), true);
+                                    ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                    int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
+                                    Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, true);
                                     Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
                                     Interlocked.Increment(ref completedUploadRequestCount);
                                     SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
@@ -2192,11 +2294,17 @@ namespace KindomDataAPIServer.KindomAPI
                                         continue;
                                     }
 
-                                    int currentSyncedCount = Interlocked.Add(ref syncedLogCount, uploadBatch.ItemCount);
-                                    int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
                                     int failedCount = Math.Max(
                                         res4.Summary?.failed ?? 0,
                                         res4.Results?.Count(result => result.errorCode != 0) ?? 0);
+                                    var failedWellIds = new HashSet<long>(res4.Results?
+                                        .Where(result => result.errorCode != 0)
+                                        .Select(result => result.wellId) ?? Enumerable.Empty<long>());
+                                    int successfulCount = failedWellIds.Count > 0
+                                        ? uploadBatch.Request.LogList.Count(item => !failedWellIds.Contains(item.WellId))
+                                        : Math.Max(0, uploadBatch.ItemCount - failedCount);
+                                    int currentSyncedCount = Interlocked.Add(ref syncedLogCount, successfulCount);
+                                    int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
                                     SyncTaskReportService.Instance.Log($"WellLogs batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], curves:{uploadBatch.ItemCount}, samples:{uploadBatch.SampleCount}, failed:{failedCount}, protobuf bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced curves:{currentSyncedCount}.");
                                     string failedUwis = string.Join(",", res4.Results?
                                         .Where(result => result.errorCode != 0)
@@ -2214,13 +2322,37 @@ namespace KindomDataAPIServer.KindomAPI
                                         res4,
                                         "proto_creation_data: data.pbf (protobuf request shown below)" + Environment.NewLine +
                                         "overwrite_flag: OverWrite");
-                                    reportUploadedBatchProgress(uploadBatch);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                        int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
+                                        Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, false);
+                                        if (telemetry != null)
+                                        {
+                                            Interlocked.Add(ref totalUploadElapsedTicks, telemetry.TotalElapsed.Ticks);
+                                            Interlocked.Increment(ref completedUploadRequestCount);
+                                            SyncTaskReportService.Instance.RecordUploadElapsed(telemetry.TotalElapsed);
+                                        }
+                                        if (telemetry != null && telemetry.IsRequestTooLarge && uploadBatch.ItemCount > 1)
+                                        {
+                                            int leftCount = uploadBatch.ItemCount / 2;
+                                            var leftBatch = CreateWellLogSplitBatch(uploadBatch, uploadBatch.Request.LogList.Take(leftCount), uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".1", adaptiveController);
+                                            var rightBatch = CreateWellLogSplitBatch(uploadBatch, uploadBatch.Request.LogList.Skip(leftCount), uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".2", adaptiveController);
+                                            pendingBatches.Push(rightBatch);
+                                            pendingBatches.Push(leftBatch);
+                                            SyncTaskReportService.Instance.LogSummary($"WellLogs batch {uploadBatch.BatchIndex} request-too-large split. Parent depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, curves:{uploadBatch.ItemCount}, protobuf bytes:{uploadBatch.PayloadBytes}; child parts:{leftBatch.SplitPart}/{rightBatch.SplitPart}, child curves:{leftBatch.ItemCount}/{rightBatch.ItemCount}, child protobuf bytes:{leftBatch.PayloadBytes}/{rightBatch.PayloadBytes}.");
+                                            continue;
+                                        }
+                                        if (telemetry != null && telemetry.IsRequestTooLarge)
+                                        {
+                                            adaptiveController.RecordInternalFailure("single well log curve still returned request-too-large");
+                                        }
+                                        SyncTaskReportService.Instance.RecordError($"WellLogs batch {uploadBatch.BatchIndex} synchronization failed. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}", ex);
+                                    }
                                 }
-                                catch (Exception ex)
-                                {
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), false);
-                                    SyncTaskReportService.Instance.RecordError($"WellLogs batch {uploadBatch.BatchIndex} synchronization failed", ex);
-                                }
+                                reportUploadedBatchProgress(originalBatch);
                             }
                         }
                         catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
@@ -2250,6 +2382,8 @@ namespace KindomDataAPIServer.KindomAPI
                     var uploadBatch = new WellLogUploadBatch
                     {
                         BatchIndex = batchIndex,
+                        SplitDepth = 0,
+                        SplitPart = "root",
                         ItemCount = batchLogList.LogList.Count,
                         SampleCount = batchLogList.LogList.Sum(item => item.Samples.Count),
                         PayloadBytes = GetProtobufPayloadByteCount(batchLogList, adaptiveController),
@@ -2730,12 +2864,17 @@ namespace KindomDataAPIServer.KindomAPI
                         {
                             try
                             {
-                                foreach (var uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                                foreach (var originalBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                                 {
-                                    string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
-                                    string traceName = $"WellProduction batch {uploadBatch.BatchIndex}";
-                                    try
+                                    var pendingBatches = new Stack<WellProductionUploadBatch>();
+                                    pendingBatches.Push(originalBatch);
+                                    while (pendingBatches.Count > 0)
                                     {
+                                        WellProductionUploadBatch uploadBatch = pendingBatches.Pop();
+                                        string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
+                                        string traceName = $"WellProduction batch {uploadBatch.BatchIndex}, depth {uploadBatch.SplitDepth}, part {uploadBatch.SplitPart}";
+                                        try
+                                        {
                                         Interlocked.Add(ref totalUploadBytes, uploadBatch.PayloadBytes);
                                         Interlocked.Increment(ref uploadAttemptCount);
                                         UpdateMaximum(ref maximumUploadBytes, uploadBatch.PayloadBytes);
@@ -2749,7 +2888,10 @@ namespace KindomDataAPIServer.KindomAPI
                                                 wellDataService.batch_create_well_production_with_meta_infos(uploadBatch.Request, traceName));
                                         }
                                         uploadStopwatch.Stop();
-                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), true);
+                                        ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                        int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
+                                        Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, true);
                                         Interlocked.Add(ref totalUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
                                         Interlocked.Increment(ref completedUploadRequestCount);
                                         SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
@@ -2760,11 +2902,24 @@ namespace KindomDataAPIServer.KindomAPI
                                             continue;
                                         }
 
-                                        int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, uploadBatch.DailyDataCount);
-                                        int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
                                         int failedCount = Math.Max(
                                             res4.Summary?.failed ?? 0,
                                             res4.Results?.Count(result => result.errorCode != 0) ?? 0);
+                                        var failedWellIds = new HashSet<long>(res4.Results?
+                                            .Where(result => result.errorCode != 0)
+                                            .Select(result => result.wellId) ?? Enumerable.Empty<long>());
+                                        int successfulDailyDataCount = failedWellIds.Count > 0
+                                            ? uploadBatch.Request.Items
+                                                .Where(item => !failedWellIds.Contains(item.WellId))
+                                                .Sum(item => item.DailyList.Count)
+                                            : failedCount == 0
+                                                ? uploadBatch.DailyDataCount
+                                                : uploadBatch.Request.Items
+                                                    .OrderBy(item => item.DailyList.Count)
+                                                    .Take(Math.Max(0, uploadBatch.WellCount - failedCount))
+                                                    .Sum(item => item.DailyList.Count);
+                                        int currentSyncedCount = Interlocked.Add(ref syncedProductionCount, successfulDailyDataCount);
+                                        int currentUploadedBatchCount = Interlocked.Increment(ref uploadedBatchCount);
                                         SyncTaskReportService.Instance.Log($"WellProduction batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, daily items:{uploadBatch.DailyDataCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s, uploaded batches:{currentUploadedBatchCount}, synced daily items:{currentSyncedCount}.");
                                         string failedUwis = string.Join(",", res4.Results?
                                             .Where(result => result.errorCode != 0)
@@ -2780,13 +2935,37 @@ namespace KindomDataAPIServer.KindomAPI
                                             uploadBatch.PayloadBytes,
                                             uploadBatch.Request,
                                             res4);
-                                        reportUploadedBatchProgress(uploadBatch);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                            int additionalAttempts = RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalUploadBytes);
+                                            Interlocked.Add(ref uploadAttemptCount, additionalAttempts);
+                                            adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, false);
+                                            if (telemetry != null)
+                                            {
+                                                Interlocked.Add(ref totalUploadElapsedTicks, telemetry.TotalElapsed.Ticks);
+                                                Interlocked.Increment(ref completedUploadRequestCount);
+                                                SyncTaskReportService.Instance.RecordUploadElapsed(telemetry.TotalElapsed);
+                                            }
+                                            if (telemetry != null && telemetry.IsRequestTooLarge && uploadBatch.WellCount > 1)
+                                            {
+                                                int leftCount = uploadBatch.WellCount / 2;
+                                                var leftBatch = CreateProductionSplitBatch(uploadBatch, uploadBatch.Request.Items.Take(leftCount).ToList(), uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".1", adaptiveController);
+                                                var rightBatch = CreateProductionSplitBatch(uploadBatch, uploadBatch.Request.Items.Skip(leftCount).ToList(), uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".2", adaptiveController);
+                                                pendingBatches.Push(rightBatch);
+                                                pendingBatches.Push(leftBatch);
+                                                SyncTaskReportService.Instance.LogSummary($"WellProduction batch {uploadBatch.BatchIndex} request-too-large split. Parent depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, wells:{uploadBatch.WellCount}, JSON bytes:{uploadBatch.PayloadBytes}; child parts:{leftBatch.SplitPart}/{rightBatch.SplitPart}, child wells:{leftBatch.WellCount}/{rightBatch.WellCount}, child JSON bytes:{leftBatch.PayloadBytes}/{rightBatch.PayloadBytes}.");
+                                                continue;
+                                            }
+                                            if (telemetry != null && telemetry.IsRequestTooLarge)
+                                            {
+                                                adaptiveController.RecordInternalFailure("single production well still returned request-too-large");
+                                            }
+                                            SyncTaskReportService.Instance.RecordError($"WellProduction batch {uploadBatch.BatchIndex} synchronization failed. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}", ex);
+                                        }
                                     }
-                                    catch (Exception ex)
-                                    {
-                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), false);
-                                        SyncTaskReportService.Instance.RecordError($"WellProduction batch {uploadBatch.BatchIndex} synchronization failed", ex);
-                                    }
+                                    reportUploadedBatchProgress(originalBatch);
                                 }
                             }
                             catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
@@ -2820,6 +2999,8 @@ namespace KindomDataAPIServer.KindomAPI
                         var uploadBatch = new WellProductionUploadBatch
                         {
                             BatchIndex = batchIndex,
+                            SplitDepth = 0,
+                            SplitPart = "root",
                             WellCount = batchRequest.Items.Count,
                             DailyDataCount = batchDailyDataCount,
                             PayloadBytes = batchPayloadBytesAreExact
@@ -3242,6 +3423,180 @@ namespace KindomDataAPIServer.KindomAPI
             return byteCount;
         }
 
+        private static int RecordAdditionalUploadAttempts(
+            ApiRequestTelemetry telemetry,
+            long payloadBytes,
+            ref long totalPayloadBytes)
+        {
+            int additionalAttempts = Math.Max(0, (telemetry?.AttemptCount ?? 1) - 1);
+            if (additionalAttempts == 0)
+            {
+                return 0;
+            }
+
+            Interlocked.Add(ref totalPayloadBytes, payloadBytes * additionalAttempts);
+            for (int attempt = 0; attempt < additionalAttempts; attempt++)
+            {
+                SyncTaskReportService.Instance.RecordUploadAttempt(payloadBytes);
+            }
+            return additionalAttempts;
+        }
+
+        private static WellTrajectoryUploadBatch CreateTrajectorySplitBatch(
+            WellTrajectoryUploadBatch parentBatch,
+            List<WellTrajData> items,
+            int splitDepth,
+            string splitPart,
+            AdaptiveSyncController adaptiveController)
+        {
+            var request = new WellTrajRequest { Items = items };
+            var wellUwisById = items
+                .Select(item => item.WellId)
+                .Distinct()
+                .Where(wellId => parentBatch.WellUwisById.ContainsKey(wellId))
+                .ToDictionary(wellId => wellId, wellId => parentBatch.WellUwisById[wellId]);
+            return new WellTrajectoryUploadBatch
+            {
+                BatchIndex = parentBatch.BatchIndex,
+                SplitDepth = splitDepth,
+                SplitPart = splitPart,
+                ItemCount = items.Count,
+                DataPointCount = items.Sum(item => item.CoordList?.Count ?? 0),
+                PayloadBytes = GetJsonPayloadByteCount(request, adaptiveController),
+                CompletedWellCount = parentBatch.CompletedWellCount,
+                Request = request,
+                WellUwisById = wellUwisById
+            };
+        }
+
+        private static WellFormationUploadBatch CreateFormationSplitBatch(
+            WellFormationUploadBatch parentBatch,
+            IEnumerable<PbWellFormation> items,
+            int splitDepth,
+            string splitPart,
+            AdaptiveSyncController adaptiveController)
+        {
+            var request = new PbWellFormationList();
+            request.Datas.Add(items);
+            var wellIds = new HashSet<long>(request.Datas.Select(item => item.WellId));
+            var childUwis = new HashSet<string>(parentBatch.WellUwisById
+                .Where(item => wellIds.Contains(item.Key))
+                .Select(item => item.Value));
+            return new WellFormationUploadBatch
+            {
+                BatchIndex = parentBatch.BatchIndex,
+                SplitDepth = splitDepth,
+                SplitPart = splitPart,
+                WellCount = request.Datas.Count,
+                FormationCount = request.Datas.Sum(item => item.Items.Count),
+                PayloadBytes = GetProtobufPayloadByteCount(request, adaptiveController),
+                CompletedWellCount = parentBatch.CompletedWellCount,
+                Request = request,
+                FileRows = parentBatch.FileRows
+                    .Where(row => childUwis.Contains(row.WellName))
+                    .ToList(),
+                WellUwisById = parentBatch.WellUwisById
+                    .Where(item => wellIds.Contains(item.Key))
+                    .ToDictionary(item => item.Key, item => item.Value)
+            };
+        }
+
+        private static WellLogUploadBatch CreateWellLogSplitBatch(
+            WellLogUploadBatch parentBatch,
+            IEnumerable<PbWellLogCreateParams> items,
+            int splitDepth,
+            string splitPart,
+            AdaptiveSyncController adaptiveController)
+        {
+            var request = new PbWellLogCreateList();
+            request.LogList.Add(items);
+            var wellIds = new HashSet<long>(request.LogList.Select(item => item.WellId));
+            return new WellLogUploadBatch
+            {
+                BatchIndex = parentBatch.BatchIndex,
+                SplitDepth = splitDepth,
+                SplitPart = splitPart,
+                ItemCount = request.LogList.Count,
+                SampleCount = request.LogList.Sum(item => item.Samples.Count),
+                PayloadBytes = GetProtobufPayloadByteCount(request, adaptiveController),
+                CompletedWellCount = parentBatch.CompletedWellCount,
+                Request = request,
+                WellUwisById = parentBatch.WellUwisById
+                    .Where(item => wellIds.Contains(item.Key))
+                    .ToDictionary(item => item.Key, item => item.Value)
+            };
+        }
+
+        private static WellProductionUploadBatch CreateProductionSplitBatch(
+            WellProductionUploadBatch parentBatch,
+            List<WellDailyProductionData> items,
+            int splitDepth,
+            string splitPart,
+            AdaptiveSyncController adaptiveController)
+        {
+            var request = new WellProductionDataRequest { Items = items };
+            var wellIds = new HashSet<long>(items.Select(item => item.WellId));
+            return new WellProductionUploadBatch
+            {
+                BatchIndex = parentBatch.BatchIndex,
+                SplitDepth = splitDepth,
+                SplitPart = splitPart,
+                WellCount = items.Count,
+                DailyDataCount = items.Sum(item => item.DailyList.Count),
+                PayloadBytes = GetJsonPayloadByteCount(request, adaptiveController),
+                CompletedWellCount = parentBatch.CompletedWellCount,
+                Request = request,
+                WellUwisById = parentBatch.WellUwisById
+                    .Where(item => wellIds.Contains(item.Key))
+                    .ToDictionary(item => item.Key, item => item.Value)
+            };
+        }
+
+        private static WellTestUploadBatch CreateWellTestSplitBatch(
+            WellTestUploadBatch parentBatch,
+            int offset,
+            int count,
+            int splitDepth,
+            string splitPart,
+            AdaptiveSyncController adaptiveController)
+        {
+            var result = new WellTestUploadBatch
+            {
+                BatchIndex = parentBatch.BatchIndex,
+                SplitDepth = splitDepth,
+                SplitPart = splitPart,
+                IsGas = parentBatch.IsGas
+            };
+            IEnumerable<long> wellIds;
+            if (parentBatch.IsGas)
+            {
+                result.GasRequest = new WellGasTestRequest
+                {
+                    Items = parentBatch.GasRequest.Items.Skip(offset).Take(count).ToList()
+                };
+                result.WellCount = result.GasRequest.Items.Count;
+                result.TestRecordCount = result.GasRequest.Items.Sum(item => item.GasTestList.Count);
+                result.PayloadBytes = GetJsonPayloadByteCount(result.GasRequest, adaptiveController);
+                wellIds = result.GasRequest.Items.Select(item => item.WellId);
+            }
+            else
+            {
+                result.OilRequest = new WellOilTestDataRequset
+                {
+                    Items = parentBatch.OilRequest.Items.Skip(offset).Take(count).ToList()
+                };
+                result.WellCount = result.OilRequest.Items.Count;
+                result.TestRecordCount = result.OilRequest.Items.Sum(item => item.OilTestList.Count);
+                result.PayloadBytes = GetJsonPayloadByteCount(result.OilRequest, adaptiveController);
+                wellIds = result.OilRequest.Items.Select(item => item.WellId);
+            }
+            var wellIdSet = new HashSet<long>(wellIds);
+            result.WellUwisById = parentBatch.WellUwisById
+                .Where(item => wellIdSet.Contains(item.Key))
+                .ToDictionary(item => item.Key, item => item.Value);
+            return result;
+        }
+
         private static bool IsInvalidNumber(double value)
         {
             return double.IsNaN(value) || double.IsInfinity(value);
@@ -3268,6 +3623,12 @@ namespace KindomDataAPIServer.KindomAPI
                 cancellationToken.ThrowIfCancellationRequested();
                 adaptiveController.RecordQueueOccupancy(queue.Count);
                 Thread.Sleep(20);
+            }
+            while (adaptiveController.HasMemoryPressure())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                adaptiveController.RecordQueueOccupancy(queue.Count);
+                Thread.Sleep(200);
             }
             queue.Add(item, cancellationToken);
             adaptiveController.RecordQueueOccupancy(queue.Count);
@@ -3887,21 +4248,26 @@ namespace KindomDataAPIServer.KindomAPI
                     {
                         try
                         {
-                            foreach (WellTestUploadBatch uploadBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
+                            foreach (WellTestUploadBatch originalBatch in uploadQueue.GetConsumingEnumerable(cancellationTokenSource.Token))
                             {
-                                string testType = uploadBatch.IsGas ? "Gas" : "Oil";
-                                string endpoint = uploadBatch.IsGas
-                                    ? "dp/api/welldata/batch_create_well_gas_pressure_test_with_meta_infos"
-                                    : "dp/api/welldata/batch_create_well_oil_test_with_meta_infos";
-                                string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
-                                string traceName = $"Well{testType}Test batch {uploadBatch.BatchIndex}";
-                                Interlocked.Add(ref totalPayloadBytes, uploadBatch.PayloadBytes);
-                                UpdateMaximum(ref maximumPayloadBytes, uploadBatch.PayloadBytes);
-                                SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
-                                SyncTaskReportService.Instance.Log($"Well{testType}Test batch {uploadBatch.BatchIndex} upload started. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, test records:{uploadBatch.TestRecordCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
-                                var uploadStopwatch = Stopwatch.StartNew();
-                                try
+                                var pendingBatches = new Stack<WellTestUploadBatch>();
+                                pendingBatches.Push(originalBatch);
+                                while (pendingBatches.Count > 0)
                                 {
+                                    WellTestUploadBatch uploadBatch = pendingBatches.Pop();
+                                    string testType = uploadBatch.IsGas ? "Gas" : "Oil";
+                                    string endpoint = uploadBatch.IsGas
+                                        ? "dp/api/welldata/batch_create_well_gas_pressure_test_with_meta_infos"
+                                        : "dp/api/welldata/batch_create_well_oil_test_with_meta_infos";
+                                    string batchUwis = string.Join(",", uploadBatch.WellUwisById.Values.Distinct());
+                                    string traceName = $"Well{testType}Test batch {uploadBatch.BatchIndex}, depth {uploadBatch.SplitDepth}, part {uploadBatch.SplitPart}";
+                                    Interlocked.Add(ref totalPayloadBytes, uploadBatch.PayloadBytes);
+                                    UpdateMaximum(ref maximumPayloadBytes, uploadBatch.PayloadBytes);
+                                    SyncTaskReportService.Instance.RecordUploadAttempt(uploadBatch.PayloadBytes);
+                                    SyncTaskReportService.Instance.Log($"Well{testType}Test batch {uploadBatch.BatchIndex} upload started. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, test records:{uploadBatch.TestRecordCount}, JSON bytes:{uploadBatch.PayloadBytes} ({uploadBatch.PayloadBytes / 1024.0 / 1024.0:F3} MiB).");
+                                    var uploadStopwatch = Stopwatch.StartNew();
+                                    try
+                                    {
                                     WellOperationResult response;
                                     using (await adaptiveController.EnterUploadAsync(cancellationTokenSource.Token))
                                     {
@@ -3910,7 +4276,9 @@ namespace KindomDataAPIServer.KindomAPI
                                             : await uploadWallTimer.MeasureAsync(() => wellDataService.batch_create_well_oil_test_with_meta_infos(uploadBatch.OilRequest, traceName));
                                     }
                                     uploadStopwatch.Stop();
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), true);
+                                    ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                    RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalPayloadBytes);
+                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, true);
                                     Interlocked.Add(ref cumulativeUploadElapsedTicks, uploadStopwatch.Elapsed.Ticks);
                                     Interlocked.Increment(ref completedRequestCount);
                                     SyncTaskReportService.Instance.RecordUploadElapsed(uploadStopwatch.Elapsed);
@@ -3921,18 +4289,32 @@ namespace KindomDataAPIServer.KindomAPI
                                         continue;
                                     }
 
-                                    Interlocked.Increment(ref uploadedBatchCount);
-                                    if (uploadBatch.IsGas)
-                                    {
-                                        Interlocked.Add(ref uploadedGasTestCount, uploadBatch.TestRecordCount);
-                                    }
-                                    else
-                                    {
-                                        Interlocked.Add(ref uploadedOilTestCount, uploadBatch.TestRecordCount);
-                                    }
                                     int failedCount = Math.Max(
                                         response.Summary?.failed ?? 0,
                                         response.Results?.Count(result => result.errorCode != 0) ?? 0);
+                                    var failedWellIds = new HashSet<long>(response.Results?
+                                        .Where(result => result.errorCode != 0)
+                                        .Select(result => result.wellId) ?? Enumerable.Empty<long>());
+                                    int successfulTestRecordCount;
+                                    if (uploadBatch.IsGas)
+                                    {
+                                        successfulTestRecordCount = failedWellIds.Count > 0
+                                            ? uploadBatch.GasRequest.Items
+                                                .Where(item => !failedWellIds.Contains(item.WellId))
+                                                .Sum(item => item.GasTestList.Count)
+                                            : Math.Max(0, uploadBatch.TestRecordCount - failedCount);
+                                        Interlocked.Add(ref uploadedGasTestCount, successfulTestRecordCount);
+                                    }
+                                    else
+                                    {
+                                        successfulTestRecordCount = failedWellIds.Count > 0
+                                            ? uploadBatch.OilRequest.Items
+                                                .Where(item => !failedWellIds.Contains(item.WellId))
+                                                .Sum(item => item.OilTestList.Count)
+                                            : Math.Max(0, uploadBatch.TestRecordCount - failedCount);
+                                        Interlocked.Add(ref uploadedOilTestCount, successfulTestRecordCount);
+                                    }
+                                    Interlocked.Increment(ref uploadedBatchCount);
                                     SyncTaskReportService.Instance.Log($"Well{testType}Test batch {uploadBatch.BatchIndex} upload completed. UWIs:[{batchUwis}], wells:{uploadBatch.WellCount}, test records:{uploadBatch.TestRecordCount}, failed:{failedCount}, JSON bytes:{uploadBatch.PayloadBytes}, elapsed:{uploadStopwatch.Elapsed.TotalSeconds:F3}s.");
                                     if (failedCount > 0)
                                     {
@@ -3954,20 +4336,40 @@ namespace KindomDataAPIServer.KindomAPI
                                             request,
                                             response);
                                     }
-                                }
-                                catch (Exception ex)
-                                {
-                                    uploadStopwatch.Stop();
-                                    adaptiveController.RecordUpload(uploadBatch.PayloadBytes, ApiClient.TakeRequestTelemetry(traceName), false);
-                                    SyncTaskReportService.Instance.RecordError($"Well{testType}Test batch {uploadBatch.BatchIndex} synchronization failed. UWIs:[{batchUwis}]", ex);
-                                }
-                                finally
-                                {
-                                    int completedRecords = Interlocked.Add(ref completedUploadRecordCount, uploadBatch.TestRecordCount);
-                                    if (syncKindomDataViewModel != null && totalTestRecordCount > 0)
-                                    {
-                                        syncKindomDataViewModel.ReportCurrentStepProgress(50 + completedRecords * 50.0 / totalTestRecordCount);
                                     }
+                                    catch (Exception ex)
+                                    {
+                                        uploadStopwatch.Stop();
+                                        ApiRequestTelemetry telemetry = ApiClient.TakeRequestTelemetry(traceName);
+                                        RecordAdditionalUploadAttempts(telemetry, uploadBatch.PayloadBytes, ref totalPayloadBytes);
+                                        adaptiveController.RecordUpload(uploadBatch.PayloadBytes, telemetry, false);
+                                        if (telemetry != null)
+                                        {
+                                            Interlocked.Add(ref cumulativeUploadElapsedTicks, telemetry.TotalElapsed.Ticks);
+                                            Interlocked.Increment(ref completedRequestCount);
+                                            SyncTaskReportService.Instance.RecordUploadElapsed(telemetry.TotalElapsed);
+                                        }
+                                        if (telemetry != null && telemetry.IsRequestTooLarge && uploadBatch.WellCount > 1)
+                                        {
+                                            int leftCount = uploadBatch.WellCount / 2;
+                                            var leftBatch = CreateWellTestSplitBatch(uploadBatch, 0, leftCount, uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".1", adaptiveController);
+                                            var rightBatch = CreateWellTestSplitBatch(uploadBatch, leftCount, uploadBatch.WellCount - leftCount, uploadBatch.SplitDepth + 1, uploadBatch.SplitPart + ".2", adaptiveController);
+                                            pendingBatches.Push(rightBatch);
+                                            pendingBatches.Push(leftBatch);
+                                            SyncTaskReportService.Instance.LogSummary($"Well{testType}Test batch {uploadBatch.BatchIndex} request-too-large split. Parent depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, wells:{uploadBatch.WellCount}, JSON bytes:{uploadBatch.PayloadBytes}; child parts:{leftBatch.SplitPart}/{rightBatch.SplitPart}, child wells:{leftBatch.WellCount}/{rightBatch.WellCount}, child JSON bytes:{leftBatch.PayloadBytes}/{rightBatch.PayloadBytes}.");
+                                            continue;
+                                        }
+                                        if (telemetry != null && telemetry.IsRequestTooLarge)
+                                        {
+                                            adaptiveController.RecordInternalFailure($"single {testType.ToLowerInvariant()} test well still returned request-too-large");
+                                        }
+                                        SyncTaskReportService.Instance.RecordError($"Well{testType}Test batch {uploadBatch.BatchIndex} synchronization failed. Split depth:{uploadBatch.SplitDepth}, part:{uploadBatch.SplitPart}, UWIs:[{batchUwis}]", ex);
+                                    }
+                                }
+                                int completedRecords = Interlocked.Add(ref completedUploadRecordCount, originalBatch.TestRecordCount);
+                                if (syncKindomDataViewModel != null && totalTestRecordCount > 0)
+                                {
+                                    syncKindomDataViewModel.ReportCurrentStepProgress(50 + completedRecords * 50.0 / totalTestRecordCount);
                                 }
                             }
                         }
@@ -4007,6 +4409,8 @@ namespace KindomDataAPIServer.KindomAPI
                             var uploadBatch = new WellTestUploadBatch
                             {
                                 BatchIndex = batchIndex,
+                                SplitDepth = 0,
+                                SplitPart = "root",
                                 IsGas = true,
                                 WellCount = request.Items.Count,
                                 TestRecordCount = batchRecordCount,
@@ -4103,6 +4507,8 @@ namespace KindomDataAPIServer.KindomAPI
                             var uploadBatch = new WellTestUploadBatch
                             {
                                 BatchIndex = batchIndex,
+                                SplitDepth = 0,
+                                SplitPart = "root",
                                 IsGas = false,
                                 WellCount = request.Items.Count,
                                 TestRecordCount = batchRecordCount,
