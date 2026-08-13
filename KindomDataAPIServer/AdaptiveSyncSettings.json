@@ -13,14 +13,22 @@
     "stablePayloadGrowthPercent": 25,
     // 当前窗口吞吐量相对基准至少提高该百分比，才认为增大 Payload 有收益。
     "throughputImprovementPercent": 10,
-    // 连续多少个窗口没有改善后，回退到历史最佳 Payload。
-    "rollbackAfterNoImprovementWindows": 2,
+    // 连续多少个窗口没有改善后，向历史最佳 Payload 小步回退。
+    "rollbackAfterNoImprovementWindows": 3,
     // 回退或触发 HTTP 保护后，暂停增长的评估窗口数量。
     "cooldownWindows": 2,
     // 单次请求耗时超过近期延迟的该倍数时，记为一次延迟恶化候选。
     "latencyRegressionMultiplier": 2,
-    // 连续达到多少次延迟恶化候选后，才触发 Payload 和并发保护。
+    // 连续达到多少次延迟恶化候选后，才触发上传并发保护；Payload 保持不变。
     "latencyRegressionConsecutiveRequests": 3,
+    // 连续慢读取达到该批数才降低读取井数；单次慢查询不会触发降低。
+    "readRegressionConsecutiveBatches": 3,
+    // 确认连续慢读取或内存压力后，读取井数每次降低的百分比。
+    "readReductionPercent": 20,
+    // 网络重试、超时或服务端瞬时错误连续达到该次数后，才降低一级上传并发；不会直接降低 Payload。
+    "uploadProtectionConsecutiveSignals": 3,
+    // 明确 HTTP 413 或吞吐回退时，Payload 目标每次最多降低的百分比。
+    "uploadProtectionReductionPercent": 25,
     // 触发保护后连续多少个成功窗口才清除保护连续状态，并尝试恢复一级并发。
     "stableWindowsToResetProtection": 2,
     // 保护性降低上传并发时允许达到的最低并发；不会高于各数据类型配置的初始并发。
@@ -44,18 +52,20 @@
     // 地层数据。
     "formation": {
       // Kingdom SDK 本地读取批量：initial 为无学习状态时的起始井数，max 为允许增长到的最大井数，
-      // targetSeconds 为单次 SDK 读取目标秒数，超过后读取批量会保护性减半。
-      "readBatch": { "initial": 20, "max": 100, "targetSeconds": 3 },
-      // initialPayloadMiB 是冷启动上传目标，maxPayloadMiB 是自适应增长上限；
+      // targetSeconds 为单次 SDK 读取目标秒数；连续多批超过后才按 readReductionPercent 小步降低。
+      "readBatch": { "initial": 20, "max": 200, "targetSeconds": 3},
+      // initialPayloadMiB 是冷启动上传目标，也是运行期间的最小 Payload 目标；收尾批次数据不足时仍会上传。
+      // maxPayloadMiB 是自适应增长上限；
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 4 个成功请求评估一次；
       // maxFormationCount 是单次上传的地层条数安全上限，也用于防止一次 SDK 读取返回异常多的数据。
-      "upload": { "initialPayloadMiB": 0.5, "maxPayloadMiB": 28, "concurrency": 2, "stableEvaluationRequests": 4, "maxFormationCount": 100000 }
+      "upload": { "initialPayloadMiB": 1, "maxPayloadMiB": 28, "concurrency": 2, "stableEvaluationRequests": 4, "maxFormationCount": 1000000 }
     },
 
     // 井轨迹数据。
     "trajectory": {
       // 读取批量单位为井数；targetSeconds 只控制 Kingdom SDK 读取，不是 HTTP 上传超时。
-      "readBatch": { "initial": 5, "max": 100, "targetSeconds": 2 },
+      "readBatch": { "initial": 5, "max": 100, "targetSeconds": 3 },
+      // initialPayloadMiB 同时是初始值和运行期间的最小 Payload 目标；收尾批次不受该最小值限制。
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 6 个成功请求评估一次；
       // maxPointCount 是单次上传的轨迹点数安全上限。实际分批同时受 Payload 和点数限制，先达到者生效。
       "upload": { "initialPayloadMiB": 8, "maxPayloadMiB": 28, "concurrency": 3, "stableEvaluationRequests": 6, "maxPointCount": 2000000 }
@@ -65,6 +75,7 @@
     "production": {
       // 读取批量单位为井数。
       "readBatch": { "initial": 2, "max": 50, "targetSeconds": 3 },
+      // initialPayloadMiB 同时是初始值和运行期间的最小 Payload 目标；收尾批次不受该最小值限制。
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 6 个成功请求评估一次；
       // maxDailyDataCount 是生产历史展开为日数据后，单次上传允许的最大记录数。
       "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 3, "stableEvaluationRequests": 6, "maxDailyDataCount": 1000000 }
@@ -74,6 +85,7 @@
     "wellTest": {
       // 读取批量单位为井数。
       "readBatch": { "initial": 50, "max": 500, "targetSeconds": 3 },
+      // initialPayloadMiB 同时是初始值和运行期间的最小 Payload 目标；收尾批次不受该最小值限制。
       // maxTestCount 是单次上传允许的试油或试气记录数上限。
       "upload": { "initialPayloadMiB": 1, "maxPayloadMiB": 28, "concurrency": 3, "stableEvaluationRequests": 6, "maxTestCount": 100000 }
     },
@@ -81,11 +93,12 @@
     // 井曲线数据。
     "wellLog": {
       // 读取批量单位为井数；井曲线数据量较大，读取增长应比其他类型更谨慎。
-      "readBatch": { "initial": 3, "max": 20, "targetSeconds": 3 },
+      "readBatch": { "initial": 3, "max": 50, "targetSeconds": 3 },
+      // initialPayloadMiB 同时是初始值和运行期间的最小 Payload 目标；收尾批次不受该最小值限制。
       // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 10 个成功请求评估一次；
       // initialCurveCount 是初始单批曲线数；稳定增长时每次增加一条，maxCurveCount 是曲线数硬上限；
       // maxSampleCount 和 maxPayloadMiB 仍作为单次上传的安全上限，曲线本身不会拆分。
-      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 5, "stableEvaluationRequests": 10, "maxSampleCount": 50000000, "initialCurveCount": 2, "maxCurveCount": 1000 }
+      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 4, "stableEvaluationRequests": 8, "maxSampleCount": 50000000, "initialCurveCount": 2, "maxCurveCount": 1000 }
     }
   }
 }
