@@ -95,10 +95,10 @@
       // 读取批量单位为井数；井曲线数据量较大，读取增长应比其他类型更谨慎。
       "readBatch": { "initial": 3, "max": 50, "targetSeconds": 3 },
       // initialPayloadMiB 同时是初始值和运行期间的最小 Payload 目标；收尾批次不受该最小值限制。
-      // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 10 个成功请求评估一次；
-      // initialCurveCount 是初始单批曲线数；稳定增长时每次增加一条，maxCurveCount 是曲线数硬上限；
-      // maxSampleCount 和 maxPayloadMiB 仍作为单次上传的安全上限，曲线本身不会拆分。
-      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 4, "stableEvaluationRequests": 8, "maxSampleCount": 50000000, "initialCurveCount": 2, "maxCurveCount": 1000 }
+      // stableEvaluationRequests 按两轮上传并发设置，稳定阶段每完成 8 个成功请求评估一次；
+      // minimumCurveCount 是单批曲线数保底值；达到该数量后仍优先按 Payload 目标组批。
+      // maxSampleCount 和 maxPayloadMiB 是单次上传的安全硬上限，曲线本身不会拆分。
+      "upload": { "initialPayloadMiB": 4, "maxPayloadMiB": 28, "concurrency": 4, "stableEvaluationRequests": 8, "maxSampleCount": 100000000, "minimumCurveCount": 2 }
     }
   }
 }
