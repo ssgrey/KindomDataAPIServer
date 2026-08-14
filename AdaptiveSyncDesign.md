@@ -81,6 +81,7 @@ AdaptiveSyncSettings.json
 - JSON 格式错误时记录英文日志，整份使用内置默认值。
 - 参数超出安全范围时进行规范化并记录英文日志。
 - 同步性能参数不再从 `App.config` 读取。
+- 学习状态兼容版本除外，固定读取 `App.config` 的 `appSettings["Version"]`。
 
 推荐在带默认值的实例上使用 `JsonConvert.PopulateObject()`，确保部分配置可以自然继承代码默认值。
 
@@ -98,7 +99,7 @@ AdaptiveSyncState.json
 2. `%LOCALAPPDATA%\KindomDataAPIServer\Configs\AdaptiveSyncState.json`
 3. `%TEMP%\KindomDataAPIServer\Configs\AdaptiveSyncState.json`
 
-加载时检查以上位置存在且合法的状态文件，选择 `UpdatedAtUtc` 最新的一份。保存仍按上述顺序尝试。每次任务必须在日志和任务报告中记录实际加载路径与实际保存路径。
+加载时检查以上位置存在且合法的状态文件。只有状态文件的 `Version` 与 `App.config` 中 `appSettings["Version"]` 的字符串值完全相同才可使用；版本不匹配时记录英文日志并忽略。程序在其余兼容文件中选择 `UpdatedAtUtc` 最新的一份。保存仍按上述顺序尝试。每次任务必须在日志和任务报告中记录实际加载路径与实际保存路径。应用版本缺失时不加载也不保存学习状态。
 
 状态写入要求：
 
@@ -133,7 +134,6 @@ AdaptiveSyncState.json
 
 ```json
 {
-  "version": 1,
   "enabled": true,
   "common": {
     "fastPayloadGrowthPercent": 75,

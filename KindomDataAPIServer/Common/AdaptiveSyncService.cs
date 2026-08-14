@@ -2,6 +2,7 @@ using KindomDataAPIServer.DataService;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -13,7 +14,6 @@ namespace KindomDataAPIServer.Common
 {
     public sealed class AdaptiveSyncSettings
     {
-        public int Version { get; set; } = 1;
         public bool Enabled { get; set; } = true;
         public AdaptiveCommonSettings Common { get; set; } = new AdaptiveCommonSettings();
         public AdaptiveFixedSettings Fixed { get; set; } = new AdaptiveFixedSettings();
@@ -135,7 +135,7 @@ namespace KindomDataAPIServer.Common
 
     public sealed class AdaptiveSyncState
     {
-        public int Version { get; set; } = 1;
+        public string Version { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public Dictionary<string, AdaptiveDataTypeState> DataTypes { get; set; } =
             new Dictionary<string, AdaptiveDataTypeState>(StringComparer.OrdinalIgnoreCase);
@@ -157,12 +157,14 @@ namespace KindomDataAPIServer.Common
     {
         private readonly Dictionary<string, AdaptiveSyncController> _controllers;
         private readonly AdaptiveSyncState _state;
+        private readonly string _applicationVersion;
         private readonly string _environmentId;
         private bool _saved;
 
         internal AdaptiveSyncSession(
             AdaptiveSyncSettings settings,
             AdaptiveSyncState state,
+            string applicationVersion,
             string environmentId,
             string settingsPath,
             bool settingsLoaded,
@@ -170,6 +172,7 @@ namespace KindomDataAPIServer.Common
         {
             Settings = settings;
             _state = state ?? new AdaptiveSyncState();
+            _applicationVersion = applicationVersion ?? string.Empty;
             _environmentId = environmentId ?? string.Empty;
             SettingsPath = settingsPath;
             SettingsLoaded = settingsLoaded;
@@ -225,10 +228,17 @@ namespace KindomDataAPIServer.Common
                 SyncTaskReportService.Instance.LogSummary("Adaptive sync learning samples were not applied because the synchronization task did not complete successfully; previously learned state is retained.");
             }
 
+            if (string.IsNullOrWhiteSpace(_applicationVersion))
+            {
+                SyncTaskReportService.Instance.LogSummary("Adaptive sync state was not saved because the application version is unavailable.");
+                return;
+            }
+
+            _state.Version = _applicationVersion;
             _state.UpdatedAtUtc = DateTime.UtcNow;
             StateSaveSucceeded = AdaptiveSyncService.TrySaveState(_state, out string savePath);
             StateSavePath = savePath;
-            string message = $"Adaptive sync state save. Success:{StateSaveSucceeded}, path:{StateSavePath ?? "unavailable"}.";
+            string message = $"Adaptive sync state save. Success:{StateSaveSucceeded}, version:{_state.Version}, path:{StateSavePath ?? "unavailable"}.";
             SyncTaskReportService.Instance.LogSummary(message);
         }
 
@@ -263,6 +273,7 @@ namespace KindomDataAPIServer.Common
         private readonly int _minimumCurveCount;
         private readonly int _minimumAllowedConcurrency;
         private readonly AdaptiveDataTypeState _learned;
+        private readonly bool _learnedPayloadAccepted;
         private int _currentReadBatch;
         private long _currentPayloadBytes;
         private int _effectiveConcurrency;
@@ -300,6 +311,7 @@ namespace KindomDataAPIServer.Common
         private bool _requestTooLargeCycleActive;
         private int _payloadGrowthCount;
         private int _payloadRollbackCount;
+        private bool _learnedPayloadFallbackStarted;
         private int _readGrowthCount;
         private int _readRollbackCount;
         private int _httpProtectionCount;
@@ -342,14 +354,14 @@ namespace KindomDataAPIServer.Common
             _effectivePayloadFloorBytes = _configuredPayloadInitial;
             _isWellLog = string.Equals(dataType, "wellLog", StringComparison.OrdinalIgnoreCase);
             _minimumCurveCount = _isWellLog ? settings.Upload.MinimumCurveCount : 1;
-            bool learnedPayloadAccepted = enabled &&
+            _learnedPayloadAccepted = enabled &&
                 learned != null &&
                 learned.PayloadLearningVersion >= (_isWellLog ? CurrentWellLogLearningVersion : CurrentPayloadLearningVersion) &&
                 learned.BestStablePayloadBytes > 0;
             _currentReadBatch = enabled && learned != null && learned.BestStableReadBatch > 0
                 ? Clamp(learned.BestStableReadBatch, _configuredReadInitial, settings.ReadBatch.Max)
                 : settings.ReadBatch.Initial;
-            _currentPayloadBytes = learnedPayloadAccepted
+            _currentPayloadBytes = _learnedPayloadAccepted
                 ? Clamp(learned.BestStablePayloadBytes, _effectivePayloadFloorBytes, _maximumPayloadBytes)
                 : _configuredPayloadInitial;
             _actualInitialReadBatch = _currentReadBatch;
@@ -360,7 +372,7 @@ namespace KindomDataAPIServer.Common
             _fastPhase = true;
             _bestReadBatch = _currentReadBatch;
             _learningReadBatch = _currentReadBatch;
-            _bestThroughput = learnedPayloadAccepted ? learned.BestStableThroughputBytesPerSecond : 0;
+            _bestThroughput = _learnedPayloadAccepted ? learned.BestStableThroughputBytesPerSecond : 0;
             _minimumReadBatch = _maximumReadBatch = _currentReadBatch;
             _minimumPayloadBytes = _maximumObservedPayloadBytes = _currentPayloadBytes;
             _minimumConcurrency = _effectiveConcurrency;
@@ -368,7 +380,7 @@ namespace KindomDataAPIServer.Common
             _memoryLowWatermarkBytes = common.MemoryLowWatermarkMiB * OneMiB;
 
             SyncTaskReportService.Instance.LogSummary(
-                $"Adaptive sync {_dataType} initialized. Enabled:{_enabled}, configured read initial/max:{_configuredReadInitial}/{settings.ReadBatch.Max}, learned read:{learned?.BestStableReadBatch ?? 0}, actual read initial:{_currentReadBatch}, configured payload initial/max:{_configuredPayloadInitial}/{_maximumPayloadBytes} bytes, learned payload/version/accepted:{learned?.BestStablePayloadBytes ?? 0}/{learned?.PayloadLearningVersion ?? 0}/{learnedPayloadAccepted}, actual payload initial:{_currentPayloadBytes} bytes, minimum curve count:{_minimumCurveCount}, batching policy:payload target first with business limits as hard ceilings, concurrency configured/minimum:{settings.Upload.Concurrency}/{_minimumAllowedConcurrency}, memory high/low:{_memoryHighWatermarkBytes}/{_memoryLowWatermarkBytes} bytes, read regression consecutive/reduction:{common.ReadRegressionConsecutiveBatches}/{common.ReadReductionPercent}%, upload signal consecutive/reduction:{common.UploadProtectionConsecutiveSignals}/{common.UploadProtectionReductionPercent}%, latency regression multiplier/consecutive requests:{common.LatencyRegressionMultiplier:F2}/{common.LatencyRegressionConsecutiveRequests}, stable windows to reset protection:{common.StableWindowsToResetProtection}.");
+                $"Adaptive sync {_dataType} initialized. Enabled:{_enabled}, configured read initial/max:{_configuredReadInitial}/{settings.ReadBatch.Max}, learned read:{learned?.BestStableReadBatch ?? 0}, actual read initial:{_currentReadBatch}, configured payload initial/max:{_configuredPayloadInitial}/{_maximumPayloadBytes} bytes, learned payload/version/accepted:{learned?.BestStablePayloadBytes ?? 0}/{learned?.PayloadLearningVersion ?? 0}/{_learnedPayloadAccepted}, actual payload initial:{_currentPayloadBytes} bytes, minimum curve count:{_minimumCurveCount}, batching policy:payload target first with business limits as hard ceilings, concurrency configured/minimum:{settings.Upload.Concurrency}/{_minimumAllowedConcurrency}, memory high/low:{_memoryHighWatermarkBytes}/{_memoryLowWatermarkBytes} bytes, read regression consecutive/reduction:{common.ReadRegressionConsecutiveBatches}/{common.ReadReductionPercent}%, upload signal consecutive/reduction:{common.UploadProtectionConsecutiveSignals}/{common.UploadProtectionReductionPercent}%, latency regression multiplier/consecutive requests:{common.LatencyRegressionMultiplier:F2}/{common.LatencyRegressionConsecutiveRequests}, stable windows to reset protection:{common.StableWindowsToResetProtection}.");
         }
 
         public int CurrentReadBatch { get { lock (_syncRoot) { return _currentReadBatch; } } }
@@ -717,10 +729,26 @@ namespace KindomDataAPIServer.Common
                     {
                         _noImprovementWindows++;
                         bool canRollback = _bestPayloadBytes < _currentPayloadBytes;
-                        if (_noImprovementWindows >= _common.RollbackAfterNoImprovementWindows && canRollback)
+                        bool canProbeBelowLearnedStart = _learnedPayloadAccepted &&
+                            _currentPayloadBytes > _effectivePayloadFloorBytes;
+                        if (_noImprovementWindows >= _common.RollbackAfterNoImprovementWindows &&
+                            (canRollback || canProbeBelowLearnedStart))
                         {
                             long oldValue = _currentPayloadBytes;
-                            long rollbackTarget = Math.Max(_effectivePayloadFloorBytes, _bestPayloadBytes);
+                            // A persisted learned value is only a starting point. It may be the
+                            // current run's first sample, so allow a lower probe when no smaller
+                            // candidate exists yet instead of holding the learned value forever.
+                            bool probingBelowLearnedStart = !canRollback && canProbeBelowLearnedStart;
+                            if (probingBelowLearnedStart && !_learnedPayloadFallbackStarted)
+                            {
+                                _learnedPayloadFallbackStarted = true;
+                                _bestStableSampleThroughput = 0;
+                                _bestStableSamplePayloadBytes = 0;
+                                _bestStableSampleReadBatch = 0;
+                            }
+                            long rollbackTarget = probingBelowLearnedStart
+                                ? _effectivePayloadFloorBytes
+                                : Math.Max(_effectivePayloadFloorBytes, _bestPayloadBytes);
                             _currentPayloadBytes = Math.Max(
                                 rollbackTarget,
                                 ReduceByPercent(_currentPayloadBytes, _common.UploadProtectionReductionPercent, _effectivePayloadFloorBytes));
@@ -728,7 +756,10 @@ namespace KindomDataAPIServer.Common
                             _cooldownWindows = _common.CooldownWindows;
                             _noImprovementWindows = 0;
                             LogAdjustment("stable", "payload bytes", oldValue, _currentPayloadBytes,
-                                BuildWindowReason(requestCount, windowBytes, seconds, throughput, improvement, "consecutive windows without improvement"));
+                                BuildWindowReason(requestCount, windowBytes, seconds, throughput, improvement,
+                                    probingBelowLearnedStart
+                                        ? "learned start regressed; probing lower payload"
+                                        : "consecutive windows without improvement"));
                         }
                         else
                         {
@@ -1074,6 +1105,7 @@ namespace KindomDataAPIServer.Common
 
     public static class AdaptiveSyncService
     {
+        private const string ApplicationVersionKey = "Version";
         private const string SettingsFileName = "AdaptiveSyncSettings.json";
         private const string StateFileName = "AdaptiveSyncState.json";
         private const long OneMiB = 1024L * 1024L;
@@ -1086,12 +1118,13 @@ namespace KindomDataAPIServer.Common
             lock (SyncRoot)
             {
                 string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsFileName);
+                string applicationVersion = GetApplicationVersion();
                 try
                 {
                     AdaptiveSyncSettings settings = LoadSettings(settingsPath, out bool settingsLoaded);
-                    AdaptiveSyncState state = LoadLatestState(out string statePath);
-                    Current = new AdaptiveSyncSession(settings, state, environmentId, settingsPath, settingsLoaded, statePath);
-                    SyncTaskReportService.Instance.LogSummary($"Adaptive sync configuration. Expected path:{settingsPath}, source:{(settingsLoaded ? "JSON" : "built-in defaults")}, state loaded path:{statePath ?? "none"}.");
+                    AdaptiveSyncState state = LoadLatestState(applicationVersion, out string statePath);
+                    Current = new AdaptiveSyncSession(settings, state, applicationVersion, environmentId, settingsPath, settingsLoaded, statePath);
+                    SyncTaskReportService.Instance.LogSummary($"Adaptive sync configuration. Application version:{applicationVersion ?? "unavailable"}, expected path:{settingsPath}, source:{(settingsLoaded ? "JSON" : "built-in defaults")}, state loaded path:{statePath ?? "none"}.");
                 }
                 catch (Exception ex)
                 {
@@ -1099,6 +1132,7 @@ namespace KindomDataAPIServer.Common
                     Current = new AdaptiveSyncSession(
                         new AdaptiveSyncSettings(),
                         new AdaptiveSyncState(),
+                        applicationVersion,
                         environmentId,
                         settingsPath,
                         false,
@@ -1149,6 +1183,21 @@ namespace KindomDataAPIServer.Common
             return false;
         }
 
+        private static string GetApplicationVersion()
+        {
+            try
+            {
+                string version = ConfigurationManager.AppSettings[ApplicationVersionKey];
+                return string.IsNullOrWhiteSpace(version) ? null : version.Trim();
+            }
+            catch (Exception ex)
+            {
+                SyncTaskReportService.Instance.LogSummary(
+                    $"Failed to read application version from appSettings key '{ApplicationVersionKey}'. {ExceptionLogHelper.Format(ex)}");
+                return null;
+            }
+        }
+
         private static AdaptiveSyncSettings LoadSettings(string path, out bool loaded)
         {
             loaded = false;
@@ -1170,9 +1219,15 @@ namespace KindomDataAPIServer.Common
             return settings;
         }
 
-        private static AdaptiveSyncState LoadLatestState(out string loadedPath)
+        private static AdaptiveSyncState LoadLatestState(string expectedVersion, out string loadedPath)
         {
             loadedPath = null;
+            if (string.IsNullOrWhiteSpace(expectedVersion))
+            {
+                SyncTaskReportService.Instance.LogSummary("Adaptive sync state loading skipped because the application version is unavailable.");
+                return new AdaptiveSyncState();
+            }
+
             AdaptiveSyncState latest = null;
             foreach (string path in GetStatePaths())
             {
@@ -1187,6 +1242,12 @@ namespace KindomDataAPIServer.Common
                     {
                         throw new JsonException("State has no dataTypes object.");
                     }
+                    if (!string.Equals(candidate.Version?.Trim(), expectedVersion, StringComparison.Ordinal))
+                    {
+                        SyncTaskReportService.Instance.LogSummary(
+                            $"Adaptive sync state ignored. Path:{path}, state version:{candidate.Version ?? "missing"}, application version:{expectedVersion}.");
+                        continue;
+                    }
                     candidate.DataTypes = new Dictionary<string, AdaptiveDataTypeState>(candidate.DataTypes, StringComparer.OrdinalIgnoreCase);
                     if (latest == null || candidate.UpdatedAtUtc > latest.UpdatedAtUtc)
                     {
@@ -1199,7 +1260,7 @@ namespace KindomDataAPIServer.Common
                     SyncTaskReportService.Instance.LogSummary($"Failed to load adaptive sync state from {path}. {ExceptionLogHelper.Format(ex)}");
                 }
             }
-            return latest ?? new AdaptiveSyncState();
+            return latest ?? new AdaptiveSyncState { Version = expectedVersion };
         }
 
         private static IEnumerable<string> GetStatePaths()
@@ -1219,7 +1280,6 @@ namespace KindomDataAPIServer.Common
             settings.DataTypes.Production = settings.DataTypes.Production ?? AdaptiveDataTypeSettings.CreateProduction();
             settings.DataTypes.WellTest = settings.DataTypes.WellTest ?? AdaptiveDataTypeSettings.CreateWellTest();
             settings.DataTypes.WellLog = settings.DataTypes.WellLog ?? AdaptiveDataTypeSettings.CreateWellLog();
-            settings.Version = ClampAndLog("version", settings.Version, 1, 1);
             settings.Common.FastPayloadGrowthPercent = ClampAndLog("common.fastPayloadGrowthPercent", settings.Common.FastPayloadGrowthPercent, 1, 100);
             settings.Common.StablePayloadGrowthPercent = ClampAndLog("common.stablePayloadGrowthPercent", settings.Common.StablePayloadGrowthPercent, 1, 100);
             settings.Common.ThroughputImprovementPercent = ClampAndLog("common.throughputImprovementPercent", settings.Common.ThroughputImprovementPercent, 0, 100);
